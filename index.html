@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LeanLog — Jejak Kalori, Journey Kurus Anda</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0D0D0D;
+      --surface: #161622;
+      --card: #1E1E2E;
+      --border: #2a2a3e;
+      --green: #4CAF50;
+      --green-light: #66BB6A;
+      --green-dim: rgba(76,175,80,0.12);
+      --text: #EFEFEF;
+      --muted: #888;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ─── ANIMATIONS ─── */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(28px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50%       { transform: translateY(-12px); }
+    }
+    @keyframes orbPulse {
+      0%, 100% { transform: scale(1);   opacity: 0.6; }
+      50%       { transform: scale(1.2); opacity: 1;   }
+    }
+    @keyframes shimmer {
+      0%   { background-position: -200% center; }
+      100% { background-position:  200% center; }
+    }
+    @keyframes ringFill {
+      from { background: conic-gradient(var(--green) 0% 0%,   #2a2a3e 0%); }
+      to   { background: conic-gradient(var(--green) 0% 65%,  #2a2a3e 65%); }
+    }
+    @keyframes badgePop {
+      0%   { transform: scale(0.8); opacity: 0; }
+      60%  { transform: scale(1.05); }
+      100% { transform: scale(1);   opacity: 1; }
+    }
+    @keyframes slideInLeft {
+      from { opacity: 0; transform: translateX(-30px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes slideInRight {
+      from { opacity: 0; transform: translateX(30px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes dotBlink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+
+    /* hero entrance stagger */
+    .hero-badge   { animation: badgePop    0.5s ease 0.1s both; }
+    .hero h1      { animation: fadeInUp    0.7s ease 0.25s both; }
+    .hero p       { animation: fadeInUp    0.7s ease 0.4s both; }
+    .hero-btns    { animation: fadeInUp    0.7s ease 0.55s both; }
+    .creator-tag  { animation: fadeInUp    0.7s ease 0.7s both; }
+    .phone-wrap   { animation: fadeIn      0.8s ease 0.3s both; }
+    .phone        { animation: float       4s ease-in-out infinite; }
+
+    .orb { animation: orbPulse 6s ease-in-out infinite; }
+    .orb2 { animation-delay: 2s; }
+
+    /* scroll reveal */
+    .reveal {
+      opacity: 0; transform: translateY(30px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* stagger for grid children */
+    .feat-card.reveal:nth-child(1) { transition-delay: 0s; }
+    .feat-card.reveal:nth-child(2) { transition-delay: 0.08s; }
+    .feat-card.reveal:nth-child(3) { transition-delay: 0.16s; }
+    .feat-card.reveal:nth-child(4) { transition-delay: 0.24s; }
+    .feat-card.reveal:nth-child(5) { transition-delay: 0.32s; }
+    .feat-card.reveal:nth-child(6) { transition-delay: 0.40s; }
+    .feat-card.reveal:nth-child(7) { transition-delay: 0.48s; }
+    .feat-card.reveal:nth-child(8) { transition-delay: 0.56s; }
+
+    .hiw-step.reveal:nth-child(1) { transition-delay: 0s; }
+    .hiw-step.reveal:nth-child(2) { transition-delay: 0.15s; }
+    .hiw-step.reveal:nth-child(3) { transition-delay: 0.30s; }
+
+    /* ─── NAV ─── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 5%;
+      background: rgba(13,13,13,0.8);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      transition: box-shadow 0.3s;
+    }
+    nav.scrolled { box-shadow: 0 4px 30px rgba(0,0,0,0.4); }
+    .nav-logo { display: flex; align-items: center; gap: 10px; }
+    .nav-logo img {
+      width: 34px; height: 34px; border-radius: 9px;
+      object-fit: cover;
+    }
+    .nav-logo span { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
+    .nav-logo span em { color: var(--green); font-style: normal; }
+    .nav-cta {
+      background: var(--green); color: #000; font-weight: 700;
+      padding: 8px 20px; border-radius: 8px; text-decoration: none;
+      font-size: 14px; transition: all 0.2s;
+    }
+    .nav-cta:hover { background: var(--green-light); transform: translateY(-1px); }
+
+    /* ─── HERO ─── */
+    .hero {
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 120px 5% 80px;
+      position: relative; overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; top: -200px; left: 50%; transform: translateX(-50%);
+      width: 900px; height: 900px;
+      background: radial-gradient(circle, rgba(76,175,80,0.1) 0%, transparent 65%);
+      pointer-events: none;
+    }
+    .hero-inner {
+      max-width: 1100px; width: 100%;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 60px;
+      align-items: center;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--green-dim); border: 1px solid rgba(76,175,80,0.3);
+      color: var(--green-light); padding: 5px 14px; border-radius: 20px;
+      font-size: 12px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;
+      margin-bottom: 20px;
+      background-size: 200% auto;
+    }
+    .hero h1 {
+      font-size: clamp(2rem, 4vw, 3.2rem);
+      font-weight: 800; line-height: 1.15;
+      letter-spacing: -1px; margin-bottom: 20px;
+    }
+    .hero h1 .accent {
+      color: var(--green);
+      background: linear-gradient(90deg, #4CAF50, #81C784, #4CAF50);
+      background-size: 200% auto;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: shimmer 3s linear infinite;
+    }
+    .hero p {
+      color: var(--muted); font-size: 1.05rem;
+      margin-bottom: 28px; max-width: 440px;
+    }
+    .hero-btns { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--green); color: #000;
+      font-weight: 700; padding: 14px 28px; border-radius: 10px;
+      text-decoration: none; font-size: 15px;
+      transition: all 0.2s; box-shadow: 0 4px 20px rgba(76,175,80,0.3);
+    }
+    .btn-primary:hover { background: var(--green-light); transform: translateY(-2px); box-shadow: 0 6px 28px rgba(76,175,80,0.5); }
+    .btn-secondary {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--card); color: var(--text);
+      font-weight: 600; padding: 14px 28px; border-radius: 10px;
+      text-decoration: none; font-size: 15px; border: 1px solid var(--border);
+      transition: all 0.2s;
+    }
+    .btn-secondary:hover { border-color: var(--green); color: var(--green); transform: translateY(-1px); }
+    .creator-tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: var(--muted); font-size: 12px;
+    }
+    .creator-tag span { color: var(--green-light); font-weight: 600; }
+
+    /* ─── PHONE MOCKUP ─── */
+    .phone-wrap {
+      display: flex; justify-content: center; align-items: center;
+      position: relative;
+    }
+    .phone-glow {
+      position: absolute;
+      width: 280px; height: 280px;
+      background: radial-gradient(circle, rgba(76,175,80,0.2) 0%, transparent 70%);
+      border-radius: 50%;
+      animation: orbPulse 3s ease-in-out infinite;
+    }
+    .phone {
+      width: 230px; height: 460px;
+      background: var(--card);
+      border-radius: 36px;
+      border: 2px solid rgba(76,175,80,0.3);
+      position: relative; overflow: hidden;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.05), 0 0 40px rgba(76,175,80,0.1);
+      z-index: 1;
+    }
+    .phone::before {
+      content: '';
+      position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+      width: 80px; height: 20px;
+      background: #0D0D0D; border-radius: 0 0 14px 14px; z-index: 2;
+    }
+    .phone-screen {
+      width: 100%; height: 100%;
+      display: flex; flex-direction: column;
+      padding: 28px 14px 14px;
+      gap: 8px;
+    }
+    .ps-header {
+      text-align: center; font-size: 9px; letter-spacing: 2.5px;
+      color: var(--green); font-weight: 700; padding-top: 4px;
+    }
+    .ps-cal { text-align: center; margin-top: 2px; }
+    .ps-cal .big { font-size: 36px; font-weight: 800; color: var(--green); }
+    .ps-cal .lbl { font-size: 9px; color: var(--muted); letter-spacing: 1px; }
+    .ps-ring {
+      width: 86px; height: 86px; margin: 0 auto;
+      border-radius: 50%;
+      background: conic-gradient(var(--green) 0% 65%, #2a2a3e 65%);
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+      animation: ringFill 1.5s ease 0.8s both;
+    }
+    .ps-ring::before {
+      content: ''; position: absolute;
+      width: 70px; height: 70px; background: var(--card); border-radius: 50%;
+    }
+    .ps-ring span {
+      position: relative; z-index: 1;
+      font-size: 13px; font-weight: 700; color: var(--green);
+    }
+    .ps-macros {
+      display: flex; justify-content: space-between;
+      background: rgba(255,255,255,0.04); border-radius: 10px;
+      padding: 8px 10px;
+    }
+    .ps-macro { text-align: center; }
+    .ps-macro .mv { font-size: 11px; font-weight: 700; }
+    .ps-macro .ml { font-size: 8px; color: var(--muted); }
+    .ps-entry {
+      background: rgba(255,255,255,0.04); border-radius: 8px;
+      padding: 7px 10px; display: flex; justify-content: space-between; align-items: center;
+    }
+    .ps-entry .en { font-size: 9px; }
+    .ps-entry .ec { font-size: 9px; color: var(--green); font-weight: 700; }
+    .ai-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: dotBlink 1.5s infinite; }
+
+    /* glow orbs */
+    .orb {
+      position: absolute; border-radius: 50%; pointer-events: none; filter: blur(70px);
+    }
+    .orb1 { width: 350px; height: 350px; background: rgba(76,175,80,0.07); top: 5%; right: -120px; }
+    .orb2 { width: 300px; height: 300px; background: rgba(100,181,246,0.05); bottom: 15%; left: -100px; }
+
+    /* ─── STATS ─── */
+    .stats-bar {
+      background: var(--surface);
+      border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+      padding: 28px 5%;
+    }
+    .stats-inner {
+      max-width: 900px; margin: 0 auto;
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 20px; text-align: center;
+    }
+    .stat-item .sv {
+      font-size: 1.8rem; font-weight: 800; color: var(--green);
+      transition: transform 0.3s;
+    }
+    .stat-item:hover .sv { transform: scale(1.1); }
+    .stat-item .sl { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    /* ─── SECTIONS ─── */
+    section { padding: 80px 5%; }
+    .section-tag {
+      display: inline-block; color: var(--green); font-size: 11px;
+      font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .section-title {
+      font-size: clamp(1.5rem, 3vw, 2.2rem);
+      font-weight: 800; letter-spacing: -0.5px; margin-bottom: 12px;
+    }
+    .section-sub { color: var(--muted); max-width: 500px; margin-bottom: 48px; }
+    .center { text-align: center; }
+    .center .section-sub { margin-left: auto; margin-right: auto; }
+
+    /* ─── FEATURES ─── */
+    .features-grid {
+      max-width: 1100px; margin: 0 auto;
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+    }
+    .feat-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; padding: 28px 24px;
+      transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s;
+      position: relative; overflow: hidden; cursor: default;
+    }
+    .feat-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--green), transparent);
+      opacity: 0; transition: opacity 0.25s;
+    }
+    .feat-card:hover { border-color: rgba(76,175,80,0.5); transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.3), 0 0 20px rgba(76,175,80,0.08); }
+    .feat-card:hover::before { opacity: 1; }
+    .feat-icon {
+      font-size: 26px; margin-bottom: 14px;
+      width: 50px; height: 50px; background: var(--green-dim);
+      border-radius: 12px; display: flex; align-items: center; justify-content: center;
+      transition: transform 0.25s;
+    }
+    .feat-card:hover .feat-icon { transform: scale(1.1) rotate(-5deg); }
+    .feat-title { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+    .feat-desc { color: var(--muted); font-size: 13px; line-height: 1.65; }
+
+    /* ─── HOW IT WORKS ─── */
+    .hiw-wrap {
+      max-width: 800px; margin: 0 auto;
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px;
+      position: relative;
+    }
+    .hiw-wrap::before {
+      content: '';
+      position: absolute; top: 29px; left: 13%; right: 13%; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--green), transparent);
+      opacity: 0.3;
+    }
+    .hiw-step { text-align: center; }
+    .hiw-num {
+      width: 58px; height: 58px; background: var(--green-dim);
+      border: 2px solid var(--green); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 800; color: var(--green);
+      margin: 0 auto 16px; transition: all 0.25s;
+    }
+    .hiw-step:hover .hiw-num { background: var(--green); color: #000; transform: scale(1.1); }
+    .hiw-title { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+    .hiw-desc { font-size: 12px; color: var(--muted); }
+
+    /* ─── MIRROR SECTION ─── */
+    .highlight-wrap {
+      max-width: 1100px; margin: 0 auto;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center;
+    }
+    .highlight-content .pill {
+      background: var(--green-dim); color: var(--green-light);
+      border: 1px solid rgba(76,175,80,0.3);
+      font-size: 11px; font-weight: 700; letter-spacing: 1px;
+      padding: 4px 12px; border-radius: 20px; display: inline-block; margin-bottom: 16px;
+    }
+    .highlight-content h2 {
+      font-size: clamp(1.4rem, 2.5vw, 2rem);
+      font-weight: 800; letter-spacing: -0.5px; margin-bottom: 14px;
+    }
+    .highlight-content p { color: var(--muted); margin-bottom: 20px; font-size: 14px; }
+    .check-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .check-list li { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: #ccc; }
+    .check-list li::before { content: '✓'; color: var(--green); font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+
+    .mirror-preview {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    }
+    .mirror-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 12px;
+      aspect-ratio: 3/4; display: flex; flex-direction: column; justify-content: flex-end;
+      transition: transform 0.25s, border-color 0.25s;
+    }
+    .mirror-card:hover { transform: translateY(-3px); }
+    .mirror-card .mc-img {
+      flex: 1; background: linear-gradient(135deg, #1a2a1a, #2a1a2a);
+      border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      font-size: 28px; margin-bottom: 8px;
+    }
+    .mirror-card .mc-date { font-size: 10px; color: var(--muted); }
+    .mirror-card .mc-w { font-size: 12px; font-weight: 700; color: var(--green); }
+    .mirror-card.active { border-color: var(--green); box-shadow: 0 0 16px rgba(76,175,80,0.15); }
+    .aibubble {
+      grid-column: 1 / -1;
+      background: var(--green-dim); border: 1px solid rgba(76,175,80,0.3);
+      border-radius: 10px; padding: 10px 12px;
+    }
+    .aibubble .ab-label { font-size: 9px; color: var(--green); font-weight: 700; letter-spacing: 1px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+    .aibubble p { font-size: 11px; color: #ccc; line-height: 1.5; }
+
+    /* ─── AI DEMO ─── */
+    .ai-wrap {
+      max-width: 1100px; margin: 0 auto;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center;
+    }
+    .ai-demo {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .ai-demo-top {
+      background: var(--surface); padding: 12px 16px;
+      display: flex; align-items: center; gap: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .ai-demo-top span { font-size: 12px; font-weight: 600; }
+    .ai-demo-body { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .ai-msg {
+      background: var(--surface); border-radius: 10px;
+      padding: 10px 12px; font-size: 12px; color: #ccc;
+    }
+    .ai-msg.user { background: var(--green-dim); color: var(--green-light); align-self: flex-end; max-width: 80%; }
+    .ai-msg.bot { align-self: flex-start; max-width: 90%; }
+    .ai-msg .bot-label { font-size: 9px; color: var(--muted); margin-bottom: 4px; font-weight: 700; letter-spacing: 1px; }
+    .ai-result { background: var(--surface); border-radius: 10px; padding: 12px; }
+    .ai-result-row { display: flex; justify-content: space-between; font-size: 11px; padding: 3px 0; }
+    .ai-result-row .label { color: var(--muted); }
+    .ai-result-row .value { font-weight: 700; }
+
+    /* ─── DOWNLOAD CTA ─── */
+    .cta-section {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      text-align: center; padding: 80px 5%;
+      position: relative; overflow: hidden;
+    }
+    .cta-section::before {
+      content: '';
+      position: absolute; top: -100px; left: 50%; transform: translateX(-50%);
+      width: 600px; height: 400px;
+      background: radial-gradient(circle, rgba(76,175,80,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .cta-section h2 {
+      font-size: clamp(1.6rem, 3vw, 2.4rem);
+      font-weight: 800; letter-spacing: -0.5px; margin-bottom: 12px;
+      position: relative;
+    }
+    .cta-section p { color: var(--muted); margin-bottom: 32px; position: relative; }
+    .cta-btns { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; position: relative; }
+    .apk-btn {
+      display: inline-flex; align-items: center; gap: 12px;
+      background: var(--green); color: #000;
+      font-weight: 700; padding: 16px 32px; border-radius: 12px;
+      text-decoration: none; transition: all 0.25s;
+      box-shadow: 0 4px 24px rgba(76,175,80,0.4);
+    }
+    .apk-btn:hover { background: var(--green-light); transform: translateY(-3px); box-shadow: 0 8px 36px rgba(76,175,80,0.6); }
+    .apk-btn .btn-sub { font-size: 10px; font-weight: 400; opacity: 0.75; display: block; text-align: left; }
+    .apk-btn .btn-main { font-size: 16px; font-weight: 800; display: block; }
+    .free-tags {
+      margin-top: 20px; display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;
+      position: relative;
+    }
+    .free-tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: var(--muted); font-size: 12px;
+    }
+    .free-tag::before { content: '✓'; color: var(--green); font-weight: 700; }
+
+    /* ─── FOOTER ─── */
+    footer {
+      background: var(--bg); border-top: 1px solid var(--border);
+      padding: 28px 5%; text-align: center;
+      color: var(--muted); font-size: 12px; line-height: 1.8;
+    }
+    footer .creator { color: var(--green-light); font-weight: 600; }
+    footer a { color: var(--muted); text-decoration: none; }
+    footer a:hover { color: var(--green); }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 768px) {
+      .hero-inner { grid-template-columns: 1fr; gap: 40px; }
+      .phone-wrap { order: -1; }
+      .phone { width: 190px; height: 380px; }
+      .features-grid { grid-template-columns: 1fr 1fr; }
+      .stats-inner { grid-template-columns: repeat(2, 1fr); }
+      .hiw-wrap { grid-template-columns: 1fr; }
+      .hiw-wrap::before { display: none; }
+      .highlight-wrap { grid-template-columns: 1fr; }
+      .ai-wrap { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 480px) {
+      .features-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav id="navbar">
+  <div class="nav-logo">
+    <img src="icon.png" alt="LeanLog icon" />
+    <span>Lean<em>Log</em></span>
+  </div>
+  <a href="#download" class="nav-cta">📲 Download APK</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+  <div class="hero-inner">
+    <div class="hero-text">
+      <div class="hero-badge">✦ AI-Powered · Percuma · Malaysia</div>
+      <h1>Snap. Log.<br /><span class="accent">Kurus.</span><br />Journey Anda Bermula Di Sini.</h1>
+      <p>Ambil gambar makanan, AI terus kira kalori. Log senaman, pantau berat badan, tengok transformasi — semua dalam satu app percuma.</p>
+      <div class="hero-btns">
+        <a href="#download" class="btn-primary">📲 Download APK</a>
+        <a href="#features" class="btn-secondary">Tengok Features →</a>
+      </div>
+      <div class="creator-tag">
+        🛠 Dibina oleh <span>Umarosli</span> &nbsp;·&nbsp; Powered by Gemini AI
+      </div>
+    </div>
+    <div class="phone-wrap">
+      <div class="phone-glow"></div>
+      <div class="phone">
+        <div class="phone-screen">
+          <div class="ps-header">LEANLOG</div>
+          <div class="ps-cal">
+            <div class="big">1,240</div>
+            <div class="lbl">dimakan hari ini</div>
+          </div>
+          <div class="ps-ring"><span>65%</span></div>
+          <div class="ps-macros">
+            <div class="ps-macro">
+              <div class="mv" style="color:#64B5F6">84g</div>
+              <div class="ml">Protein</div>
+            </div>
+            <div class="ps-macro">
+              <div class="mv" style="color:#FFB74D">142g</div>
+              <div class="ml">Karbo</div>
+            </div>
+            <div class="ps-macro">
+              <div class="mv" style="color:#EF9A9A">38g</div>
+              <div class="ml">Lemak</div>
+            </div>
+          </div>
+          <div class="ps-entry">
+            <div class="en">🍳 Nasi lemak</div>
+            <div class="ec">650 kcal</div>
+          </div>
+          <div class="ps-entry">
+            <div class="en">🥤 Teh tarik</div>
+            <div class="ec">180 kcal</div>
+          </div>
+          <div class="ps-entry">
+            <div class="en">🏃 Jogging 30min</div>
+            <div class="ec" style="color:#EF5350">-280 kcal</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats-bar">
+  <div class="stats-inner">
+    <div class="stat-item reveal">
+      <div class="sv">AI</div>
+      <div class="sl">Dikuasakan Gemini</div>
+    </div>
+    <div class="stat-item reveal">
+      <div class="sv">100%</div>
+      <div class="sl">Percuma, Tiada Ads</div>
+    </div>
+    <div class="stat-item reveal">
+      <div class="sv">BM+EN</div>
+      <div class="sl">Dwibahasa</div>
+    </div>
+    <div class="stat-item reveal">
+      <div class="sv">☁️</div>
+      <div class="sl">Cloud Sync Firebase</div>
+    </div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section id="features">
+  <div style="max-width:1100px;margin:0 auto">
+    <div class="center reveal">
+      <div class="section-tag">Features</div>
+      <h2 class="section-title">Semua Yang Anda Perlukan</h2>
+      <p class="section-sub">Dari snap gambar sampai analisa badan — LeanLog ada semua dalam satu app.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feat-card reveal">
+        <div class="feat-icon">📸</div>
+        <div class="feat-title">Snap & Kira Automatik</div>
+        <div class="feat-desc">Ambil gambar makanan anda, AI terus kenal dan kira kalori + makro secara automatik. Tak perlu search manual lagi.</div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon">🤖</div>
+        <div class="feat-title">AI Analisa Teks</div>
+        <div class="feat-desc">Taip je apa yang anda makan — "nasi goreng ayam dengan telur mata" — AI faham dan kira. Gemini AI powered.</div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon">🏃</div>
+        <div class="feat-title">Log Aktiviti & Senaman</div>
+        <div class="feat-desc">Rekod aktiviti harian anda — berlari, berenang, gym. Upload screenshot dari fitness app untuk AI baca automatik.</div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon">📈</div>
+        <div class="feat-title">Progress & Trend Berat</div>
+        <div class="feat-desc">Chart berat badan, rekod harian, purata kalori, BMI — tengok perjalanan anda dari hari ke hari.</div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon">🪞</div>
+        <div class="feat-title">Mirror Photo Gallery</div>
+        <div class="feat-desc">Upload foto cermin bulanan. AI akan bandingkan dan analisa perubahan fizikal anda. Nampak transformasi dengan mata sendiri.</div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon">🎯</div>
+        <div class="feat-title">TDEE & Calorie Goal</div>
+        <div class="feat-desc">Masuk profil anda — app kira TDEE dan set sasaran kalori yang sesuai dengan matlamat kurus anda.</div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon">🔔</div>
+        <div class="feat-title">Peringatan Harian</div>
+        <div class="feat-desc">Set notifikasi untuk ingatkan anda timbang badan, log makanan, atau masa senaman. Custom nama dan masa.</div>
+      </div>
+      <div class="feat-card reveal">
+        <div class="feat-icon">☁️</div>
+        <div class="feat-title">Cloud Sync & Backup</div>
+        <div class="feat-desc">Data disimpan dalam Firebase. Tukar phone? Restore semua data dengan satu klik. Data anda sentiasa selamat.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section style="background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+  <div style="max-width:900px;margin:0 auto">
+    <div class="center reveal">
+      <div class="section-tag">Cara Guna</div>
+      <h2 class="section-title">3 Langkah Je</h2>
+      <p class="section-sub" style="margin-bottom:48px">Senang sangat nak start.</p>
+    </div>
+    <div class="hiw-wrap">
+      <div class="hiw-step reveal">
+        <div class="hiw-num">1</div>
+        <div class="hiw-title">Download & Daftar</div>
+        <div class="hiw-desc">Install APK, daftar dengan emel, setup profil anda dalam masa 2 minit.</div>
+      </div>
+      <div class="hiw-step reveal">
+        <div class="hiw-num">2</div>
+        <div class="hiw-title">Snap atau Taip</div>
+        <div class="hiw-desc">Ambil gambar makanan atau taip je — AI akan kira kalori dan makro untuk anda.</div>
+      </div>
+      <div class="hiw-step reveal">
+        <div class="hiw-num">3</div>
+        <div class="hiw-title">Pantau Progress</div>
+        <div class="hiw-desc">Tengok chart, rekod berat, bandingkan foto cermin — nampak transformasi anda dari masa ke masa.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AI SECTION -->
+<section id="ai">
+  <div class="ai-wrap">
+    <div class="reveal">
+      <div class="section-tag">AI Analysis</div>
+      <h2 class="section-title">AI Faham<br />Makanan Malaysia</h2>
+      <p style="color:var(--muted);margin-bottom:20px;font-size:14px">
+        Tak payah cari "nasi lemak" dalam database antarabangsa yang tak tau apa tu. Gemini AI faham konteks, bahasa, dan makanan tempatan kita.
+      </p>
+      <ul class="check-list">
+        <li>Faham nama makanan BM dan English</li>
+        <li>Kenal makanan dalam gambar walaupun tak clear sangat</li>
+        <li>Boleh describe dalam ayat biasa — AI akan parse sendiri</li>
+        <li>Support maklumat tambahan untuk ketepatan lebih tinggi</li>
+        <li>Analisa AI berdasarkan data kalori dan berat anda</li>
+      </ul>
+    </div>
+    <div class="ai-demo reveal">
+      <div class="ai-demo-top">
+        <div class="ai-dot"></div>
+        <span>LeanLog AI</span>
+      </div>
+      <div class="ai-demo-body">
+        <div class="ai-msg user">📸 [Gambar nasi lemak + kuah kari]</div>
+        <div class="ai-msg bot">
+          <div class="bot-label">✨ GEMINI AI</div>
+          <div class="ai-result">
+            <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--green)">Nasi Lemak Komplit</div>
+            <div class="ai-result-row"><span class="label">Kalori</span><span class="value" style="color:var(--green)">650 kcal</span></div>
+            <div class="ai-result-row"><span class="label">Protein</span><span class="value" style="color:#64B5F6">22g</span></div>
+            <div class="ai-result-row"><span class="label">Karbohidrat</span><span class="value" style="color:#FFB74D">78g</span></div>
+            <div class="ai-result-row"><span class="label">Lemak</span><span class="value" style="color:#EF9A9A">30g</span></div>
+          </div>
+        </div>
+        <div class="ai-msg user">3 ketul ayam goreng + telur dadar</div>
+        <div class="ai-msg bot">
+          <div class="bot-label">✨ GEMINI AI</div>
+          Dikesan 3 item. Jumlah anggaran: <strong style="color:var(--green)">520 kcal</strong> · P 48g · K 12g · L 32g
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MIRROR SECTION -->
+<section style="background:var(--surface);border-top:1px solid var(--border)">
+  <div class="highlight-wrap">
+    <div class="highlight-content reveal">
+      <div class="pill">🪞 Mirror Gallery</div>
+      <h2>Nampak Transformasi<br />Anda Sendiri</h2>
+      <p>Upload foto cermin setiap bulan. App akan susun ikut tarikh, dan AI boleh bandingkan dua foto untuk analisa perubahan fizikal anda secara detail.</p>
+      <ul class="check-list">
+        <li>Gallery foto disusun mengikut bulan</li>
+        <li>Rekod berat + ukuran pinggang setiap entry</li>
+        <li>AI bandingkan dua foto dan bagi feedback</li>
+        <li>Export sebagai PDF atau CSV untuk rekod peribadi</li>
+      </ul>
+    </div>
+    <div class="mirror-preview reveal">
+      <div class="mirror-card">
+        <div class="mc-img">🧍</div>
+        <div class="mc-date">Jun 2026</div>
+        <div class="mc-w">82.4 kg</div>
+      </div>
+      <div class="mirror-card active">
+        <div class="mc-img">🧍</div>
+        <div class="mc-date">Ogos 2026</div>
+        <div class="mc-w">78.1 kg</div>
+      </div>
+      <div class="aibubble">
+        <div class="ab-label"><div class="ai-dot"></div> AI ANALYSIS</div>
+        <p>Berdasarkan Gambar 1 (Jun 2026) dan Gambar 2 (Ogos 2026), kelihatan pengurangan ketara di bahagian perut dan pinggang. Berat turun 4.3 kg dalam 2 bulan — progress yang konsisten!</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DOWNLOAD -->
+<section id="download" class="cta-section">
+  <div class="section-tag reveal">Download</div>
+  <h2 class="reveal">Start Hari Ni, Percuma</h2>
+  <p class="reveal">Android APK — install terus, tak payah Google Play.<br />100% free, no ads, no subscription.</p>
+  <div class="cta-btns reveal">
+    <a href="#" class="apk-btn">
+      <span style="font-size:26px">📲</span>
+      <div>
+        <span class="btn-sub">Android APK · Free</span>
+        <span class="btn-main">Download LeanLog</span>
+      </div>
+    </a>
+  </div>
+  <div class="free-tags reveal">
+    <span class="free-tag">100% Percuma</span>
+    <span class="free-tag">Tiada Iklan</span>
+    <span class="free-tag">Data Selamat di Firebase</span>
+    <span class="free-tag">Android 8.0+</span>
+  </div>
+</section>
+
+<footer>
+  <p>
+    <strong style="color:var(--text)">LeanLog</strong> &nbsp;·&nbsp;
+    Dibina dengan ❤️ oleh <span class="creator">Umarosli</span>
+    &nbsp;·&nbsp; Powered by Gemini AI + Firebase
+  </p>
+  <p style="margin-top:6px;font-size:11px">Jejak kalori anda. Capai matlamat anda.</p>
+</footer>
+
+<script>
+  /* ─── Scroll reveal ─── */
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  /* ─── Nav shadow on scroll ─── */
+  window.addEventListener('scroll', () => {
+    document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 40);
+  });
+
+  /* ─── Stats counter animation ─── */
+  function animateCounter(el, target, suffix, duration) {
+    let start = 0;
+    const step = target / (duration / 16);
+    const timer = setInterval(() => {
+      start = Math.min(start + step, target);
+      el.textContent = Math.floor(start) + suffix;
+      if (start >= target) clearInterval(timer);
+    }, 16);
+  }
+  const statsObserver = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const sv = e.target.querySelector('.sv');
+        if (!sv) return;
+        const text = sv.textContent.trim();
+        if (text === '100%') animateCounter(sv, 100, '%', 1000);
+        statsObserver.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.5 });
+  document.querySelectorAll('.stat-item').forEach(el => statsObserver.observe(el));
+</script>
+
+</body>
+</html>
