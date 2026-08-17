@@ -542,6 +542,15 @@
     @media (max-width: 480px) {
       .features-grid { grid-template-columns: 1fr; }
     }
+
+    /* ─── Lang toggle ─── */
+    #lang-toggle {
+      background: transparent; border: 1px solid var(--border); color: var(--muted);
+      border-radius: 20px; padding: 5px 14px; font-size: 12px; cursor: pointer;
+      letter-spacing: 0.5px; font-family: inherit; transition: all 0.2s;
+    }
+    #lang-toggle:hover { border-color: var(--green); color: var(--text); }
+    #lang-toggle strong { color: var(--green); }
   </style>
 </head>
 <body>
@@ -552,7 +561,10 @@
     <img src="icon.png" alt="LeanLog icon" />
     <span>Lean<em>Log</em></span>
   </div>
-  <a href="#download" class="nav-cta">📲 Download APK</a>
+  <div style="display:flex;align-items:center;gap:8px">
+    <button id="lang-toggle" onclick="toggleLang()"><strong>BM</strong> | EN</button>
+    <a href="#download" class="nav-cta" data-i18n="nav_dl">📲 Download APK</a>
+  </div>
 </nav>
 
 <!-- HERO -->
@@ -561,14 +573,14 @@
   <div class="orb orb2"></div>
   <div class="hero-inner">
     <div class="hero-text">
-      <div class="hero-badge">✦ AI-Powered · Percuma · Malaysia</div>
-      <h1>Snap. Log.<br /><span class="accent">Kurus.</span><br />Journey Anda Bermula Di Sini.</h1>
-      <p>Ambil gambar makanan, AI terus kira kalori. Log senaman, pantau berat badan, tengok transformasi — semua dalam satu app percuma.</p>
+      <div class="hero-badge" data-i18n="hero_badge">✦ AI-Powered · Percuma · Malaysia</div>
+      <h1 data-i18n-html="hero_h1">Snap. Log.<br /><span class="accent">Kurus.</span><br />Journey Anda Bermula Di Sini.</h1>
+      <p data-i18n="hero_p">Ambil gambar makanan, AI terus kira kalori. Log senaman, pantau berat badan, tengok transformasi — semua dalam satu app percuma.</p>
       <div class="hero-btns">
-        <a href="#download" class="btn-primary">📲 Download APK</a>
-        <a href="#features" class="btn-secondary">Tengok Features →</a>
+        <a href="#download" class="btn-primary" data-i18n="nav_dl">📲 Download APK</a>
+        <a href="#features" class="btn-secondary" data-i18n="hero_feat_btn">Tengok Features →</a>
       </div>
-      <div class="creator-tag">
+      <div class="creator-tag" data-i18n-html="hero_creator">
         🛠 Dibina oleh <span>Umarosli</span> &nbsp;·&nbsp; Powered by Gemini AI
       </div>
     </div>
@@ -579,7 +591,7 @@
           <div class="ps-header">LEANLOG</div>
           <div class="ps-cal">
             <div class="big">1,240</div>
-            <div class="lbl">dimakan hari ini</div>
+            <div class="lbl" data-i18n="phone_eaten">dimakan hari ini</div>
           </div>
           <div class="ps-ring"><span>65%</span></div>
           <div class="ps-macros">
@@ -619,19 +631,19 @@
   <div class="stats-inner">
     <div class="stat-item reveal">
       <div class="sv">AI</div>
-      <div class="sl">Dikuasakan Gemini</div>
+      <div class="sl" data-i18n="stat_ai">Dikuasakan Gemini</div>
     </div>
     <div class="stat-item reveal">
       <div class="sv">100%</div>
-      <div class="sl">Percuma, Tiada Ads</div>
+      <div class="sl" data-i18n="stat_free">Percuma, Tiada Ads</div>
     </div>
     <div class="stat-item reveal">
       <div class="sv">BM+EN</div>
-      <div class="sl">Dwibahasa</div>
+      <div class="sl" data-i18n="stat_lang">Dwibahasa</div>
     </div>
     <div class="stat-item reveal">
       <div class="sv">☁️</div>
-      <div class="sl">Cloud Sync Firebase</div>
+      <div class="sl" data-i18n="stat_cloud">Cloud Sync Firebase</div>
     </div>
   </div>
 </div>
@@ -641,54 +653,54 @@
   <div style="max-width:1100px;margin:0 auto">
     <div class="center reveal">
       <div class="section-tag">Features</div>
-      <h2 class="section-title">Semua Yang Anda Perlukan</h2>
-      <p class="section-sub">Dari snap gambar sampai analisa badan — LeanLog ada semua dalam satu app.</p>
+      <h2 class="section-title" data-i18n="feat_h2">Semua Yang Anda Perlukan</h2>
+      <p class="section-sub" data-i18n="feat_sub">Dari snap gambar sampai analisa badan — LeanLog ada semua dalam satu app.</p>
     </div>
     <div class="features-grid">
       <div class="feat-card reveal">
         <div class="feat-icon">📸</div>
-        <div class="feat-title">Snap & Kira Automatik</div>
-        <div class="feat-desc">Ambil gambar makanan anda, AI terus kenal dan kira kalori + makro secara automatik. Tak perlu search manual lagi.</div>
+        <div class="feat-title" data-i18n="feat1_title">Snap & Kira Automatik</div>
+        <div class="feat-desc" data-i18n="feat1_desc">Ambil gambar makanan anda, AI terus kenal dan kira kalori + makro secara automatik. Tak perlu search manual lagi.</div>
       </div>
       <div class="feat-card reveal">
         <div class="feat-icon">🤖</div>
-        <div class="feat-title">AI Analisa Teks</div>
-        <div class="feat-desc">Taip je apa yang anda makan — "nasi goreng ayam dengan telur mata" — AI faham dan kira. Gemini AI powered.</div>
+        <div class="feat-title" data-i18n="feat2_title">AI Analisa Teks</div>
+        <div class="feat-desc" data-i18n="feat2_desc">Taip je apa yang anda makan — "nasi goreng ayam dengan telur mata" — AI faham dan kira. Gemini AI powered.</div>
       </div>
       <div class="feat-card reveal">
         <div class="feat-icon">🏃</div>
-        <div class="feat-title">Log Aktiviti & Senaman</div>
-        <div class="feat-desc">Rekod aktiviti harian anda — berlari, berenang, gym. Upload screenshot dari fitness app untuk AI baca automatik.</div>
+        <div class="feat-title" data-i18n="feat3_title">Log Aktiviti & Senaman</div>
+        <div class="feat-desc" data-i18n="feat3_desc">Rekod aktiviti harian anda — berlari, berenang, gym. Upload screenshot dari fitness app untuk AI baca automatik.</div>
       </div>
       <div class="feat-card reveal">
         <div class="feat-icon">📈</div>
-        <div class="feat-title">Progress & Trend Berat</div>
-        <div class="feat-desc">Chart berat badan, rekod harian, purata kalori, BMI — tengok perjalanan anda dari hari ke hari.</div>
+        <div class="feat-title" data-i18n="feat4_title">Progress & Trend Berat</div>
+        <div class="feat-desc" data-i18n="feat4_desc">Chart berat badan, rekod harian, purata kalori, BMI — tengok perjalanan anda dari hari ke hari.</div>
       </div>
       <div class="feat-card reveal">
         <div class="feat-icon">🪞</div>
-        <div class="feat-title">Mirror Photo Gallery</div>
-        <div class="feat-desc">Upload foto cermin bulanan. AI akan bandingkan dan analisa perubahan fizikal anda. Nampak transformasi dengan mata sendiri.</div>
+        <div class="feat-title" data-i18n="feat5_title">Mirror Photo Gallery</div>
+        <div class="feat-desc" data-i18n="feat5_desc">Upload foto cermin bulanan. AI akan bandingkan dan analisa perubahan fizikal anda. Nampak transformasi dengan mata sendiri.</div>
       </div>
       <div class="feat-card reveal">
         <div class="feat-icon">🎯</div>
-        <div class="feat-title">TDEE & Calorie Goal</div>
-        <div class="feat-desc">Masuk profil anda — app kira TDEE dan set sasaran kalori yang sesuai dengan matlamat kurus anda.</div>
+        <div class="feat-title" data-i18n="feat6_title">TDEE & Calorie Goal</div>
+        <div class="feat-desc" data-i18n="feat6_desc">Masuk profil anda — app kira TDEE dan set sasaran kalori yang sesuai dengan matlamat kurus anda.</div>
       </div>
       <div class="feat-card reveal">
         <div class="feat-icon">🔔</div>
-        <div class="feat-title">Peringatan Harian</div>
-        <div class="feat-desc">Set notifikasi untuk ingatkan anda timbang badan, log makanan, atau masa senaman. Custom nama dan masa.</div>
+        <div class="feat-title" data-i18n="feat7_title">Peringatan Harian</div>
+        <div class="feat-desc" data-i18n="feat7_desc">Set notifikasi untuk ingatkan anda timbang badan, log makanan, atau masa senaman. Custom nama dan masa.</div>
       </div>
       <div class="feat-card reveal">
         <div class="feat-icon">☁️</div>
-        <div class="feat-title">Cloud Sync & Backup</div>
-        <div class="feat-desc">Data disimpan dalam Firebase. Tukar phone? Restore semua data dengan satu klik. Data anda sentiasa selamat.</div>
+        <div class="feat-title" data-i18n="feat8_title">Cloud Sync & Backup</div>
+        <div class="feat-desc" data-i18n="feat8_desc">Data disimpan dalam Firebase. Tukar phone? Restore semua data dengan satu klik. Data anda sentiasa selamat.</div>
       </div>
       <div class="feat-card reveal">
         <div class="feat-icon">💪</div>
-        <div class="feat-title">Gym Coach (AI Plan)</div>
-        <div class="feat-desc">Pilih peralatan gym yang ada, AI jana plan latihan mingguan yang personalised. Log set/ulangan/berat setiap latihan dengan timer rehat automatik.</div>
+        <div class="feat-title" data-i18n="feat9_title">Gym Coach (AI Plan)</div>
+        <div class="feat-desc" data-i18n="feat9_desc">Pilih peralatan gym yang ada, AI jana plan latihan mingguan yang personalised. Log set/ulangan/berat setiap latihan dengan timer rehat automatik.</div>
       </div>
     </div>
   </div>
@@ -698,25 +710,25 @@
 <section style="background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
   <div style="max-width:900px;margin:0 auto">
     <div class="center reveal">
-      <div class="section-tag">Cara Guna</div>
-      <h2 class="section-title">3 Langkah Je</h2>
-      <p class="section-sub" style="margin-bottom:48px">Senang sangat nak start.</p>
+      <div class="section-tag" data-i18n="hiw_tag">Cara Guna</div>
+      <h2 class="section-title" data-i18n="hiw_h2">3 Langkah Je</h2>
+      <p class="section-sub" style="margin-bottom:48px" data-i18n="hiw_sub">Senang sangat nak start.</p>
     </div>
     <div class="hiw-wrap">
       <div class="hiw-step reveal">
         <div class="hiw-num">1</div>
-        <div class="hiw-title">Download & Daftar</div>
-        <div class="hiw-desc">Install APK, daftar dengan emel, setup profil anda dalam masa 2 minit.</div>
+        <div class="hiw-title" data-i18n="hiw1_title">Download & Daftar</div>
+        <div class="hiw-desc" data-i18n="hiw1_desc">Install APK, daftar dengan emel, setup profil anda dalam masa 2 minit.</div>
       </div>
       <div class="hiw-step reveal">
         <div class="hiw-num">2</div>
-        <div class="hiw-title">Snap atau Taip</div>
-        <div class="hiw-desc">Ambil gambar makanan atau taip je — AI akan kira kalori dan makro untuk anda.</div>
+        <div class="hiw-title" data-i18n="hiw2_title">Snap atau Taip</div>
+        <div class="hiw-desc" data-i18n="hiw2_desc">Ambil gambar makanan atau taip je — AI akan kira kalori dan makro untuk anda.</div>
       </div>
       <div class="hiw-step reveal">
         <div class="hiw-num">3</div>
-        <div class="hiw-title">Pantau Progress</div>
-        <div class="hiw-desc">Tengok chart, rekod berat, bandingkan foto cermin — nampak transformasi anda dari masa ke masa.</div>
+        <div class="hiw-title" data-i18n="hiw3_title">Pantau Progress</div>
+        <div class="hiw-desc" data-i18n="hiw3_desc">Tengok chart, rekod berat, bandingkan foto cermin — nampak transformasi anda dari masa ke masa.</div>
       </div>
     </div>
   </div>
@@ -727,16 +739,16 @@
   <div class="ai-wrap">
     <div class="reveal">
       <div class="section-tag">AI Analysis</div>
-      <h2 class="section-title">AI Faham<br />Makanan Malaysia</h2>
-      <p style="color:var(--muted);margin-bottom:20px;font-size:14px">
+      <h2 class="section-title" data-i18n-html="ai_h2">AI Faham<br />Makanan Malaysia</h2>
+      <p style="color:var(--muted);margin-bottom:20px;font-size:14px" data-i18n="ai_p">
         Tak payah cari "nasi lemak" dalam database antarabangsa yang tak tau apa tu. Gemini AI faham konteks, bahasa, dan makanan tempatan kita.
       </p>
       <ul class="check-list">
-        <li>Faham nama makanan BM dan English</li>
-        <li>Kenal makanan dalam gambar walaupun tak clear sangat</li>
-        <li>Boleh describe dalam ayat biasa — AI akan parse sendiri</li>
-        <li>Support maklumat tambahan untuk ketepatan lebih tinggi</li>
-        <li>Analisa AI berdasarkan data kalori dan berat anda</li>
+        <li data-i18n="ai_li1">Faham nama makanan BM dan English</li>
+        <li data-i18n="ai_li2">Kenal makanan dalam gambar walaupun tak clear sangat</li>
+        <li data-i18n="ai_li3">Boleh describe dalam ayat biasa — AI akan parse sendiri</li>
+        <li data-i18n="ai_li4">Support maklumat tambahan untuk ketepatan lebih tinggi</li>
+        <li data-i18n="ai_li5">Analisa AI berdasarkan data kalori dan berat anda</li>
       </ul>
     </div>
     <div class="ai-demo reveal">
@@ -771,13 +783,13 @@
   <div class="highlight-wrap">
     <div class="highlight-content reveal">
       <div class="pill">🪞 Mirror Gallery</div>
-      <h2>Nampak Transformasi<br />Anda Sendiri</h2>
-      <p>Upload foto cermin setiap bulan. App akan susun ikut tarikh, dan AI boleh bandingkan dua foto untuk analisa perubahan fizikal anda secara detail.</p>
+      <h2 data-i18n-html="mirror_h2">Nampak Transformasi<br />Anda Sendiri</h2>
+      <p data-i18n="mirror_p">Upload foto cermin setiap bulan. App akan susun ikut tarikh, dan AI boleh bandingkan dua foto untuk analisa perubahan fizikal anda secara detail.</p>
       <ul class="check-list">
-        <li>Gallery foto disusun mengikut bulan</li>
-        <li>Rekod berat + ukuran pinggang setiap entry</li>
-        <li>AI bandingkan dua foto dan bagi feedback</li>
-        <li>Export sebagai PDF atau CSV untuk rekod peribadi</li>
+        <li data-i18n="mirror_li1">Gallery foto disusun mengikut bulan</li>
+        <li data-i18n="mirror_li2">Rekod berat + ukuran pinggang setiap entry</li>
+        <li data-i18n="mirror_li3">AI bandingkan dua foto dan bagi feedback</li>
+        <li data-i18n="mirror_li4">Export sebagai PDF atau CSV untuk rekod peribadi</li>
       </ul>
     </div>
     <div class="mirror-preview reveal">
@@ -793,7 +805,7 @@
       </div>
       <div class="aibubble">
         <div class="ab-label"><div class="ai-dot"></div> AI ANALYSIS</div>
-        <p>Berdasarkan Gambar 1 (Jun 2026) dan Gambar 2 (Ogos 2026), kelihatan pengurangan ketara di bahagian perut dan pinggang. Berat turun 4.3 kg dalam 2 bulan — progress yang konsisten!</p>
+        <p data-i18n="mirror_bubble">Berdasarkan Gambar 1 (Jun 2026) dan Gambar 2 (Ogos 2026), kelihatan pengurangan ketara di bahagian perut dan pinggang. Berat turun 4.3 kg dalam 2 bulan — progress yang konsisten!</p>
       </div>
     </div>
   </div>
@@ -803,23 +815,23 @@
 <section style="background:var(--bg);border-top:1px solid var(--border)">
   <div style="max-width:760px;margin:0 auto">
     <div class="center reveal">
-      <div class="section-tag">Update Log</div>
-      <h2 class="section-title">Sejarah Versi</h2>
-      <p class="section-sub">Semua perubahan dan penambahbaikan LeanLog dari masa ke masa.</p>
+      <div class="section-tag" data-i18n="cl_tag">Update Log</div>
+      <h2 class="section-title" data-i18n="cl_h2">Sejarah Versi</h2>
+      <p class="section-sub" data-i18n="cl_sub">Semua perubahan dan penambahbaikan LeanLog dari masa ke masa.</p>
     </div>
     <div class="changelog-wrap">
 
       <!-- v1.3.0 -->
       <div class="cl-item reveal">
         <div class="cl-header">
-          <span class="cl-tag latest">v1.3.0 — Terkini</span>
-          <span class="cl-title">Gym Coach Tab</span>
+          <span class="cl-tag latest" data-i18n="cl130_latest">v1.3.0 — Terkini</span>
+          <span class="cl-title" data-i18n="cl130_title">Gym Coach Tab</span>
           <span class="cl-date">Ogos 2026</span>
         </div>
         <div class="cl-body">
           <div class="cl-group">
-            <div class="cl-group-label">Tab Baru: Coach 💪</div>
-            <ul class="cl-list">
+            <div class="cl-group-label" data-i18n="cl130_g1_label">Tab Baru: Coach 💪</div>
+            <ul class="cl-list" data-i18n-html="cl130_g1_items">
               <li>Pilih peralatan gym yang ada (dumbbell, barbell, cable machine, dll.)</li>
               <li>Jana plan latihan mingguan secara automatik menggunakan AI (Gemini)</li>
               <li>Log sesi gym — set, ulangan dan berat setiap latihan</li>
@@ -828,8 +840,8 @@
             </ul>
           </div>
           <div class="cl-group">
-            <div class="cl-group-label">Progress Page</div>
-            <ul class="cl-list">
+            <div class="cl-group-label" data-i18n="cl130_g2_label">Progress Page</div>
+            <ul class="cl-list" data-i18n-html="cl130_g2_items">
               <li>Titik <strong>biru</strong> pada kalendar untuk hari yang ada sesi gym</li>
               <li>Modal detail hari kini tunjuk butiran sesi gym</li>
             </ul>
@@ -841,20 +853,20 @@
       <div class="cl-item reveal">
         <div class="cl-header">
           <span class="cl-tag">v1.2.2</span>
-          <span class="cl-title">Layout Stats + Makro Detail</span>
+          <span class="cl-title" data-i18n="cl122_title">Layout Stats + Makro Detail</span>
           <span class="cl-date">Ogos 2026</span>
         </div>
         <div class="cl-body">
           <div class="cl-group">
-            <div class="cl-group-label">Today Page</div>
-            <ul class="cl-list">
+            <div class="cl-group-label" data-i18n="cl122_g1_label">Today Page</div>
+            <ul class="cl-list" data-i18n-html="cl122_g1_items">
               <li>Stats kini di <strong>kiri dan kanan ring</strong> — Dimakan &amp; Baki di kiri, Dibakar &amp; Sasaran di kanan</li>
               <li>Baris makro kini tunjuk <strong>consumed / goal</strong> — cth: 84g / 125g untuk setiap Protein, Karbo &amp; Lemak</li>
             </ul>
           </div>
           <div class="cl-group">
-            <div class="cl-group-label">Progress Page</div>
-            <ul class="cl-list">
+            <div class="cl-group-label" data-i18n="cl122_g2_label">Progress Page</div>
+            <ul class="cl-list" data-i18n-html="cl122_g2_items">
               <li>Modal rekod harian kini tunjuk <strong>jumlah kcal dimakan dan dibakar</strong> di bahagian atas</li>
             </ul>
           </div>
@@ -865,21 +877,21 @@
       <div class="cl-item reveal">
         <div class="cl-header">
           <span class="cl-tag">v1.2.1</span>
-          <span class="cl-title">Layout Baru + Auto-Check Update</span>
+          <span class="cl-title" data-i18n="cl121_title">Layout Baru + Auto-Check Update</span>
           <span class="cl-date">Ogos 2026</span>
         </div>
         <div class="cl-body">
           <div class="cl-group">
-            <div class="cl-group-label">Today Page</div>
-            <ul class="cl-list">
+            <div class="cl-group-label" data-i18n="cl121_g1_label">Today Page</div>
+            <ul class="cl-list" data-i18n-html="cl121_g1_items">
               <li>Ring chart kini <strong>centered</strong> — stats dalam grid 2×2 (Dimakan · Dibakar · Baki · Sasaran)</li>
               <li>Progress bar dengan animation di bawah grid stats</li>
               <li>Baris makro Protein · Karbo · Lemak di bawah progress bar</li>
             </ul>
           </div>
           <div class="cl-group">
-            <div class="cl-group-label">Auto-Check Update</div>
-            <ul class="cl-list">
+            <div class="cl-group-label" data-i18n="cl121_g2_label">Auto-Check Update</div>
+            <ul class="cl-list" data-i18n-html="cl121_g2_items">
               <li>App kini semak versi terbaru <strong>secara automatik</strong> semasa dibuka — alert terus keluar tanpa perlu tekan butang</li>
               <li>Butang Download dalam alert terus download APK dari GitHub</li>
             </ul>
@@ -891,20 +903,20 @@
       <div class="cl-item reveal">
         <div class="cl-header">
           <span class="cl-tag">v1.2</span>
-          <span class="cl-title">MacroRings Betul + Kalendar Progress</span>
+          <span class="cl-title" data-i18n="cl12_title">MacroRings Betul + Kalendar Progress</span>
           <span class="cl-date">Ogos 2026</span>
         </div>
         <div class="cl-body">
           <div class="cl-group">
-            <div class="cl-group-label">Today Page</div>
-            <ul class="cl-list">
+            <div class="cl-group-label" data-i18n="cl12_g1_label">Today Page</div>
+            <ul class="cl-list" data-i18n-html="cl12_g1_items">
               <li>Tengah ring chart kini tunjuk kalori <strong>dimakan</strong> sahaja — tidak lagi tolak kalori burned (tiada nilai negatif)</li>
               <li>Stats (dimakan, dibakar, baki, sasaran) kini dipaparkan <strong>di sebelah ring</strong> untuk reka bentuk lebih bersih</li>
             </ul>
           </div>
           <div class="cl-group">
-            <div class="cl-group-label">Progress Page</div>
-            <ul class="cl-list">
+            <div class="cl-group-label" data-i18n="cl12_g2_label">Progress Page</div>
+            <ul class="cl-list" data-i18n-html="cl12_g2_items">
               <li>Senarai rekod harian diganti dengan <strong>kalendar bulanan</strong> — titik warna per hari (merah = makanan, hijau = aktiviti, ungu = berat)</li>
               <li>Tekan mana-mana hari dalam kalendar untuk lihat rekod lengkap hari tersebut</li>
             </ul>
@@ -916,27 +928,27 @@
       <div class="cl-item reveal">
         <div class="cl-header">
           <span class="cl-tag">v1.1</span>
-          <span class="cl-title">Sticky Ring Chart + Settings Update</span>
+          <span class="cl-title" data-i18n="cl11_title">Sticky Ring Chart + Settings Update</span>
           <span class="cl-date">Ogos 2026</span>
         </div>
         <div class="cl-body">
           <div class="cl-group">
-            <div class="cl-group-label">Today Page</div>
-            <ul class="cl-list">
+            <div class="cl-group-label" data-i18n="cl11_g1_label">Today Page</div>
+            <ul class="cl-list" data-i18n-html="cl11_g1_items">
               <li>Ring chart makro kekal sticky di atas — scroll ke bawah, stats kalori hilang, ring chart kekal nampak</li>
               <li>Reka bentuk lebih bersih dan fokus pada maklumat penting</li>
             </ul>
           </div>
           <div class="cl-group">
-            <div class="cl-group-label">Settings</div>
-            <ul class="cl-list">
+            <div class="cl-group-label" data-i18n="cl11_g2_label">Settings</div>
+            <ul class="cl-list" data-i18n-html="cl11_g2_items">
               <li>Butang <strong>Semak Update</strong> — semak terus dari app sama ada ada versi terbaru di GitHub</li>
               <li>Butang <strong>Cara Makro Dikira</strong> — penjelasan lengkap pengiraan sasaran Protein, Karbo &amp; Lemak</li>
             </ul>
           </div>
           <div class="cl-group">
-            <div class="cl-group-label">Lain-lain</div>
-            <ul class="cl-list">
+            <div class="cl-group-label" data-i18n="cl11_g3_label">Lain-lain</div>
+            <ul class="cl-list" data-i18n-html="cl11_g3_items">
               <li>Nombor versi kini disimpan dan boleh dibanding untuk notifikasi update automatik</li>
             </ul>
           </div>
@@ -947,20 +959,20 @@
       <div class="cl-item reveal">
         <div class="cl-header">
           <span class="cl-tag">v1.01</span>
-          <span class="cl-title">UI Overhaul — Ring Chart & Global FAB</span>
+          <span class="cl-title" data-i18n="cl101_title">UI Overhaul — Ring Chart & Global FAB</span>
           <span class="cl-date">Ogos 2026</span>
         </div>
         <div class="cl-body">
           <div class="cl-group">
-            <div class="cl-group-label">Today Page</div>
-            <ul class="cl-list">
+            <div class="cl-group-label" data-i18n="cl101_g1_label">Today Page</div>
+            <ul class="cl-list" data-i18n-html="cl101_g1_items">
               <li>Paparan makro diganti dengan <strong>ring chart konsentrik</strong> — bulatan Karbo, Protein &amp; Lemak dengan net kalori di tengah</li>
               <li>Satu butang <strong>+ FAB global</strong> di bar tab menggantikan butang berasingan di setiap skrin</li>
             </ul>
           </div>
           <div class="cl-group">
-            <div class="cl-group-label">Progress Page</div>
-            <ul class="cl-list">
+            <div class="cl-group-label" data-i18n="cl101_g2_label">Progress Page</div>
+            <ul class="cl-list" data-i18n-html="cl101_g2_items">
               <li>Dua kad berat digabungkan jadi satu — nombor berat besar + graf kawasan SVG dengan gradient</li>
               <li>Butang "Log Berat" dialih keluar — guna FAB global untuk semua logging</li>
             </ul>
@@ -972,13 +984,13 @@
       <div class="cl-item reveal">
         <div class="cl-header">
           <span class="cl-tag">v1.0</span>
-          <span class="cl-title">Pelancaran Pertama</span>
+          <span class="cl-title" data-i18n="cl10_title">Pelancaran Pertama</span>
           <span class="cl-date">Ogos 2026</span>
         </div>
         <div class="cl-body">
           <div class="cl-group">
-            <div class="cl-group-label">Core Features</div>
-            <ul class="cl-list">
+            <div class="cl-group-label" data-i18n="cl10_g1_label">Core Features</div>
+            <ul class="cl-list" data-i18n-html="cl10_g1_items">
               <li>Log makanan dengan snap gambar — AI (Gemini) kenal dan kira kalori + makro secara automatik</li>
               <li>Log makanan dengan teks — taip dalam ayat biasa, AI parse sendiri</li>
               <li>Log aktiviti &amp; senaman, termasuk upload screenshot dari fitness app</li>
@@ -1000,8 +1012,8 @@
 <!-- DOWNLOAD -->
 <section id="download" class="cta-section">
   <div class="section-tag reveal">Download</div>
-  <h2 class="reveal">Start Hari Ni, Percuma</h2>
-  <p class="reveal">Android APK — install terus, tak payah Google Play.<br />100% free, no ads, no subscription.</p>
+  <h2 class="reveal" data-i18n="dl_h2">Start Hari Ni, Percuma</h2>
+  <p class="reveal" data-i18n-html="dl_p">Android APK — install terus, tak payah Google Play.<br />100% free, no ads, no subscription.</p>
   <div class="cta-btns reveal">
     <a href="https://github.com/umarislah86-collab/leanlog/releases/download/v1.3.0/leanlog-V1.3.0.apk" class="apk-btn" download>
       <span style="font-size:26px">📲</span>
@@ -1012,23 +1024,191 @@
     </a>
   </div>
   <div class="free-tags reveal">
-    <span class="free-tag">100% Percuma</span>
-    <span class="free-tag">Tiada Iklan</span>
-    <span class="free-tag">Data Selamat di Firebase</span>
-    <span class="free-tag">Android 8.0+</span>
+    <span class="free-tag" data-i18n="free1">100% Percuma</span>
+    <span class="free-tag" data-i18n="free2">Tiada Iklan</span>
+    <span class="free-tag" data-i18n="free3">Data Selamat di Firebase</span>
+    <span class="free-tag" data-i18n="free4">Android 8.0+</span>
   </div>
 </section>
 
 <footer>
   <p>
     <strong style="color:var(--text)">LeanLog</strong> &nbsp;·&nbsp;
-    Dibina dengan ❤️ oleh <span class="creator">Umarosli</span>
-    &nbsp;·&nbsp; Powered by Gemini AI + Firebase
+    <span data-i18n-html="footer_p">Dibina dengan ❤️ oleh <span class="creator">Umarosli</span> &nbsp;·&nbsp; Powered by Gemini AI + Firebase</span>
   </p>
-  <p style="margin-top:6px;font-size:11px">Jejak kalori anda. Capai matlamat anda.</p>
+  <p style="margin-top:6px;font-size:11px" data-i18n="footer_tagline">Jejak kalori anda. Capai matlamat anda.</p>
 </footer>
 
 <script>
+  /* ─── Translations ─── */
+  const LANG = {
+    bm: {
+      nav_dl: '📲 Download APK',
+      hero_badge: '✦ AI-Powered · Percuma · Malaysia',
+      hero_h1: 'Snap. Log.<br /><span class="accent">Kurus.</span><br />Journey Anda Bermula Di Sini.',
+      hero_p: 'Ambil gambar makanan, AI terus kira kalori. Log senaman, pantau berat badan, tengok transformasi — semua dalam satu app percuma.',
+      hero_feat_btn: 'Tengok Features →',
+      hero_creator: '🛠 Dibina oleh <span>Umarosli</span> &nbsp;·&nbsp; Powered by Gemini AI',
+      phone_eaten: 'dimakan hari ini',
+      stat_ai: 'Dikuasakan Gemini', stat_free: 'Percuma, Tiada Ads', stat_lang: 'Dwibahasa', stat_cloud: 'Cloud Sync Firebase',
+      feat_h2: 'Semua Yang Anda Perlukan',
+      feat_sub: 'Dari snap gambar sampai analisa badan — LeanLog ada semua dalam satu app.',
+      feat1_title: 'Snap & Kira Automatik', feat1_desc: 'Ambil gambar makanan anda, AI terus kenal dan kira kalori + makro secara automatik. Tak perlu search manual lagi.',
+      feat2_title: 'AI Analisa Teks', feat2_desc: 'Taip je apa yang anda makan — "nasi goreng ayam dengan telur mata" — AI faham dan kira. Gemini AI powered.',
+      feat3_title: 'Log Aktiviti & Senaman', feat3_desc: 'Rekod aktiviti harian anda — berlari, berenang, gym. Upload screenshot dari fitness app untuk AI baca automatik.',
+      feat4_title: 'Progress & Trend Berat', feat4_desc: 'Chart berat badan, rekod harian, purata kalori, BMI — tengok perjalanan anda dari hari ke hari.',
+      feat5_title: 'Mirror Photo Gallery', feat5_desc: 'Upload foto cermin bulanan. AI akan bandingkan dan analisa perubahan fizikal anda. Nampak transformasi dengan mata sendiri.',
+      feat6_title: 'TDEE & Calorie Goal', feat6_desc: 'Masuk profil anda — app kira TDEE dan set sasaran kalori yang sesuai dengan matlamat kurus anda.',
+      feat7_title: 'Peringatan Harian', feat7_desc: 'Set notifikasi untuk ingatkan anda timbang badan, log makanan, atau masa senaman. Custom nama dan masa.',
+      feat8_title: 'Cloud Sync & Backup', feat8_desc: 'Data disimpan dalam Firebase. Tukar phone? Restore semua data dengan satu klik. Data anda sentiasa selamat.',
+      feat9_title: 'Gym Coach (AI Plan)', feat9_desc: 'Pilih peralatan gym yang ada, AI jana plan latihan mingguan yang personalised. Log set/ulangan/berat setiap latihan dengan timer rehat automatik.',
+      hiw_tag: 'Cara Guna', hiw_h2: '3 Langkah Je', hiw_sub: 'Senang sangat nak start.',
+      hiw1_title: 'Download & Daftar', hiw1_desc: 'Install APK, daftar dengan emel, setup profil anda dalam masa 2 minit.',
+      hiw2_title: 'Snap atau Taip', hiw2_desc: 'Ambil gambar makanan atau taip je — AI akan kira kalori dan makro untuk anda.',
+      hiw3_title: 'Pantau Progress', hiw3_desc: 'Tengok chart, rekod berat, bandingkan foto cermin — nampak transformasi anda dari masa ke masa.',
+      ai_h2: 'AI Faham<br />Makanan Malaysia',
+      ai_p: 'Tak payah cari "nasi lemak" dalam database antarabangsa yang tak tau apa tu. Gemini AI faham konteks, bahasa, dan makanan tempatan kita.',
+      ai_li1: 'Faham nama makanan BM dan English', ai_li2: 'Kenal makanan dalam gambar walaupun tak clear sangat',
+      ai_li3: 'Boleh describe dalam ayat biasa — AI akan parse sendiri', ai_li4: 'Support maklumat tambahan untuk ketepatan lebih tinggi',
+      ai_li5: 'Analisa AI berdasarkan data kalori dan berat anda',
+      mirror_h2: 'Nampak Transformasi<br />Anda Sendiri',
+      mirror_p: 'Upload foto cermin setiap bulan. App akan susun ikut tarikh, dan AI boleh bandingkan dua foto untuk analisa perubahan fizikal anda secara detail.',
+      mirror_li1: 'Gallery foto disusun mengikut bulan', mirror_li2: 'Rekod berat + ukuran pinggang setiap entry',
+      mirror_li3: 'AI bandingkan dua foto dan bagi feedback', mirror_li4: 'Export sebagai PDF atau CSV untuk rekod peribadi',
+      mirror_bubble: 'Berdasarkan Gambar 1 (Jun 2026) dan Gambar 2 (Ogos 2026), kelihatan pengurangan ketara di bahagian perut dan pinggang. Berat turun 4.3 kg dalam 2 bulan — progress yang konsisten!',
+      cl_tag: 'Update Log', cl_h2: 'Sejarah Versi', cl_sub: 'Semua perubahan dan penambahbaikan LeanLog dari masa ke masa.',
+      cl130_latest: 'v1.3.0 — Terkini', cl130_title: 'Gym Coach Tab',
+      cl130_g1_label: 'Tab Baru: Coach 💪',
+      cl130_g1_items: '<li>Pilih peralatan gym yang ada (dumbbell, barbell, cable machine, dll.)</li><li>Jana plan latihan mingguan secara automatik menggunakan AI (Gemini)</li><li>Log sesi gym — set, ulangan dan berat setiap latihan</li><li>Timer rehat countdown selepas setiap set siap</li><li>Data sesi disimpan ke cloud (Firebase)</li>',
+      cl130_g2_label: 'Progress Page',
+      cl130_g2_items: '<li>Titik <strong>biru</strong> pada kalendar untuk hari yang ada sesi gym</li><li>Modal detail hari kini tunjuk butiran sesi gym</li>',
+      cl122_title: 'Layout Stats + Makro Detail', cl122_g1_label: 'Today Page',
+      cl122_g1_items: '<li>Stats kini di <strong>kiri dan kanan ring</strong> — Dimakan &amp; Baki di kiri, Dibakar &amp; Sasaran di kanan</li><li>Baris makro kini tunjuk <strong>consumed / goal</strong> — cth: 84g / 125g untuk setiap Protein, Karbo &amp; Lemak</li>',
+      cl122_g2_label: 'Progress Page',
+      cl122_g2_items: '<li>Modal rekod harian kini tunjuk <strong>jumlah kcal dimakan dan dibakar</strong> di bahagian atas</li>',
+      cl121_title: 'Layout Baru + Auto-Check Update', cl121_g1_label: 'Today Page',
+      cl121_g1_items: '<li>Ring chart kini <strong>centered</strong> — stats dalam grid 2×2 (Dimakan · Dibakar · Baki · Sasaran)</li><li>Progress bar dengan animation di bawah grid stats</li><li>Baris makro Protein · Karbo · Lemak di bawah progress bar</li>',
+      cl121_g2_label: 'Auto-Check Update',
+      cl121_g2_items: '<li>App kini semak versi terbaru <strong>secara automatik</strong> semasa dibuka — alert terus keluar tanpa perlu tekan butang</li><li>Butang Download dalam alert terus download APK dari GitHub</li>',
+      cl12_title: 'MacroRings Betul + Kalendar Progress', cl12_g1_label: 'Today Page',
+      cl12_g1_items: '<li>Tengah ring chart kini tunjuk kalori <strong>dimakan</strong> sahaja — tidak lagi tolak kalori burned (tiada nilai negatif)</li><li>Stats (dimakan, dibakar, baki, sasaran) kini dipaparkan <strong>di sebelah ring</strong> untuk reka bentuk lebih bersih</li>',
+      cl12_g2_label: 'Progress Page',
+      cl12_g2_items: '<li>Senarai rekod harian diganti dengan <strong>kalendar bulanan</strong> — titik warna per hari (merah = makanan, hijau = aktiviti, ungu = berat)</li><li>Tekan mana-mana hari dalam kalendar untuk lihat rekod lengkap hari tersebut</li>',
+      cl11_title: 'Sticky Ring Chart + Settings Update', cl11_g1_label: 'Today Page',
+      cl11_g1_items: '<li>Ring chart makro kekal sticky di atas — scroll ke bawah, stats kalori hilang, ring chart kekal nampak</li><li>Reka bentuk lebih bersih dan fokus pada maklumat penting</li>',
+      cl11_g2_label: 'Settings',
+      cl11_g2_items: '<li>Butang <strong>Semak Update</strong> — semak terus dari app sama ada ada versi terbaru di GitHub</li><li>Butang <strong>Cara Makro Dikira</strong> — penjelasan lengkap pengiraan sasaran Protein, Karbo &amp; Lemak</li>',
+      cl11_g3_label: 'Lain-lain',
+      cl11_g3_items: '<li>Nombor versi kini disimpan dan boleh dibanding untuk notifikasi update automatik</li>',
+      cl101_title: 'UI Overhaul — Ring Chart & Global FAB', cl101_g1_label: 'Today Page',
+      cl101_g1_items: '<li>Paparan makro diganti dengan <strong>ring chart konsentrik</strong> — bulatan Karbo, Protein &amp; Lemak dengan net kalori di tengah</li><li>Satu butang <strong>+ FAB global</strong> di bar tab menggantikan butang berasingan di setiap skrin</li>',
+      cl101_g2_label: 'Progress Page',
+      cl101_g2_items: '<li>Dua kad berat digabungkan jadi satu — nombor berat besar + graf kawasan SVG dengan gradient</li><li>Butang "Log Berat" dialih keluar — guna FAB global untuk semua logging</li>',
+      cl10_title: 'Pelancaran Pertama', cl10_g1_label: 'Core Features',
+      cl10_g1_items: '<li>Log makanan dengan snap gambar — AI (Gemini) kenal dan kira kalori + makro secara automatik</li><li>Log makanan dengan teks — taip dalam ayat biasa, AI parse sendiri</li><li>Log aktiviti &amp; senaman, termasuk upload screenshot dari fitness app</li><li>Kalkulator TDEE &amp; sasaran kalori harian berdasarkan profil pengguna</li><li>Progress berat badan — rekod harian, BMI, graf trend</li><li>Mirror Photo Gallery — upload foto cermin bulanan, AI bandingkan transformasi</li><li>Peringatan harian boleh disesuaikan — nama, masa, dan jenis notifikasi</li><li>Cloud sync &amp; backup dengan Firebase — data selamat walaupun tukar phone</li><li>Dwibahasa — Bahasa Malaysia + English</li>',
+      dl_h2: 'Start Hari Ni, Percuma',
+      dl_p: 'Android APK — install terus, tak payah Google Play.<br />100% free, no ads, no subscription.',
+      free1: '100% Percuma', free2: 'Tiada Iklan', free3: 'Data Selamat di Firebase', free4: 'Android 8.0+',
+      footer_p: 'Dibina dengan ❤️ oleh <span class="creator">Umarosli</span> &nbsp;·&nbsp; Powered by Gemini AI + Firebase',
+      footer_tagline: 'Jejak kalori anda. Capai matlamat anda.',
+    },
+    en: {
+      nav_dl: '📲 Download APK',
+      hero_badge: '✦ AI-Powered · Free · Malaysia',
+      hero_h1: 'Snap. Log.<br /><span class="accent">Shred.</span><br />Your Journey Starts Here.',
+      hero_p: 'Take a photo of your food, AI instantly calculates calories. Log workouts, track weight, see your transformation — all in one free app.',
+      hero_feat_btn: 'See Features →',
+      hero_creator: '🛠 Built by <span>Umarosli</span> &nbsp;·&nbsp; Powered by Gemini AI',
+      phone_eaten: 'eaten today',
+      stat_ai: 'Powered by Gemini', stat_free: '100% Free, No Ads', stat_lang: 'Bilingual', stat_cloud: 'Cloud Sync Firebase',
+      feat_h2: 'Everything You Need',
+      feat_sub: 'From snapping food to body analysis — LeanLog has it all in one app.',
+      feat1_title: 'Snap & Auto-Calculate', feat1_desc: 'Take a photo of your food, AI instantly recognises and calculates calories + macros. No more manual searching.',
+      feat2_title: 'AI Text Analysis', feat2_desc: 'Just type what you ate — "fried rice with egg" — AI understands and calculates. Powered by Gemini AI.',
+      feat3_title: 'Log Activity & Workouts', feat3_desc: 'Record daily activities — running, swimming, gym. Upload a screenshot from your fitness app for AI to read automatically.',
+      feat4_title: 'Progress & Weight Trend', feat4_desc: 'Weight chart, daily records, average calories, BMI — see your journey day by day.',
+      feat5_title: 'Mirror Photo Gallery', feat5_desc: 'Upload monthly mirror photos. AI will compare and analyse your physical changes. See your transformation with your own eyes.',
+      feat6_title: 'TDEE & Calorie Goal', feat6_desc: 'Enter your profile — app calculates your TDEE and sets a calorie goal suited to your weight loss goal.',
+      feat7_title: 'Daily Reminders', feat7_desc: 'Set notifications to remind you to weigh in, log food, or workout time. Custom name and time.',
+      feat8_title: 'Cloud Sync & Backup', feat8_desc: 'Data stored in Firebase. Changed phones? Restore all data with one tap. Your data is always safe.',
+      feat9_title: 'Gym Coach (AI Plan)', feat9_desc: 'Select available gym equipment, AI generates a personalised weekly workout plan. Log sets/reps/weight per exercise with an auto rest timer.',
+      hiw_tag: 'How It Works', hiw_h2: 'Just 3 Steps', hiw_sub: 'Super easy to get started.',
+      hiw1_title: 'Download & Register', hiw1_desc: 'Install APK, register with email, set up your profile in 2 minutes.',
+      hiw2_title: 'Snap or Type', hiw2_desc: 'Take a photo of food or just type it — AI will calculate calories and macros for you.',
+      hiw3_title: 'Track Progress', hiw3_desc: 'View charts, log weight, compare mirror photos — see your transformation over time.',
+      ai_h2: 'AI That Understands<br />Malaysian Food',
+      ai_p: 'No need to search "nasi lemak" in an international database that doesn\'t know what it is. Gemini AI understands our local context, language, and food.',
+      ai_li1: 'Understands food names in BM and English', ai_li2: 'Recognises food in photos even when not super clear',
+      ai_li3: 'Describe in plain sentences — AI will parse it', ai_li4: 'Supports extra info for higher accuracy',
+      ai_li5: 'AI analysis based on your calorie and weight data',
+      mirror_h2: 'See Your Transformation<br />With Your Own Eyes',
+      mirror_p: 'Upload a mirror photo every month. The app organises by date, and AI can compare two photos to analyse your physical changes in detail.',
+      mirror_li1: 'Photo gallery organised by month', mirror_li2: 'Log weight + waist measurement per entry',
+      mirror_li3: 'AI compares two photos and gives feedback', mirror_li4: 'Export as PDF or CSV for personal records',
+      mirror_bubble: 'Based on Photo 1 (Jun 2026) and Photo 2 (Aug 2026), a significant reduction is visible around the abdomen and waist. Weight dropped 4.3 kg in 2 months — consistent progress!',
+      cl_tag: 'Update Log', cl_h2: 'Version History', cl_sub: 'All LeanLog changes and improvements over time.',
+      cl130_latest: 'v1.3.0 — Latest', cl130_title: 'Gym Coach Tab',
+      cl130_g1_label: 'New Tab: Coach 💪',
+      cl130_g1_items: '<li>Select available gym equipment (dumbbells, barbell, cable machine, etc.)</li><li>Auto-generate weekly workout plan using AI (Gemini)</li><li>Log gym session — sets, reps and weight per exercise</li><li>Countdown rest timer after each completed set</li><li>Session data synced to cloud (Firebase)</li>',
+      cl130_g2_label: 'Progress Page',
+      cl130_g2_items: '<li><strong>Blue</strong> dot on calendar for days with a gym session</li><li>Day detail modal now shows gym session info</li>',
+      cl122_title: 'Stats Layout + Macro Detail', cl122_g1_label: 'Today Page',
+      cl122_g1_items: '<li>Stats now on <strong>left and right of ring</strong> — Eaten &amp; Remaining on left, Burned &amp; Goal on right</li><li>Macro row now shows <strong>consumed / goal</strong> — e.g. 84g / 125g for Protein, Carbs &amp; Fat</li>',
+      cl122_g2_label: 'Progress Page',
+      cl122_g2_items: '<li>Daily record modal now shows <strong>total kcal eaten and burned</strong> at the top</li>',
+      cl121_title: 'New Layout + Auto-Check Update', cl121_g1_label: 'Today Page',
+      cl121_g1_items: '<li>Ring chart now <strong>centered</strong> — stats in 2×2 grid (Eaten · Burned · Remaining · Goal)</li><li>Progress bar with animation below stats grid</li><li>Protein · Carbs · Fat macro row below progress bar</li>',
+      cl121_g2_label: 'Auto-Check Update',
+      cl121_g2_items: '<li>App now checks for the latest version <strong>automatically</strong> on launch — alert appears without pressing a button</li><li>Download button in alert directly downloads APK from GitHub</li>',
+      cl12_title: 'MacroRings Fix + Progress Calendar', cl12_g1_label: 'Today Page',
+      cl12_g1_items: '<li>Ring chart centre now shows <strong>eaten</strong> calories only — no longer subtracts burned (no negative values)</li><li>Stats (eaten, burned, remaining, goal) now displayed <strong>beside the ring</strong> for a cleaner layout</li>',
+      cl12_g2_label: 'Progress Page',
+      cl12_g2_items: '<li>Daily records list replaced with <strong>monthly calendar</strong> — colour dots per day (red = food, green = activity, purple = weight)</li><li>Tap any calendar day to see the full day\'s records</li>',
+      cl11_title: 'Sticky Ring Chart + Settings Update', cl11_g1_label: 'Today Page',
+      cl11_g1_items: '<li>Macro ring chart stays sticky at the top — scroll down, calorie stats disappear, ring chart stays visible</li><li>Cleaner design focused on key information</li>',
+      cl11_g2_label: 'Settings',
+      cl11_g2_items: '<li><strong>Check for Update</strong> button — check directly from app if there\'s a newer version on GitHub</li><li><strong>How Macros Are Calculated</strong> button — full explanation of Protein, Carbs &amp; Fat target calculations</li>',
+      cl11_g3_label: 'Other',
+      cl11_g3_items: '<li>Version number now saved and can be compared for automatic update notifications</li>',
+      cl101_title: 'UI Overhaul — Ring Chart & Global FAB', cl101_g1_label: 'Today Page',
+      cl101_g1_items: '<li>Macro display replaced with <strong>concentric ring chart</strong> — Carbs, Protein &amp; Fat circles with net calories in the centre</li><li>Single <strong>+ global FAB</strong> on the tab bar replaces separate buttons on each screen</li>',
+      cl101_g2_label: 'Progress Page',
+      cl101_g2_items: '<li>Two weight cards merged into one — large weight number + SVG area chart with gradient</li><li>"Log Weight" button removed — use global FAB for all logging</li>',
+      cl10_title: 'First Release', cl10_g1_label: 'Core Features',
+      cl10_g1_items: '<li>Log food by snapping a photo — AI (Gemini) recognises and calculates calories + macros automatically</li><li>Log food by text — type in plain sentences, AI parses it</li><li>Log activities &amp; workouts, including uploading screenshots from fitness apps</li><li>TDEE calculator &amp; daily calorie goal based on user profile</li><li>Weight progress — daily records, BMI, trend chart</li><li>Mirror Photo Gallery — upload monthly mirror photos, AI compares transformation</li><li>Customisable daily reminders — name, time, and notification type</li><li>Cloud sync &amp; backup with Firebase — data safe even when changing phones</li><li>Bilingual — Bahasa Malaysia + English</li>',
+      dl_h2: 'Start Today, Free',
+      dl_p: 'Android APK — install directly, no Google Play needed.<br />100% free, no ads, no subscription.',
+      free1: '100% Free', free2: 'No Ads', free3: 'Secure Data on Firebase', free4: 'Android 8.0+',
+      footer_p: 'Built with ❤️ by <span class="creator">Umarosli</span> &nbsp;·&nbsp; Powered by Gemini AI + Firebase',
+      footer_tagline: 'Track your calories. Achieve your goals.',
+    },
+  };
+
+  /* ─── Language toggle ─── */
+  let currentLang = localStorage.getItem('leanlog_lang') || 'bm';
+
+  function toggleLang() {
+    currentLang = currentLang === 'bm' ? 'en' : 'bm';
+    applyLang(currentLang);
+  }
+
+  function applyLang(lang) {
+    localStorage.setItem('leanlog_lang', lang);
+    const T = LANG[lang];
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      if (T[el.dataset.i18n] !== undefined) el.textContent = T[el.dataset.i18n];
+    });
+    document.querySelectorAll('[data-i18n-html]').forEach(el => {
+      const key = el.dataset.i18nHtml;
+      if (T[key] !== undefined) el.innerHTML = T[key];
+    });
+    const btn = document.getElementById('lang-toggle');
+    if (btn) btn.innerHTML = lang === 'bm' ? '<strong>BM</strong> | EN' : 'BM | <strong>EN</strong>';
+    document.documentElement.lang = lang === 'bm' ? 'ms' : 'en';
+  }
+
+  applyLang(currentLang);
+
   /* ─── Scroll reveal ─── */
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(e => {
