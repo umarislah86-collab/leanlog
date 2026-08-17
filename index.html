@@ -477,6 +477,42 @@
     }
     .free-tag::before { content: '✓'; color: var(--green); font-weight: 700; }
 
+    /* ─── CHANGELOG ─── */
+    .changelog-wrap {
+      max-width: 760px; margin: 0 auto;
+      display: flex; flex-direction: column; gap: 20px;
+    }
+    .cl-item {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; overflow: hidden;
+      transition: border-color 0.25s;
+    }
+    .cl-item:hover { border-color: rgba(76,175,80,0.4); }
+    .cl-header {
+      display: flex; align-items: center; gap: 14px;
+      padding: 16px 22px;
+      border-bottom: 1px solid var(--border);
+    }
+    .cl-tag {
+      background: var(--green-dim); color: var(--green-light);
+      border: 1px solid rgba(76,175,80,0.3);
+      font-size: 12px; font-weight: 800; letter-spacing: 0.5px;
+      padding: 3px 12px; border-radius: 20px; white-space: nowrap;
+    }
+    .cl-tag.latest { background: var(--green); color: #000; border-color: var(--green); }
+    .cl-title { font-size: 14px; font-weight: 700; }
+    .cl-date { font-size: 11px; color: var(--muted); margin-left: auto; white-space: nowrap; }
+    .cl-body { padding: 16px 22px; }
+    .cl-group { margin-bottom: 12px; }
+    .cl-group:last-child { margin-bottom: 0; }
+    .cl-group-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 6px;
+    }
+    .cl-list { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+    .cl-list li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: #ccc; }
+    .cl-list li::before { content: '·'; color: var(--green); font-weight: 700; flex-shrink: 0; font-size: 16px; line-height: 1.2; }
+
     /* ─── FOOTER ─── */
     footer {
       background: var(--bg); border-top: 1px solid var(--border);
@@ -750,6 +786,101 @@
         <div class="ab-label"><div class="ai-dot"></div> AI ANALYSIS</div>
         <p>Berdasarkan Gambar 1 (Jun 2026) dan Gambar 2 (Ogos 2026), kelihatan pengurangan ketara di bahagian perut dan pinggang. Berat turun 4.3 kg dalam 2 bulan — progress yang konsisten!</p>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- CHANGELOG -->
+<section style="background:var(--bg);border-top:1px solid var(--border)">
+  <div style="max-width:760px;margin:0 auto">
+    <div class="center reveal">
+      <div class="section-tag">Update Log</div>
+      <h2 class="section-title">Sejarah Versi</h2>
+      <p class="section-sub">Semua perubahan dan penambahbaikan LeanLog dari masa ke masa.</p>
+    </div>
+    <div class="changelog-wrap">
+
+      <!-- v1.1 -->
+      <div class="cl-item reveal">
+        <div class="cl-header">
+          <span class="cl-tag latest">v1.1 — Terkini</span>
+          <span class="cl-title">Sticky Ring Chart + Settings Update</span>
+          <span class="cl-date">Ogos 2026</span>
+        </div>
+        <div class="cl-body">
+          <div class="cl-group">
+            <div class="cl-group-label">Today Page</div>
+            <ul class="cl-list">
+              <li>Ring chart makro kekal sticky di atas — scroll ke bawah, stats kalori hilang, ring chart kekal nampak</li>
+              <li>Reka bentuk lebih bersih dan fokus pada maklumat penting</li>
+            </ul>
+          </div>
+          <div class="cl-group">
+            <div class="cl-group-label">Settings</div>
+            <ul class="cl-list">
+              <li>Butang <strong>Semak Update</strong> — semak terus dari app sama ada ada versi terbaru di GitHub</li>
+              <li>Butang <strong>Cara Makro Dikira</strong> — penjelasan lengkap pengiraan sasaran Protein, Karbo &amp; Lemak</li>
+            </ul>
+          </div>
+          <div class="cl-group">
+            <div class="cl-group-label">Lain-lain</div>
+            <ul class="cl-list">
+              <li>Nombor versi kini disimpan dan boleh dibanding untuk notifikasi update automatik</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- v1.01 -->
+      <div class="cl-item reveal">
+        <div class="cl-header">
+          <span class="cl-tag">v1.01</span>
+          <span class="cl-title">UI Overhaul — Ring Chart & Global FAB</span>
+          <span class="cl-date">Ogos 2026</span>
+        </div>
+        <div class="cl-body">
+          <div class="cl-group">
+            <div class="cl-group-label">Today Page</div>
+            <ul class="cl-list">
+              <li>Paparan makro diganti dengan <strong>ring chart konsentrik</strong> — bulatan Karbo, Protein &amp; Lemak dengan net kalori di tengah</li>
+              <li>Satu butang <strong>+ FAB global</strong> di bar tab menggantikan butang berasingan di setiap skrin</li>
+            </ul>
+          </div>
+          <div class="cl-group">
+            <div class="cl-group-label">Progress Page</div>
+            <ul class="cl-list">
+              <li>Dua kad berat digabungkan jadi satu — nombor berat besar + graf kawasan SVG dengan gradient</li>
+              <li>Butang "Log Berat" dialih keluar — guna FAB global untuk semua logging</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- v1.0 -->
+      <div class="cl-item reveal">
+        <div class="cl-header">
+          <span class="cl-tag">v1.0</span>
+          <span class="cl-title">Pelancaran Pertama</span>
+          <span class="cl-date">Ogos 2026</span>
+        </div>
+        <div class="cl-body">
+          <div class="cl-group">
+            <div class="cl-group-label">Core Features</div>
+            <ul class="cl-list">
+              <li>Log makanan dengan snap gambar — AI (Gemini) kenal dan kira kalori + makro secara automatik</li>
+              <li>Log makanan dengan teks — taip dalam ayat biasa, AI parse sendiri</li>
+              <li>Log aktiviti &amp; senaman, termasuk upload screenshot dari fitness app</li>
+              <li>Kalkulator TDEE &amp; sasaran kalori harian berdasarkan profil pengguna</li>
+              <li>Progress berat badan — rekod harian, BMI, graf trend</li>
+              <li>Mirror Photo Gallery — upload foto cermin bulanan, AI bandingkan transformasi</li>
+              <li>Peringatan harian boleh disesuaikan — nama, masa, dan jenis notifikasi</li>
+              <li>Cloud sync &amp; backup dengan Firebase — data selamat walaupun tukar phone</li>
+              <li>Dwibahasa — Bahasa Malaysia + English</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </section>
