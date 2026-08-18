@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LeanLog Admin</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0D0D0D; --surface: #161622; --card: #1E1E2E;
+      --border: #2a2a3e; --green: #4CAF50; --red: #EF5350;
+      --gold: #FFD700; --text: #EFEFEF; --muted: #888;
+    }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 40px 16px; }
+
+    h1 { font-size: 22px; font-weight: 800; color: var(--green); letter-spacing: 1px; margin-bottom: 6px; }
+    .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 32px; }
+
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 28px; width: 100%; max-width: 480px; }
+    .card + .card { margin-top: 16px; }
+
+    label { display: block; color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    input[type="email"], input[type="password"], input[type="text"] {
+      width: 100%; background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); padding: 12px 14px; border-radius: 8px; font-size: 15px;
+      outline: none; transition: border-color 0.2s;
+    }
+    input:focus { border-color: var(--green); }
+    .field { margin-bottom: 16px; }
+
+    button {
+      width: 100%; padding: 13px; border-radius: 10px; border: none;
+      font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity 0.2s;
+    }
+    button:hover { opacity: 0.85; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-green { background: var(--green); color: #fff; }
+    .btn-red { background: var(--red); color: #fff; }
+    .btn-ghost { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
+    .btn-sm { width: auto; padding: 7px 16px; font-size: 13px; border-radius: 8px; }
+
+    .msg { padding: 12px 14px; border-radius: 8px; font-size: 13px; margin-top: 12px; display: none; }
+    .msg.error { background: rgba(239,83,80,0.15); border: 1px solid rgba(239,83,80,0.3); color: #EF9A9A; }
+    .msg.success { background: rgba(76,175,80,0.12); border: 1px solid rgba(76,175,80,0.3); color: #A5D6A7; }
+    .msg.show { display: block; }
+
+    #login-section { display: flex; flex-direction: column; align-items: center; width: 100%; }
+    #main-section { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 640px; }
+
+    .top-bar { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 640px; margin-bottom: 20px; }
+    .admin-badge { background: rgba(255,215,0,0.12); border: 1px solid rgba(255,215,0,0.3); color: var(--gold); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+
+    .result-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 20px; margin-top: 12px; width: 100%;
+    }
+    .result-card.paid-true { border-color: rgba(76,175,80,0.4); }
+    .result-card.paid-false { border-color: rgba(239,83,80,0.3); }
+
+    .result-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .result-row:last-child { margin-bottom: 0; }
+    .result-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .result-val { font-size: 13px; font-family: monospace; color: var(--text); word-break: break-all; text-align: right; max-width: 300px; }
+    .badge-paid { background: rgba(76,175,80,0.15); color: #81C784; border: 1px solid rgba(76,175,80,0.3); padding: 3px 10px; border-radius: 10px; font-size: 12px; font-weight: 700; }
+    .badge-unpaid { background: rgba(239,83,80,0.12); color: #EF9A9A; border: 1px solid rgba(239,83,80,0.2); padding: 3px 10px; border-radius: 10px; font-size: 12px; font-weight: 700; }
+    .badge-trial { background: rgba(255,215,0,0.1); color: var(--gold); border: 1px solid rgba(255,215,0,0.2); padding: 3px 10px; border-radius: 10px; font-size: 12px; font-weight: 700; }
+
+    .result-actions { display: flex; gap: 8px; margin-top: 14px; }
+    .result-actions button { flex: 1; }
+
+    .search-row { display: flex; gap: 8px; }
+    .search-row input { flex: 1; }
+    .search-row button { width: auto; padding: 12px 20px; border-radius: 8px; white-space: nowrap; }
+
+    .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+    .empty { color: var(--muted); text-align: center; padding: 24px; font-size: 14px; }
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.2); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+
+  <!-- Firebase compat SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
+</head>
+<body>
+
+<h1>🥗 LeanLog Admin</h1>
+<p class="subtitle">Panel pengurusan lesen pengguna</p>
+
+<!-- LOGIN SECTION -->
+<div id="login-section">
+  <div class="card">
+    <div class="field">
+      <label>Email Admin</label>
+      <input type="email" id="admin-email" placeholder="email@example.com" autocomplete="username" />
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="admin-pass" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+    <button class="btn-green" id="login-btn" onclick="doLogin()">Log Masuk</button>
+    <div class="msg error" id="login-err"></div>
+  </div>
+</div>
+
+<!-- MAIN SECTION -->
+<div id="main-section">
+  <div class="top-bar">
+    <span class="admin-badge">⭐ Admin</span>
+    <button class="btn-ghost btn-sm" onclick="doLogout()">Log Keluar</button>
+  </div>
+
+  <div class="card" style="max-width:640px;">
+    <label>Cari pengguna via email</label>
+    <div class="search-row">
+      <input type="text" id="search-email" placeholder="user@email.com" onkeydown="if(event.key==='Enter')doSearch()" />
+      <button class="btn-green" id="search-btn" onclick="doSearch()">Cari</button>
+    </div>
+    <div class="msg error" id="search-err"></div>
+    <div class="msg success" id="search-ok"></div>
+    <hr class="divider" />
+    <button class="btn-ghost" id="list-all-btn" onclick="doListAll()" style="font-size:13px;padding:10px;">📋 Lihat Semua Rekod Device</button>
+  </div>
+
+  <div id="results"></div>
+
+  <div class="card" style="max-width:640px; margin-top:24px;">
+    <p style="font-size:12px; color:var(--muted); line-height:1.7;">
+      <strong style="color:var(--text)">Cara guna:</strong><br>
+      1. Masuk email user yang dah bayar<br>
+      2. Klik <strong style="color:var(--green)">Set Paid ✓</strong> — status akan update dalam Firebase<br>
+      3. App user akan unlock pada buka seterusnya<br><br>
+      <strong style="color:var(--text)">Nota:</strong> Kalau user tukar fon, set paid pada device lama dulu. App akan auto-sync ke fon baru bila user login semula.
+    </p>
+  </div>
+</div>
+
+<script>
+  // ─── Firebase Config ─────────────────────────────────────────────────────
+  const FIREBASE_CONFIG = {
+    apiKey: 'AIzaSyAalf654KnSepgPUsie19L09csRCjV2b2I',
+    authDomain: 'cal-track-9c21a.firebaseapp.com',
+    projectId: 'cal-track-9c21a',
+    storageBucket: 'cal-track-9c21a.firebasestorage.app',
+    messagingSenderId: '34447032805',
+    appId: '1:34447032805:web:8c677958ccfe8f90a7ef0c',
+  };
+  firebase.initializeApp(FIREBASE_CONFIG);
+  const db = firebase.firestore();
+  const auth = firebase.auth();
+
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      document.getElementById('login-section').style.display = 'none';
+      document.getElementById('main-section').style.display = 'flex';
+    } else {
+      document.getElementById('login-section').style.display = 'flex';
+      document.getElementById('main-section').style.display = 'none';
+    }
+  });
+
+  // ─── Login ───────────────────────────────────────────────────────────────
+  async function doLogin() {
+    const email = document.getElementById('admin-email').value.trim();
+    const pass  = document.getElementById('admin-pass').value;
+    const btn   = document.getElementById('login-btn');
+    const err   = document.getElementById('login-err');
+    err.className = 'msg';
+    if (!email || !pass) { showMsg(err, 'Sila isi email dan password.', true); return; }
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Masuk...';
+    try {
+      await auth.signInWithEmailAndPassword(email, pass);
+    } catch (e) {
+      showMsg(err, e.message, true);
+      btn.disabled = false;
+      btn.textContent = 'Log Masuk';
+    }
+  }
+
+  function doLogout() {
+    auth.signOut();
+    document.getElementById('results').innerHTML = '';
+    document.getElementById('search-email').value = '';
+  }
+
+  // ─── Search ──────────────────────────────────────────────────────────────
+  async function doSearch() {
+    const raw    = document.getElementById('search-email').value.trim();
+    const btn    = document.getElementById('search-btn');
+    const errEl  = document.getElementById('search-err');
+    const okEl   = document.getElementById('search-ok');
+    const resDiv = document.getElementById('results');
+    errEl.className = 'msg'; okEl.className = 'msg'; resDiv.innerHTML = '';
+
+    if (!raw) { showMsg(errEl, 'Masukkan email untuk dicari.', true); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Cari...';
+
+    try {
+      // try lowercase first, then original case, collect unique results
+      const seen = new Set();
+      const variants = [...new Set([raw.toLowerCase(), raw])];
+      for (const email of variants) {
+        const snap = await db.collection('devices').where('email', '==', email).get();
+        snap.forEach(d => { if (!seen.has(d.id)) { seen.add(d.id); renderResult(d.id, d.data()); } });
+      }
+
+      if (seen.size === 0) {
+        resDiv.innerHTML = `<div class="empty">Tiada rekod ditemui untuk email ini.<br>
+          <small style="color:#555">Email mungkin tersimpan berbeza atau kosong semasa pendaftaran.</small><br><br>
+          <button class="btn-ghost btn-sm" onclick="doListAll()" style="margin-top:8px;">📋 Cuba Lihat Semua Rekod</button>
+        </div>`;
+      } else {
+        showMsg(okEl, `${seen.size} rekod ditemui.`, false);
+      }
+    } catch (e) {
+      showMsg(errEl, 'Error: ' + e.message, true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Cari';
+    }
+  }
+
+  // ─── Render Result Card ──────────────────────────────────────────────────
+  function renderResult(deviceId, data) {
+    const resDiv  = document.getElementById('results');
+    const isPaid  = !!data.paid;
+    const startDt = data.trialStartDate ? new Date(data.trialStartDate) : null;
+    const diffDays = startDt ? Math.floor((Date.now() - startDt.getTime()) / 86400000) : null;
+    const trialLabel = diffDays !== null
+      ? (diffDays >= 3 ? `Tamat (${diffDays} hari lepas)` : `Aktif (${3 - diffDays} hari lagi)`)
+      : '—';
+
+    const card = document.createElement('div');
+    card.id = 'card-' + deviceId;
+    card.className = `result-card ${isPaid ? 'paid-true' : 'paid-false'}`;
+    card.innerHTML = `
+      <div class="result-row">
+        <span class="result-label">Email</span>
+        <span class="result-val">${data.email || '—'}</span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">Device ID</span>
+        <span class="result-val">${deviceId}</span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">UID</span>
+        <span class="result-val">${data.uid || '—'}</span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">Trial mula</span>
+        <span class="result-val">${startDt ? startDt.toLocaleString('ms-MY') : '—'}</span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">Status trial</span>
+        <span class="result-val">
+          <span class="${isPaid ? '' : (diffDays !== null && diffDays >= 3 ? 'badge-unpaid' : 'badge-trial')}">${isPaid ? '' : trialLabel}</span>
+        </span>
+      </div>
+      <div class="result-row">
+        <span class="result-label">Status bayar</span>
+        <span class="result-val">
+          <span id="badge-${deviceId}" class="${isPaid ? 'badge-paid' : 'badge-unpaid'}">${isPaid ? '✓ Paid' : '✗ Belum bayar'}</span>
+        </span>
+      </div>
+      <div class="result-actions">
+        <button class="btn-green btn-sm" id="btn-pay-${deviceId}" onclick="setPaid('${deviceId}', true)">✓ Set Paid</button>
+        <button class="btn-red btn-sm" id="btn-rev-${deviceId}" onclick="setPaid('${deviceId}', false)">✗ Revoke</button>
+      </div>
+      <div class="msg" id="msg-${deviceId}"></div>
+    `;
+    resDiv.appendChild(card);
+  }
+
+  // ─── Set Paid ────────────────────────────────────────────────────────────
+  async function setPaid(deviceId, paid) {
+    const btnPay = document.getElementById('btn-pay-' + deviceId);
+    const btnRev = document.getElementById('btn-rev-' + deviceId);
+    const msgEl  = document.getElementById('msg-' + deviceId);
+    const badge  = document.getElementById('badge-' + deviceId);
+    const card   = document.getElementById('card-' + deviceId);
+
+    btnPay.disabled = true; btnRev.disabled = true;
+    msgEl.className = 'msg';
+
+    try {
+      await db.collection('devices').doc(deviceId).update({ paid });
+      badge.textContent = paid ? '✓ Paid' : '✗ Belum bayar';
+      badge.className   = paid ? 'badge-paid' : 'badge-unpaid';
+      card.className    = `result-card ${paid ? 'paid-true' : 'paid-false'}`;
+      showMsg(msgEl, paid ? 'Berjaya! User dah di-unlock. App akan refresh pada buka seterusnya.' : 'Revoked. User akan kena lock out.', !paid);
+    } catch (e) {
+      showMsg(msgEl, 'Error: ' + e.message, true);
+    } finally {
+      btnPay.disabled = false; btnRev.disabled = false;
+    }
+  }
+
+  // ─── List All ────────────────────────────────────────────────────────────
+  async function doListAll() {
+    const btn    = document.getElementById('list-all-btn');
+    const errEl  = document.getElementById('search-err');
+    const okEl   = document.getElementById('search-ok');
+    const resDiv = document.getElementById('results');
+    errEl.className = 'msg'; okEl.className = 'msg'; resDiv.innerHTML = '';
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Memuatkan...';
+
+    try {
+      const snap = await db.collection('devices').get();
+      if (snap.empty) {
+        resDiv.innerHTML = '<div class="empty">Tiada rekod langsung dalam collection devices.</div>';
+      } else {
+        snap.forEach(d => renderResult(d.id, d.data()));
+        showMsg(okEl, `${snap.size} rekod dipaparkan.`, false);
+      }
+    } catch (e) {
+      showMsg(errEl, 'Error: ' + e.message, true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '📋 Lihat Semua Rekod Device';
+    }
+  }
+
+  // ─── Helpers ─────────────────────────────────────────────────────────────
+  function showMsg(el, text, isError) {
+    el.textContent = text;
+    el.className = 'msg show ' + (isError ? 'error' : 'success');
+  }
+
+  document.getElementById('admin-pass').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+</script>
+</body>
+</html>
