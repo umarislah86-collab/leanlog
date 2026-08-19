@@ -143,7 +143,7 @@
     }
     .big-feat-screenshot img { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
     .screens-row { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin-top: 40px; }
-    .screens-row .big-feat-screenshot { width: 200px; height: 400px; }
+    .screens-row .big-feat-screenshot { width: 200px; height: 400px; margin: 0; }
 
     /* ─── STATS ─── */
     .stats {
@@ -312,7 +312,10 @@
 
 <!-- NAV -->
 <nav>
-  <span class="nav-logo">🥗 LeanLog</span>
+  <a href="#" style="display:flex;align-items:center;gap:8px;text-decoration:none;">
+    <img src="icon.png" style="width:28px;height:28px;border-radius:8px;" alt="LeanLog icon">
+    <span class="nav-logo">LeanLog</span>
+  </a>
   <div class="nav-right">
     <button id="lang-toggle" onclick="toggleLang()">🇬🇧 EN</button>
     <a href="#download" class="nav-cta" data-i18n="navCta">Cuba 3 Hari Percuma</a>
@@ -652,6 +655,9 @@
       gymC3: 'Timer countdown untuk cardio dan plank',
       gymC4: 'Boleh tambah/buang exercise masa session',
       gymC5: 'AI estimate kcal dibakar setiap session',
+      progressTag: 'Progress',
+      progressTitle: 'Tengok sendiri perubahan kau',
+      progressSub: 'Calendar harian, carta berat, dan mirror photos — semua dalam satu view.',
       pricingTag: 'Harga',
       pricingTitle: 'Mudah. Jelas. Berbaloi.',
       pricingSub: 'Tiada hidden charges. Cancel bila-bila masa. Akses penuh dari RM7/bulan.',
@@ -762,6 +768,9 @@
       gymC3: 'Countdown timer for cardio and planks',
       gymC4: 'Add/remove exercises during session',
       gymC5: 'AI estimates kcal burned each session',
+      progressTag: 'Progress',
+      progressTitle: 'See your transformation yourself',
+      progressSub: 'Daily calendar, weight chart, and mirror photos — all in one view.',
       pricingTag: 'Pricing',
       pricingTitle: 'Simple. Clear. Worth it.',
       pricingSub: 'No hidden charges. Cancel anytime. Full access from RM7/month.',
