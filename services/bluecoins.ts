@@ -60,7 +60,7 @@ const backupDateFromName = (name: string) => {
 const dateWindow = (endDate: string) => {
   const end = new Date(`${endDate}T12:00:00`);
   const dates: string[] = [];
-  for (let offset = 3; offset >= 0; offset -= 1) {
+  for (let offset = 6; offset >= 0; offset -= 1) {
     const date = new Date(end);
     date.setDate(end.getDate() - offset);
     dates.push(date.toISOString().slice(0, 10));
@@ -130,7 +130,7 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
   try {
     const dates = dateWindow(sourceDate);
     const startDate = dates[0];
-    const endDate = dates[3];
+    const endDate = dates[dates.length - 1];
     const baseWhere = `
       t.deletedTransaction = 6
       AND t.transactionTypeID = 3
@@ -167,7 +167,7 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
     const previousEnd = new Date(`${startDate}T12:00:00`);
     previousEnd.setDate(previousEnd.getDate() - 1);
     const previousStart = new Date(previousEnd);
-    previousStart.setDate(previousStart.getDate() - 3);
+    previousStart.setDate(previousStart.getDate() - 6);
     const previous = await db.getFirstAsync<{ rawSpent: number }>(
       `SELECT COALESCE(SUM(ABS(t.amount)), 0) AS rawSpent
        FROM TRANSACTIONSTABLE t
@@ -199,6 +199,27 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
       monthStart,
       sourceDate,
     );
+    // Bluecoins records a loan/mortgage repayment as two transfer rows rather
+    // than an expense. Count only the negative (source-account) side whose
+    // destination is a liability account, so repayments are not missed or
+    // double-counted.
+    const liabilityRows = await db.getAllAsync<{ day: string; liability: string; rawSpent: number; tx: number }>(
+      `SELECT substr(t.date, 1, 10) AS day,
+              COALESCE(destination.accountName, 'Debt repayment') AS liability,
+              COALESCE(SUM(ABS(t.amount)), 0) AS rawSpent,
+              COUNT(*) AS tx
+       FROM TRANSACTIONSTABLE t
+       JOIN ACCOUNTSTABLE destination ON destination.accountsTableID = t.accountPairID
+       WHERE t.deletedTransaction = 6
+         AND t.transactionTypeID = 5
+         AND t.amount < 0
+         AND destination.accountTypeID IN (9, 11)
+         AND t.reminderTransaction IS NULL
+         AND substr(t.date, 1, 10) BETWEEN ? AND ?
+       GROUP BY day, liability`,
+      monthStart,
+      sourceDate,
+    );
     const monthlyCategoriesRows = await db.getAllAsync<{ category: string; subcategory: string; rawSpent: number }>(
       `SELECT COALESCE(pc.parentCategoryName, cc.childCategoryName, 'Uncategorised') AS category,
               COALESCE(cc.childCategoryName, pc.parentCategoryName, 'Uncategorised') AS subcategory,
@@ -225,6 +246,19 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
       previousMonthStart,
       previousMonthEnd,
     );
+    const previousLiabilityRow = await db.getFirstAsync<{ rawSpent: number }>(
+      `SELECT COALESCE(SUM(ABS(t.amount)), 0) AS rawSpent
+       FROM TRANSACTIONSTABLE t
+       JOIN ACCOUNTSTABLE destination ON destination.accountsTableID = t.accountPairID
+       WHERE t.deletedTransaction = 6
+         AND t.transactionTypeID = 5
+         AND t.amount < 0
+         AND destination.accountTypeID IN (9, 11)
+         AND t.reminderTransaction IS NULL
+         AND substr(t.date, 1, 10) BETWEEN ? AND ?`,
+      previousMonthStart,
+      previousMonthEnd,
+    );
 
     const byDate = new Map(dailyRows.map((row) => [row.day, row]));
     const days = dates.map((date) => {
@@ -242,8 +276,9 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
       name: item.category,
       amount: item.rawSpent / AMOUNT_SCALE,
     }));
-    const monthSpent = monthRows.reduce((sum, row) => sum + row.rawSpent / AMOUNT_SCALE, 0);
-    const previousMonth = (previousMonthRow?.rawSpent || 0) / AMOUNT_SCALE;
+    const liabilitySpent = liabilityRows.reduce((sum, row) => sum + row.rawSpent / AMOUNT_SCALE, 0);
+    const monthSpent = monthRows.reduce((sum, row) => sum + row.rawSpent / AMOUNT_SCALE, 0) + liabilitySpent;
+    const previousMonth = ((previousMonthRow?.rawSpent || 0) + (previousLiabilityRow?.rawSpent || 0)) / AMOUNT_SCALE;
     const daysElapsed = Math.floor((source.getTime() - cycle.start.getTime()) / 86400000) + 1;
     const daysInMonth = Math.floor((cycle.end.getTime() - cycle.start.getTime()) / 86400000) + 1;
     const projected = daysElapsed ? (monthSpent / daysElapsed) * daysInMonth : monthSpent;
@@ -253,7 +288,7 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
     const budget = savedBudget > 0 ? savedBudget : suggestedBudget;
     const remaining = budget - monthSpent;
     const daysRemaining = Math.max(1, daysInMonth - daysElapsed + 1);
-    const activeDays = new Set(monthRows.map((row) => row.day)).size;
+    const activeDays = new Set([...monthRows.map((row) => row.day), ...liabilityRows.map((row) => row.day)]).size;
     const noSpendDays = Math.max(0, daysElapsed - activeDays);
     const categoryMap = new Map<string, { name: string; amount: number; subcategories: { name: string; amount: number; share: number }[] }>();
     monthlyCategoriesRows.forEach((item) => {
@@ -262,6 +297,15 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
       category.amount += amount;
       category.subcategories.push({ name: item.subcategory, amount, share: 0 });
       categoryMap.set(item.category, category);
+    });
+    liabilityRows.forEach((item) => {
+      const amount = item.rawSpent / AMOUNT_SCALE;
+      const category = categoryMap.get('Debt commitments') || { name: 'Debt commitments', amount: 0, subcategories: [] };
+      category.amount += amount;
+      const existing = category.subcategories.find((sub) => sub.name === item.liability);
+      if (existing) existing.amount += amount;
+      else category.subcategories.push({ name: item.liability, amount, share: 0 });
+      categoryMap.set('Debt commitments', category);
     });
     const monthlyTopCategories = [...categoryMap.values()]
       .sort((a, b) => b.amount - a.amount)
@@ -287,7 +331,7 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
       sourceDate,
       syncedAt: new Date().toISOString(),
       total,
-      average: total / 4,
+      average: total / dates.length,
       transactionCount,
       topCategory: topCategories[0]?.name || 'No spending',
       topCategoryAmount: topCategories[0]?.amount || 0,

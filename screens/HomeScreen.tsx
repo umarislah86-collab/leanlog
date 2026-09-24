@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { GoogleGenAI } from '@google/genai';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -17,7 +16,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { auth, fsFetchAll, fsFetchSettings } from '../firebase';
+import { auth, fsFetchAll, fsFetchSettings, fsUpsert } from '../firebase';
 import { ActivityEntry, FoodEntry } from '../types';
 import { colors, radii, shadow } from '../theme';
 import {
@@ -28,14 +27,12 @@ import {
   setBluecoinsMonthlyBudget,
   setBluecoinsPayday,
 } from '../services/bluecoins';
-import { connectHealth, HealthSnapshot, healthIsConnected, readHealthSnapshot } from '../services/health';
+import { connectHealth, HealthSnapshot, healthIsConnected, readHealthSnapshot, readRecentHealthWorkouts } from '../services/health';
 import { AgendaEvent, calendarIsConnected, connectCalendar, readTodayAgenda } from '../services/agenda';
 import { loadInsightData, PersonalStreaks, QuickNote, WeeklyReview } from '../services/insights';
 import { refreshLeanLogWidget } from '../services/widget';
-import { GEMINI_API_KEY } from '../config';
-import { HabitCheckins, habitDateKey, habitStreak, loadTinyHabits, saveTinyHabits, setHabitStatus, TinyHabit } from '../services/habits';
-
-const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+import { runLeanLogAi } from '../services/ai';
+import { HabitCheckins, habitDateKey, habitReport, habitStreak, loadTinyHabits, saveTinyHabits, setHabitStatus, TinyHabit } from '../services/habits';
 
 const todayKey = () => new Date().toLocaleDateString('ms-MY');
 const money = (value: number) => `RM ${value.toFixed(2)}`;
@@ -80,6 +77,8 @@ export default function HomeScreen({ navigation }: any) {
   const [tinyHabits, setTinyHabits] = useState<TinyHabit[]>([]);
   const [habitCheckins, setHabitCheckins] = useState<HabitCheckins>({});
   const [showHabitCreator, setShowHabitCreator] = useState(false);
+  const [showHabitReport, setShowHabitReport] = useState(false);
+  const [editingHabit, setEditingHabit] = useState<TinyHabit | null>(null);
   const [newHabitName, setNewHabitName] = useState('');
   const [newHabitEmoji, setNewHabitEmoji] = useState('✨');
   const [newHabitDays, setNewHabitDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
@@ -148,6 +147,18 @@ export default function HomeScreen({ navigation }: any) {
       const snapshot = await readHealthSnapshot();
       setHealth(snapshot);
       await AsyncStorage.setItem('widget_health_snapshot', JSON.stringify(snapshot));
+      const workouts = await readRecentHealthWorkouts();
+      if (workouts.length) {
+        const raw = await AsyncStorage.getItem('activity_entries');
+        const existing: ActivityEntry[] = raw ? JSON.parse(raw) : [];
+        const byId = new Map(existing.map((entry) => [entry.id, entry]));
+        workouts.forEach((entry) => byId.set(entry.id, entry));
+        const merged = [...byId.values()];
+        await AsyncStorage.setItem('activity_entries', JSON.stringify(merged));
+        await Promise.all(workouts.map((entry) => fsUpsert('activityEntries', entry.id, entry)));
+        const today = todayKey();
+        setBurned(merged.filter((entry) => entry.date === today).reduce((sum, entry) => sum + entry.caloriesBurned, 0));
+      }
     } catch {}
   }, []);
 
@@ -247,8 +258,7 @@ export default function HomeScreen({ navigation }: any) {
     setAiReviewLoading(true);
     try {
       const prompt = `Anda ialah coach LeanLog. Tulis ulasan mingguan maksimum 90 patah perkataan dalam Bahasa Malaysia, nada mesra dan terus terang. Jangan beri diagnosis perubatan. Data: purata kalori ${weekly.eatenAverage}, sasaran ${goal}, hari log ${weekly.loggedDays}/7, workout ${weekly.workoutCount}, perubahan berat ${weekly.weightChange ?? 'tiada data'} kg. Pemerhatian lokal: ${weekly.observations.join(' ')}`;
-      const response = await genAI.interactions.create({ model: 'gemini-3.6-flash', input: prompt });
-      setAiReview((response.output_text || '').trim());
+      setAiReview(await runLeanLogAi('weekly_review', prompt));
     } catch {
       Alert.alert('AI review', 'Could not generate the optional AI explanation. Your offline weekly review still works.');
     } finally {
@@ -286,16 +296,34 @@ export default function HomeScreen({ navigation }: any) {
   const addTinyHabit = async () => {
     const name = newHabitName.trim();
     if (!name) return Alert.alert('Tiny Habit', 'Give this habit a short name.');
-    if (tinyHabits.length >= 5) return Alert.alert('Tiny Habit', 'Five active habits is the limit. Tiny means tiny, bro.');
     if (!newHabitDays.length) return Alert.alert('Tiny Habit', 'Choose at least one active day.');
-    const next = [...tinyHabits, { id: `habit_${Date.now()}`, name, emoji: newHabitEmoji.trim() || '✨', color: colors.mint, activeDays: [...newHabitDays].sort() }];
+    const updatedHabit = { id: editingHabit?.id || `habit_${Date.now()}`, name, emoji: newHabitEmoji.trim() || '✨', color: editingHabit?.color || colors.mint, activeDays: [...newHabitDays].sort() };
+    const next = editingHabit ? tinyHabits.map((habit) => habit.id === editingHabit.id ? updatedHabit : habit) : [...tinyHabits, updatedHabit];
     await saveTinyHabits(next);
     setTinyHabits(next);
     setNewHabitName('');
     setNewHabitEmoji('✨');
     setNewHabitDays([0, 1, 2, 3, 4, 5, 6]);
+    setEditingHabit(null);
     setShowHabitCreator(false);
   };
+
+  const openHabitCreator = (habit?: TinyHabit) => {
+    setEditingHabit(habit || null);
+    setNewHabitName(habit?.name || '');
+    setNewHabitEmoji(habit?.emoji || '✨');
+    setNewHabitDays(habit?.activeDays || [0, 1, 2, 3, 4, 5, 6]);
+    setShowHabitCreator(true);
+  };
+
+  const deleteHabit = (habit: TinyHabit) => Alert.alert('Delete habit?', `Remove “${habit.name}” and its report history?`, [
+    { text: 'Cancel', style: 'cancel' },
+    { text: 'Delete', style: 'destructive', onPress: async () => {
+      const next = tinyHabits.filter((item) => item.id !== habit.id);
+      await saveTinyHabits(next);
+      setTinyHabits(next);
+    } },
+  ]);
 
   const cycleDate = (value: string) => new Intl.DateTimeFormat('en-MY', { day: 'numeric', month: 'short' }).format(new Date(`${value}T12:00:00`));
 
@@ -364,7 +392,7 @@ export default function HomeScreen({ navigation }: any) {
             <View style={[styles.briefChip, { backgroundColor: '#DDF5E9' }]}><Text style={styles.briefChipText}>👟 {health?.steps.toLocaleString() || '—'} steps</Text></View>
             <View style={[styles.briefChip, { backgroundColor: '#EEF0FF' }]}><Text style={styles.briefChipText}>🌙 {health ? `${Math.floor(health.sleepMinutes / 60)}h ${health.sleepMinutes % 60}m` : '—'} sleep</Text></View>
             <View style={[styles.briefChip, { backgroundColor: '#E8E8FF' }]}><Text style={styles.briefChipText}>📅 {agenda.length} event{agenda.length === 1 ? '' : 's'}</Text></View>
-            <View style={[styles.briefChip, { backgroundColor: '#F6E4AC' }]}><Text style={styles.briefChipText}>💳 {bluecoins ? money(bluecoins.total) : '—'} / 4d</Text></View>
+            <View style={[styles.briefChip, { backgroundColor: '#F6E4AC' }]}><Text style={styles.briefChipText}>💳 {bluecoins ? money(bluecoins.total) : '—'} / 7d</Text></View>
             <View style={[styles.briefChip, { backgroundColor: '#FFE6DC' }]}><Text style={styles.briefChipText}>🔥 {streaks?.logging || 0}d log</Text></View>
           </View>
           <Text style={styles.briefFocus}>{notes[0] ? `Note to self: ${notes[0].text}` : (protein < Math.round(goal * 0.25 / 4) ? 'Focus: build your next meal around protein.' : 'Focus: keep the rhythm; protein is on track.')}</Text>
@@ -372,8 +400,8 @@ export default function HomeScreen({ navigation }: any) {
 
         <View style={styles.habitsCard}>
           <View style={styles.cardHeadingRow}>
-            <View><Text style={styles.habitsEyebrow}>TINY HABITS</Text><Text style={styles.habitsTitle}>Small wins, counted.</Text></View>
-            <TouchableOpacity onPress={() => setShowHabitCreator(true)}><Text style={styles.habitsMeta}>＋ ADD · {tinyHabits.length}/5</Text></TouchableOpacity>
+            <TouchableOpacity style={{ flex: 1 }} onPress={() => setShowHabitReport(true)}><Text style={styles.habitsEyebrow}>TINY HABITS · VIEW REPORT</Text><Text style={styles.habitsTitle}>Small wins, counted.</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => openHabitCreator()}><Text style={styles.habitsMeta}>＋ ADD · {tinyHabits.length}</Text></TouchableOpacity>
           </View>
           <View style={styles.habitsGrid}>
             {tinyHabits.filter((habit) => habit.activeDays.includes(new Date().getDay())).map((habit) => {
@@ -442,7 +470,7 @@ export default function HomeScreen({ navigation }: any) {
 
           <TouchableOpacity style={styles.moneyCard} onPress={bluecoinsConnected && bluecoins ? openBudgetCoach : connectBluecoins} activeOpacity={0.9}>
             <View style={styles.moneyTop}>
-              <Text style={styles.moneyEyebrow}>LAST 4 DAYS</Text>
+              <Text style={styles.moneyEyebrow}>LAST 7 DAYS</Text>
               <Ionicons name="wallet-outline" size={22} color={colors.text} />
             </View>
             {bluecoinsLoading ? (
@@ -457,7 +485,7 @@ export default function HomeScreen({ navigation }: any) {
                   {bluecoins.changePercent !== null && (
                     <View style={styles.changeBadge}>
                       <Text style={styles.changeText}>{bluecoins.changePercent > 0 ? '↑' : '↓'} {Math.abs(bluecoins.changePercent).toFixed(0)}%</Text>
-                      <Text style={styles.changeLabel}>vs previous</Text>
+                      <Text style={styles.changeLabel}>vs previous 7 days</Text>
                     </View>
                   )}
                 </View>
@@ -612,11 +640,40 @@ export default function HomeScreen({ navigation }: any) {
         </View>
       </Modal>
 
+      <Modal visible={showHabitReport} transparent animationType="slide" onRequestClose={() => setShowHabitReport(false)}>
+        <View style={styles.budgetOverlay}>
+          <View style={styles.habitReportSheet}>
+            <View style={styles.budgetHandle} />
+            <View style={styles.cardHeadingRow}>
+              <View><Text style={styles.habitModalEyebrow}>LAST 30 DAYS</Text><Text style={styles.habitReportTitle}>Your habit rhythm.</Text></View>
+              <TouchableOpacity style={styles.budgetClose} onPress={() => setShowHabitReport(false)}><Ionicons name="close" size={22} color={colors.text} /></TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
+              {tinyHabits.map((habit) => {
+                const report = habitReport(habit, habitCheckins);
+                return (
+                  <View key={habit.id} style={styles.habitReportRow}>
+                    <Text style={styles.habitReportEmoji}>{habit.emoji}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.habitReportName}>{habit.name}</Text>
+                      <Text style={styles.habitReportMeta}>🔥 {habitStreak(habit, habitCheckins)} streak · {report.done} done · {report.skipped} skipped</Text>
+                      <View style={styles.habitReportTrack}><View style={[styles.habitReportFill, { width: `${report.completion}%`, backgroundColor: habit.color }]} /></View>
+                    </View>
+                    <View style={styles.habitReportScore}><Text style={styles.habitReportPercent}>{report.completion}%</Text><TouchableOpacity onPress={() => { setShowHabitReport(false); openHabitCreator(habit); }}><Text style={styles.habitEdit}>EDIT</Text></TouchableOpacity><TouchableOpacity onPress={() => deleteHabit(habit)}><Text style={styles.habitDelete}>DELETE</Text></TouchableOpacity></View>
+                  </View>
+                );
+              })}
+              {!tinyHabits.length && <Text style={styles.habitsHint}>No habits yet. Add one small promise to yourself.</Text>}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       <Modal visible={showHabitCreator} transparent animationType="fade" onRequestClose={() => setShowHabitCreator(false)}>
         <View style={styles.habitModalOverlay}>
           <View style={styles.habitModal}>
-            <Text style={styles.habitModalEyebrow}>NEW TINY HABIT</Text>
-            <Text style={styles.habitModalTitle}>Make it almost too easy.</Text>
+            <Text style={styles.habitModalEyebrow}>{editingHabit ? 'EDIT TINY HABIT' : 'NEW TINY HABIT'}</Text>
+            <Text style={styles.habitModalTitle}>{editingHabit ? 'Keep it realistic.' : 'Make it almost too easy.'}</Text>
             <View style={styles.habitInputRow}>
               <TextInput style={styles.emojiInput} value={newHabitEmoji} onChangeText={setNewHabitEmoji} maxLength={2} />
               <TextInput style={styles.habitInput} value={newHabitName} onChangeText={setNewHabitName} placeholder="e.g. Stretch 5 min" placeholderTextColor="#8993A5" maxLength={28} />
@@ -629,8 +686,8 @@ export default function HomeScreen({ navigation }: any) {
               })}
             </View>
             <View style={styles.habitModalActions}>
-              <TouchableOpacity style={styles.habitCancel} onPress={() => setShowHabitCreator(false)}><Text style={styles.habitCancelText}>Cancel</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.habitCreate} onPress={addTinyHabit}><Text style={styles.habitCreateText}>Create habit</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.habitCancel} onPress={() => { setShowHabitCreator(false); setEditingHabit(null); }}><Text style={styles.habitCancelText}>Cancel</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.habitCreate} onPress={addTinyHabit}><Text style={styles.habitCreateText}>{editingHabit ? 'Save changes' : 'Create habit'}</Text></TouchableOpacity>
             </View>
           </View>
         </View>
@@ -720,6 +777,18 @@ const styles = StyleSheet.create({
   habitCancelText: { color: colors.muted, fontSize: 11, fontWeight: '900' },
   habitCreate: { flex: 1.4, backgroundColor: colors.mint, borderRadius: 14, padding: 13, alignItems: 'center' },
   habitCreateText: { color: colors.ink, fontSize: 11, fontWeight: '900' },
+  habitReportSheet: { maxHeight: '88%', backgroundColor: colors.paper, borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 18, paddingBottom: 12 },
+  habitReportTitle: { color: colors.text, fontFamily: 'serif', fontSize: 27, fontWeight: '800', marginTop: 4 },
+  habitReportRow: { flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: '#FFFFFF', borderRadius: 18, padding: 13, marginTop: 10, borderWidth: 1, borderColor: colors.line },
+  habitReportEmoji: { fontSize: 24 },
+  habitReportName: { color: colors.text, fontSize: 13, fontWeight: '900' },
+  habitReportMeta: { color: colors.muted, fontSize: 9, marginTop: 3 },
+  habitReportTrack: { height: 5, borderRadius: 3, backgroundColor: '#E7DFD0', overflow: 'hidden', marginTop: 7 },
+  habitReportFill: { height: '100%', borderRadius: 3 },
+  habitReportScore: { alignItems: 'flex-end', gap: 5 },
+  habitReportPercent: { color: colors.text, fontFamily: 'serif', fontSize: 18, fontWeight: '900' },
+  habitEdit: { color: colors.cornflower, fontSize: 8, fontWeight: '900', letterSpacing: 0.8 },
+  habitDelete: { color: colors.coral, fontSize: 8, fontWeight: '900', letterSpacing: 0.6 },
   healthStrip: { backgroundColor: colors.inkSoft, borderWidth: 1, borderColor: colors.inkMuted, borderRadius: radii.medium, flexDirection: 'row', paddingVertical: 17, marginTop: 14 },
   healthMetric: { flex: 1, alignItems: 'center' },
   healthValue: { color: colors.white, fontSize: 22, fontWeight: '800', marginTop: 6 },
@@ -750,7 +819,7 @@ const styles = StyleSheet.create({
   changeBadge: { alignItems: 'flex-end', backgroundColor: 'rgba(255,249,237,0.48)', paddingHorizontal: 10, paddingVertical: 7, borderRadius: 12 },
   changeText: { color: colors.text, fontSize: 13, fontWeight: '900' },
   changeLabel: { color: 'rgba(16,23,34,0.56)', fontSize: 8, marginTop: 1 },
-  dailyChart: { height: 84, flexDirection: 'row', alignItems: 'flex-end', gap: 10, marginTop: 12, paddingBottom: 17, borderBottomWidth: 1, borderBottomColor: 'rgba(16,23,34,0.16)' },
+  dailyChart: { height: 84, flexDirection: 'row', alignItems: 'flex-end', gap: 5, marginTop: 12, paddingBottom: 17, borderBottomWidth: 1, borderBottomColor: 'rgba(16,23,34,0.16)' },
   dayBarColumn: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: 68 },
   dayAmount: { color: 'rgba(16,23,34,0.62)', fontSize: 9, fontWeight: '700', marginBottom: 3 },
   dayBar: { width: '70%', maxWidth: 42, backgroundColor: colors.text, borderTopLeftRadius: 6, borderTopRightRadius: 6, opacity: 0.82 },

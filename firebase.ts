@@ -27,7 +27,7 @@ const FIREBASE_CONFIG = {
   appId: '1:34447032805:web:8c677958ccfe8f90a7ef0c',
 };
 
-const app = getApps().length === 0 ? initializeApp(FIREBASE_CONFIG) : getApps()[0];
+export const app = getApps().length === 0 ? initializeApp(FIREBASE_CONFIG) : getApps()[0];
 const db = getFirestore(app);
 
 // Initialize auth with AsyncStorage persistence so login survives app restarts

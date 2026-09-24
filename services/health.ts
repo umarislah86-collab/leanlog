@@ -5,6 +5,7 @@ import {
   readRecords,
   requestPermission,
 } from 'react-native-health-connect';
+import type { ActivityEntry } from '../types';
 
 export interface HealthSnapshot {
   steps: number;
@@ -17,7 +18,18 @@ const READ_PERMISSIONS = [
   { accessType: 'read' as const, recordType: 'Steps' as const },
   { accessType: 'read' as const, recordType: 'SleepSession' as const },
   { accessType: 'read' as const, recordType: 'HeartRate' as const },
+  { accessType: 'read' as const, recordType: 'ExerciseSession' as const },
+  { accessType: 'read' as const, recordType: 'ActiveCaloriesBurned' as const },
 ];
+
+const EXERCISE_NAMES: Record<number, string> = {
+  0: 'Workout', 8: 'Cycling', 9: 'Indoor cycling', 11: 'Boxing', 16: 'Dancing',
+  25: 'Elliptical', 26: 'Exercise class', 34: 'Gymnastics', 36: 'HIIT', 37: 'Hiking',
+  41: 'Jump rope', 48: 'Pilates', 53: 'Rowing', 54: 'Rowing machine', 56: 'Running',
+  57: 'Treadmill', 68: 'Stair climbing', 69: 'Stair machine', 70: 'Strength training',
+  71: 'Stretching', 73: 'Open-water swim', 74: 'Pool swimming', 79: 'Walking',
+  81: 'Weightlifting', 83: 'Yoga',
+};
 
 const todayRange = () => {
   const start = new Date();
@@ -101,4 +113,35 @@ export async function readHealthSnapshot(): Promise<HealthSnapshot> {
     averageBpm: Math.round(heartResult?.BPM_AVG || 0),
     sourceLabel: miFitnessOrigin ? 'Mi Fitness via Health Connect' : 'Health Connect',
   };
+}
+
+export async function readRecentHealthWorkouts(): Promise<ActivityEntry[]> {
+  if (!await initialize()) throw new Error('HEALTH_CONNECT_UNAVAILABLE');
+  const miFitnessOrigin = await findMiFitnessOrigin();
+  const dataOriginFilter = miFitnessOrigin ? [miFitnessOrigin] : undefined;
+  const [sessions, calories] = await Promise.all([
+    readRecords('ExerciseSession', { timeRangeFilter: recentRange(), dataOriginFilter }).catch(() => ({ records: [] })),
+    readRecords('ActiveCaloriesBurned', { timeRangeFilter: recentRange(), dataOriginFilter }).catch(() => ({ records: [] })),
+  ]);
+  return sessions.records.map((session: any) => {
+    const start = new Date(session.startTime);
+    const end = new Date(session.endTime);
+    const overlappingCalories = calories.records.filter((record: any) =>
+      new Date(record.startTime) < end && new Date(record.endTime) > start
+    );
+    const caloriesBurned = Math.round(overlappingCalories.reduce(
+      (sum: number, record: any) => sum + Number(record.energy?.inKilocalories || 0), 0,
+    ));
+    const origin = session.metadata?.dataOrigin || 'health-connect';
+    const recordId = session.metadata?.id || `${session.startTime}-${session.exerciseType}`;
+    return {
+      type: 'activity' as const,
+      id: `health-${origin}-${recordId}`.replace(/[^a-zA-Z0-9_-]/g, '_'),
+      name: session.title || EXERCISE_NAMES[session.exerciseType] || 'Workout',
+      duration: Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000)),
+      caloriesBurned,
+      time: start.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' }),
+      date: start.toLocaleDateString('ms-MY'),
+    };
+  });
 }

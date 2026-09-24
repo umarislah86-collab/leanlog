@@ -1,7 +1,6 @@
 import * as Linking from 'expo-linking';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { GoogleGenAI } from '@google/genai';
 import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -25,7 +24,7 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { GEMINI_API_KEY } from '../config';
+import { runLeanLogAi } from '../services/ai';
 import { fsUpsert, fsDelete, fsSetSettings, fsFetchAll, fsFetchSettings } from '../firebase';
 import { useLanguage } from '../context/LanguageContext';
 import type { FoodEntry, FoodItem, ActivityEntry, MealCategory, UserProfile, ActivityLevel } from '../types';
@@ -34,8 +33,6 @@ import { refreshLeanLogWidget } from '../services/widget';
 
 const WEIGHT_KEY = 'weight_entries';
 const PROFILE_PHOTO_KEY = 'profile_photo';
-
-const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
 const FOOD_KEY = 'calorie_entries';
 const ACTIVITY_KEY = 'activity_entries';
@@ -152,6 +149,7 @@ export default function TodayScreen() {
   const [showWeightModal, setShowWeightModal] = useState(false);
   const [newWeight, setNewWeight] = useState('70.0');
   const [newWeightDate, setNewWeightDate] = useState(new Date());
+  const [showWeightDatePicker, setShowWeightDatePicker] = useState(false);
   const [vegServings, setVegServings] = useState(0);
   const [nutritionMode, setNutritionMode] = useState<'sss' | 'standard'>('sss');
 
@@ -429,14 +427,11 @@ Balas dalam format JSON sahaja, tanpa teks lain:
   ]
 }
 Anggarkan kalori dan makro setiap item. Jumlah kalori items mesti sama dengan kalori keseluruhan.`;
-      const response = await genAI.interactions.create({
-        model: 'gemini-3.6-flash',
-        input: [
+      const output = await runLeanLogAi('food_image', [
           { type: 'image', mime_type: 'image/jpeg', data: base64 },
           { type: 'text', text: prompt },
-        ],
-      });
-      const data = parseJSON(response.output_text ?? '');
+        ]);
+      const data = parseJSON(output);
       addFoodEntry({ name: data.nama, calories: data.kalori, imageUri: uri, items: data.items ?? [], category, entryDate, entryTime });
     } catch (err) {
       Alert.alert(t('error'), err instanceof Error ? err.message : String(err));
@@ -456,14 +451,11 @@ Anggarkan kalori dan makro setiap item. Jumlah kalori items mesti sama dengan ka
         `Keluarkan maklumat aktiviti dari gambar ini.${noteText} ` +
         `Berat pengguna: ${weight} kg. ` +
         `Balas JSON: {"nama": "nama aktiviti", "tempoh": 30, "kalori_dibakar": 250}`;
-      const response = await genAI.interactions.create({
-        model: 'gemini-3.6-flash',
-        input: [
+      const output = await runLeanLogAi('activity_image', [
           { type: 'image', mime_type: 'image/jpeg', data: base64 },
           { type: 'text', text: prompt },
-        ],
-      });
-      const data = parseJSON(response.output_text ?? '');
+        ]);
+      const data = parseJSON(output);
       setActivityName(data.nama ?? '');
       setActivityDuration(String(data.tempoh ?? ''));
       setPendingActivityKcal(String(data.kalori_dibakar ?? ''));
@@ -514,11 +506,8 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
     {"nama": "item 1", "kalori": 200, "protein": 15, "karbohidrat": 20, "lemak": 8}
   ]
 }`;
-      const response = await genAI.interactions.create({
-        model: 'gemini-3.6-flash',
-        input: [{ type: 'text', text: prompt }],
-      });
-      const data = parseJSON(response.output_text ?? '');
+      const output = await runLeanLogAi('food_text', [{ type: 'text', text: prompt }]);
+      const data = parseJSON(output);
       addFoodEntry({ name: data.nama, calories: data.kalori, items: data.items ?? [], category: pendingCategory, entryDate, entryTime });
     } catch (err) {
       Alert.alert(t('error'), err instanceof Error ? err.message : String(err));
@@ -563,11 +552,8 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
     setLoading(true);
     try {
       const weight = userProfile?.weight ?? 70;
-      const response = await genAI.interactions.create({
-        model: 'gemini-3.6-flash',
-        input: [{ type: 'text', text: `Anggarkan kalori dibakar untuk aktiviti: ${name}, tempoh: ${duration} minit, berat: ${weight} kg.\nBalas JSON: {"kalori_dibakar": 200}` }],
-      });
-      const data = parseJSON(response.output_text ?? '');
+      const output = await runLeanLogAi('activity_estimate', [{ type: 'text', text: `Anggarkan kalori dibakar untuk aktiviti: ${name}, tempoh: ${duration} minit, berat: ${weight} kg.\nBalas JSON: {"kalori_dibakar": 200}` }]);
+      const data = parseJSON(output);
       const entry: ActivityEntry = {
         type: 'activity', id: Date.now().toString(), name, duration,
         caloriesBurned: data.kalori_dibakar ?? 0,
@@ -1251,6 +1237,10 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
               placeholder={t('activityNamePh')}
               placeholderTextColor="#7D8799"
             />
+            <Text style={styles.modalLabel}>DATE</Text>
+            <TouchableOpacity style={styles.pickerBtn} onPress={() => setShowWeightDatePicker(true)}>
+              <Text style={styles.pickerBtnText}>📅 {newWeightDate.toLocaleDateString('en-MY', { day: 'numeric', month: 'long', year: 'numeric' })}</Text>
+            </TouchableOpacity>
             <Text style={styles.modalLabel}>{t('duration')}</Text>
             <TextInput
               style={styles.modalInput}
@@ -1280,6 +1270,18 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
           </View>
         </View>
       </Modal>
+      {showWeightDatePicker && (
+        <DateTimePicker
+          value={newWeightDate}
+          mode="date"
+          display="calendar"
+          maximumDate={new Date()}
+          onChange={(_, date) => {
+            setShowWeightDatePicker(false);
+            if (date) setNewWeightDate(date);
+          }}
+        />
+      )}
 
       {/* ── Profile Modal ── */}
       <Modal visible={showProfileModal} transparent animationType="fade" onRequestClose={() => setShowProfileModal(false)}>

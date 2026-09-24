@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { GoogleGenAI } from '@google/genai';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { GEMINI_API_KEY } from '../config';
+import { runLeanLogAi } from '../services/ai';
 import { fsUpsert } from '../firebase';
 import { useLanguage } from '../context/LanguageContext';
 import type { GymGoal, FitnessLevel, WorkoutPlan, WorkoutDay, GymSession, UserProfile, ActivityEntry } from '../types';
@@ -23,8 +22,6 @@ import type { GymGoal, FitnessLevel, WorkoutPlan, WorkoutDay, GymSession, UserPr
 const GYM_SETUP_KEY = 'gym_setup';
 const GYM_PLAN_KEY = 'gym_plan';
 export const GYM_SESSIONS_KEY = 'gym_sessions';
-
-const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
 const EQUIPMENT_LIST = [
   { id: 'bodyweight', bm: 'Berat Badan Sendiri', en: 'Bodyweight' },
@@ -131,11 +128,8 @@ Reply with JSON only (no markdown, no explanation):
 }
 Rules: 3-4 workout days, 3-5 exercises per day, only exercises matching available equipment, bodyweight exercises use weight 0, restSeconds: 60 for isolation lifts, 90-120 for compound lifts.`;
 
-      const response = await genAI.interactions.create({
-        model: 'gemini-3.6-flash',
-        input: [{ type: 'text', text: prompt }],
-      });
-      const match = (response.output_text ?? '').match(/\{[\s\S]*\}/);
+      const output = await runLeanLogAi('workout_plan', [{ type: 'text', text: prompt }]);
+      const match = output.match(/\{[\s\S]*\}/);
       if (!match) throw new Error('Bad response');
       const data = JSON.parse(match[0]);
 
@@ -279,11 +273,8 @@ Rules: 3-4 workout days, 3-5 exercises per day, only exercises matching availabl
 Duration: ${durationMin} min. User: ${profile?.weight ?? 75}kg ${profile?.gender === 'lelaki' ? 'male' : 'female'}.
 Exercises: ${exSummary}.
 Reply with a single integer only.`;
-      const res = await genAI.interactions.create({
-        model: 'gemini-3.6-flash',
-        input: [{ type: 'text', text: prompt }],
-      });
-      const n = parseInt((res.output_text ?? '').trim());
+      const output = await runLeanLogAi('gym_calories', [{ type: 'text', text: prompt }]);
+      const n = parseInt(output.trim());
       return isNaN(n) ? 200 : n;
     } catch {
       return 200;

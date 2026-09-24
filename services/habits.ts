@@ -50,7 +50,24 @@ export async function setHabitStatus(habitId: string, status?: HabitStatus) {
 }
 
 export async function saveTinyHabits(habits: TinyHabit[]) {
-  await AsyncStorage.setItem(HABITS_KEY, JSON.stringify(habits.slice(0, 5)));
+  await AsyncStorage.setItem(HABITS_KEY, JSON.stringify(habits));
+}
+
+export function habitReport(habit: TinyHabit, checkins: HabitCheckins, days = 30) {
+  let scheduled = 0;
+  let done = 0;
+  let skipped = 0;
+  const cursor = new Date();
+  for (let offset = 0; offset < days; offset += 1) {
+    if (habit.activeDays.includes(cursor.getDay())) {
+      scheduled += 1;
+      const status = checkins[habitDateKey(cursor)]?.[habit.id];
+      if (status === 'done') done += 1;
+      if (status === 'skip') skipped += 1;
+    }
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return { scheduled, done, skipped, completion: scheduled ? Math.round((done / scheduled) * 100) : 0 };
 }
 
 export function habitStreak(habit: TinyHabit, checkins: HabitCheckins) {

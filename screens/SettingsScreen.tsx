@@ -432,9 +432,10 @@ export default function SettingsScreen() {
         <Text style={styles.sectionLabel}>HOME SCREEN</Text>
         <View style={styles.widgetCard}>
           <View style={styles.widgetPreview}>
-            <Text style={styles.widgetEyebrow}>LEANLOG · TODAY</Text>
-            <Text style={styles.widgetValue}>1,240</Text>
-            <Text style={styles.widgetSub}>kcal left · steps · next event</Text>
+            <View style={styles.widgetPreviewTop}><Text style={styles.widgetEyebrow}>LEANLOG / TODAY</Text><Text style={styles.widgetUpdated}>UPDATED 4:18 PM</Text></View>
+            <View style={styles.widgetPreviewHero}><View><Text style={styles.widgetValue}>1,240</Text><Text style={styles.widgetKcal}>KCAL LEFT</Text></View><View style={styles.widgetPercent}><Text style={styles.widgetPercentValue}>38%</Text><Text style={styles.widgetPercentSub}>760 / 2,000</Text></View></View>
+            <View style={styles.widgetPreviewTrack}><View style={styles.widgetPreviewFill} /></View>
+            <View style={styles.widgetPreviewTiles}><Text style={styles.widgetPreviewTile}>4,892 steps{`\n`}2 meals · 214 burned</Text><Text style={[styles.widgetPreviewTile, styles.widgetPreviewNext]}>NEXT UP{`\n`}Gym · 6:30 PM</Text></View>
           </View>
           <Text style={styles.widgetTitle}>Your day without opening the app.</Text>
           <Text style={styles.widgetBody}>A native Android widget for calories, steps and your next calendar event. It refreshes when LeanLog opens and every 30 minutes.</Text>
@@ -736,10 +737,21 @@ const styles = StyleSheet.create({
   reminderTimeBtn: { backgroundColor: '#26334A', borderRadius: 10, padding: 14, marginBottom: 4 },
   reminderTimeBtnText: { color: '#FF6542', fontSize: 15, fontWeight: '500' },
   widgetCard: { backgroundColor: '#FFFDF7', borderRadius: 24, padding: 17, borderWidth: 1, borderColor: '#E2D9C9' },
-  widgetPreview: { backgroundColor: '#101A2B', borderRadius: 20, padding: 16, marginBottom: 16 },
-  widgetEyebrow: { color: '#8FD6B4', fontSize: 9, fontWeight: '900', letterSpacing: 1.4 },
-  widgetValue: { color: '#FFF4DB', fontFamily: 'serif', fontSize: 31, fontWeight: '800', marginTop: 8 },
-  widgetSub: { color: '#8E9AAF', fontSize: 10, marginTop: 2 },
+  widgetPreview: { backgroundColor: '#F7EEDC', borderRadius: 20, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: '#E2D7C3' },
+  widgetPreviewTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  widgetEyebrow: { color: '#172033', fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
+  widgetUpdated: { color: '#7C756B', fontSize: 7, fontWeight: '800' },
+  widgetPreviewHero: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
+  widgetValue: { color: '#172033', fontFamily: 'serif', fontSize: 31, fontWeight: '800' },
+  widgetKcal: { color: '#FF6542', fontSize: 8, fontWeight: '900' },
+  widgetPercent: { backgroundColor: '#172033', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 7, alignItems: 'flex-end' },
+  widgetPercentValue: { color: '#91DCBB', fontSize: 17, fontWeight: '900' },
+  widgetPercentSub: { color: '#F7EEDC', fontSize: 7 },
+  widgetPreviewTrack: { height: 6, backgroundColor: '#DED5C6', borderRadius: 3, marginTop: 9, overflow: 'hidden' },
+  widgetPreviewFill: { width: '38%', height: '100%', backgroundColor: '#FF6542', borderRadius: 3 },
+  widgetPreviewTiles: { flexDirection: 'row', gap: 7, marginTop: 9 },
+  widgetPreviewTile: { flex: 1, backgroundColor: '#EEE3CF', borderRadius: 11, color: '#172033', fontSize: 8, fontWeight: '800', lineHeight: 13, padding: 8 },
+  widgetPreviewNext: { backgroundColor: '#D9D8FF', color: '#525190' },
   widgetTitle: { color: '#101A2B', fontFamily: 'serif', fontSize: 21, fontWeight: '800' },
   widgetBody: { color: '#737A84', fontSize: 12, lineHeight: 18, marginTop: 7 },
   widgetButton: { backgroundColor: '#8FD6B4', borderRadius: 16, padding: 14, alignItems: 'center', marginTop: 15 },

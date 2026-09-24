@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { GoogleGenAI } from '@google/genai';
 import React, { useCallback, useState } from 'react';
 import { fsUpsert, fsDelete, fsFetchAll, fsMirrorPhotoFetchAll, fsMirrorPhotoUpsert, fsMirrorPhotoDelete } from '../firebase';
 import * as ImagePicker from 'expo-image-picker';
@@ -18,7 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { GEMINI_API_KEY } from '../config';
+import { runLeanLogAi } from '../services/ai';
 import { useLanguage } from '../context/LanguageContext';
 import type { FoodEntry, ActivityEntry, WeightEntry, UserProfile, GymSession } from '../types';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -27,8 +26,6 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import WeightAreaChart from '../components/WeightAreaChart';
-
-const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
 const FOOD_KEY = 'calorie_entries';
 const ACTIVITY_KEY = 'activity_entries';
@@ -696,11 +693,11 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
 2. Trend berat badan (naik/turun/stabil?)
 3. 2-3 cadangan praktikal${mirrorPromptLine}`;
 
-      const response = await genAI.interactions.create({
-        model: 'gemini-3.6-flash',
-        input: [...mirrorInput, { type: 'text', text: prompt }] as any,
-      });
-      setFeedbackText((response.output_text ?? '').trim());
+      const output = await runLeanLogAi(
+        'progress_review',
+        [...mirrorInput, { type: 'text', text: prompt }] as any,
+      );
+      setFeedbackText(output);
     } catch (err) {
       setFeedbackText('Ralat: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
@@ -1403,22 +1400,22 @@ const styles = StyleSheet.create({
   dayCalories: { fontSize: 18, fontWeight: 'bold' },
   dayBarBg: { height: 6, backgroundColor: '#26334A', borderRadius: 3, overflow: 'hidden', marginBottom: 10 },
   dayBarFill: { height: 6, borderRadius: 3 },
-  calendarCard: { backgroundColor: '#FFFDF7', borderRadius: 24, padding: 18, marginBottom: 18, borderWidth: 1, borderColor: '#E2D9C9' },
+  calendarCard: { backgroundColor: '#FFFDF7', borderRadius: 24, paddingHorizontal: 12, paddingTop: 16, paddingBottom: 14, marginBottom: 18, borderWidth: 1, borderColor: '#E2D9C9', overflow: 'hidden' },
   calMonthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   calNavBtn: { padding: 8 },
   calNavTxt: { color: '#FF6542', fontSize: 24, fontWeight: '600', lineHeight: 26 },
   calMonthTitle: { color: '#101A2B', fontSize: 16, fontWeight: '900' },
-  calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  calHeaderCell: { width: '14.285714%' as any, alignItems: 'center', paddingBottom: 8 },
-  calHeaderTxt: { color: '#7D8799', fontSize: 11, fontWeight: '600' },
-  calCell: { width: '14.285714%' as any, alignItems: 'center', paddingVertical: 4, minHeight: 44 },
-  calCellSelected: { backgroundColor: 'rgba(76,175,80,0.12)', borderRadius: 8 },
+  calGrid: { flexDirection: 'row', flexWrap: 'wrap', width: '100%' },
+  calHeaderCell: { width: '14.285714%' as any, alignItems: 'center', justifyContent: 'center', height: 28 },
+  calHeaderTxt: { color: '#68717E', fontSize: 9, fontWeight: '800' },
+  calCell: { width: '14.285714%' as any, aspectRatio: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 2 },
+  calCellSelected: { backgroundColor: '#101A2B', borderRadius: 13 },
   calDayNum: { color: '#263247', fontSize: 13, fontWeight: '600' },
   calDayNumToday: { color: '#FF6542', fontWeight: '800' },
   calDayNumSelected: { color: '#FFFDF7', fontWeight: '700' },
   calDots: { flexDirection: 'row', gap: 2, marginTop: 3, justifyContent: 'center' },
   calDot: { width: 5, height: 5, borderRadius: 3 },
-  calLegend: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#26334A' },
+  calLegend: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', columnGap: 13, rowGap: 7, marginTop: 12, paddingTop: 10, paddingHorizontal: 4, borderTopWidth: 1, borderTopColor: '#E2D9C9' },
   calLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   calLegendTxt: { color: '#8D97A8', fontSize: 11 },
   dayMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
