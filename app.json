@@ -1,0 +1,90 @@
+{
+  "expo": {
+    "name": "LeanLog",
+    "slug": "umarcoc93",
+    "version": "2.2.1",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F7F0E1"
+    },
+    "android": {
+      "package": "com.calorietracker.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F7F0E1"
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_SLEEP",
+        "android.permission.health.READ_HEART_RATE"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "App ini perlukan akses galeri untuk analisa makanan.",
+          "cameraPermission": "App ini perlukan akses kamera untuk ambil gambar makanan."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#FF6542",
+          "androidMode": "default"
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-sharing",
+      "expo-sqlite",
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "LeanLogDaily",
+              "label": "LeanLog Daily",
+              "description": "Calories, steps and your next event at a glance.",
+              "minWidth": "250dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Allow LeanLog to show today's agenda from your calendar."
+        }
+      ],
+      "react-native-health-connect",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "minSdkVersion": 26
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "086aadb6-658c-47ee-a472-e9d76ac3c7be"
+      }
+    },
+    "owner": "umiaqs-team"
+  }
+}

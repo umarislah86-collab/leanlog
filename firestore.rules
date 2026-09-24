@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // User-owned app data. License is deliberately excluded below.
+    match /users/{userId}/{collectionName}/{documentId} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId
+        && collectionName != 'license';
+    }
+
+    match /users/{userId}/license/{documentId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null
+        && request.auth.uid == 'ox2PqHc5vONJUZCEqsb9nhFJp6w1';
+    }
+
+    // Device license — owners may initialise their device, but cannot grant
+    // themselves paid access. Paid status must match their UID license document.
+    match /devices/{deviceId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.paid == false
+        && !request.resource.data.keys().hasAny(['paidUntil']);
+      allow update: if request.auth != null && (
+        request.auth.uid == 'ox2PqHc5vONJUZCEqsb9nhFJp6w1'
+        || (
+          resource.data.uid == request.auth.uid
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.paidUntil == get(/databases/$(database)/documents/users/$(request.auth.uid)/license/main).data.paidUntil
+        )
+      );
+    }
+  }
+}
