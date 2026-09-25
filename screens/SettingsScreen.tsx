@@ -435,10 +435,10 @@ export default function SettingsScreen() {
             <View style={styles.widgetPreviewTop}><Text style={styles.widgetEyebrow}>LEANLOG / TODAY</Text><Text style={styles.widgetUpdated}>UPDATED 4:18 PM</Text></View>
             <View style={styles.widgetPreviewHero}><View><Text style={styles.widgetValue}>1,240</Text><Text style={styles.widgetKcal}>KCAL LEFT</Text></View><View style={styles.widgetPercent}><Text style={styles.widgetPercentValue}>38%</Text><Text style={styles.widgetPercentSub}>760 / 2,000</Text></View></View>
             <View style={styles.widgetPreviewTrack}><View style={styles.widgetPreviewFill} /></View>
-            <View style={styles.widgetPreviewTiles}><Text style={styles.widgetPreviewTile}>4,892 steps{`\n`}2 meals · 214 burned</Text><Text style={[styles.widgetPreviewTile, styles.widgetPreviewNext]}>NEXT UP{`\n`}Gym · 6:30 PM</Text></View>
+            <View style={styles.widgetPreviewTiles}><Text style={styles.widgetPreviewTile}>4,892 steps · 2 meals{`\n`}TRUE CASH −RM 681</Text><Text style={[styles.widgetPreviewTile, styles.widgetPreviewGuard]}>📌 CIMB PLATINUM{`\n`}RM 1,686 / 1,400 · 120%</Text></View>
           </View>
           <Text style={styles.widgetTitle}>Your day without opening the app.</Text>
-          <Text style={styles.widgetBody}>A native Android widget for calories, steps and your next calendar event. It refreshes when LeanLog opens and every 30 minutes.</Text>
+          <Text style={styles.widgetBody}>Calories, movement and your top-priority Spending Guard without opening LeanLog. Pin any account, category or subcategory from Budget Coach.</Text>
           <TouchableOpacity style={styles.widgetButton} onPress={addHomeWidget}>
             <Text style={styles.widgetButtonText}>＋ Add LeanLog widget</Text>
           </TouchableOpacity>
@@ -752,6 +752,7 @@ const styles = StyleSheet.create({
   widgetPreviewTiles: { flexDirection: 'row', gap: 7, marginTop: 9 },
   widgetPreviewTile: { flex: 1, backgroundColor: '#EEE3CF', borderRadius: 11, color: '#172033', fontSize: 8, fontWeight: '800', lineHeight: 13, padding: 8 },
   widgetPreviewNext: { backgroundColor: '#D9D8FF', color: '#525190' },
+  widgetPreviewGuard: { backgroundColor: '#FFD8CF', color: '#A93424' },
   widgetTitle: { color: '#101A2B', fontFamily: 'serif', fontSize: 21, fontWeight: '800' },
   widgetBody: { color: '#737A84', fontSize: 12, lineHeight: 18, marginTop: 7 },
   widgetButton: { backgroundColor: '#8FD6B4', borderRadius: 16, padding: 14, alignItems: 'center', marginTop: 15 },

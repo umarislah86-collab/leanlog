@@ -1,12 +1,21 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as SQLite from 'expo-sqlite';
+import {
+  ensureDefaultCreditCardGuard,
+  SpendingGuard,
+  SpendingGuardResult,
+  WIDGET_CASH_REALITY_KEY,
+} from './spendingGuards';
 
 const FOLDER_KEY = 'bluecoins_folder_uri_v1';
 const CACHE_NAME = 'bluecoins-dashboard-cache.fydb';
 const AMOUNT_SCALE = 1_000_000;
 const MONTHLY_BUDGET_KEY = 'bluecoins_monthly_budget_v1';
 const PAYDAY_KEY = 'bluecoins_payday_v1';
+const CASH_ACCOUNTS_KEY = 'bluecoins_cash_reality_accounts_v1';
+const CASH_ACCOUNTS_INITIALISED_KEY = 'bluecoins_cash_reality_accounts_initialised_v1';
+const SAFETY_BUFFER_KEY = 'bluecoins_cash_reality_buffer_v1';
 
 export interface BluecoinsDay {
   date: string;
@@ -27,6 +36,22 @@ export interface BluecoinsSummary {
   previousTotal: number;
   changePercent: number | null;
   days: BluecoinsDay[];
+  guardOptions: {
+    accounts: string[];
+    categories: string[];
+    subcategories: string[];
+  };
+  spendingGuards: SpendingGuardResult[];
+  cashReality: {
+    liquidBalance: number;
+    cardOutstanding: number;
+    safetyBuffer: number;
+    trueSpendable: number;
+    coveragePercent: number;
+    selectedAccounts: string[];
+    cashAccounts: { name: string; balance: number; selected: boolean }[];
+    creditCards: { name: string; outstanding: number; creditLimit: number; cutOffDay: number; dueDay: number }[];
+  };
   monthly: {
     spent: number;
     budget: number;
@@ -71,6 +96,13 @@ const dateWindow = (endDate: string) => {
 export const getBluecoinsFolder = () => AsyncStorage.getItem(FOLDER_KEY);
 export const setBluecoinsMonthlyBudget = (budget: number) => AsyncStorage.setItem(MONTHLY_BUDGET_KEY, String(Math.max(0, budget)));
 export const setBluecoinsPayday = (day: number) => AsyncStorage.setItem(PAYDAY_KEY, String(Math.max(1, Math.min(28, Math.round(day)))));
+export async function setCashRealityAccounts(accounts: string[]) {
+  await Promise.all([
+    AsyncStorage.setItem(CASH_ACCOUNTS_KEY, JSON.stringify([...new Set(accounts)])),
+    AsyncStorage.setItem(CASH_ACCOUNTS_INITIALISED_KEY, 'true'),
+  ]);
+}
+export const setCashRealitySafetyBuffer = (amount: number) => AsyncStorage.setItem(SAFETY_BUFFER_KEY, String(Math.max(0, amount)));
 
 const localIso = (date: Date) => {
   const year = date.getFullYear();
@@ -88,6 +120,20 @@ const salaryCycle = (source: Date, payday: number) => {
   const previousEnd = new Date(start);
   previousEnd.setDate(previousEnd.getDate() - 1);
   return { start, end, previousStart, previousEnd };
+};
+
+const calendarCycle = (source: Date) => {
+  const start = new Date(source.getFullYear(), source.getMonth(), 1, 12);
+  const end = new Date(source.getFullYear(), source.getMonth() + 1, 0, 12);
+  return { start, end };
+};
+
+const guardLevel = (percent: number): SpendingGuardResult['level'] => {
+  if (percent >= 100) return 'breached';
+  if (percent >= 85) return 'danger';
+  if (percent >= 70) return 'slow-down';
+  if (percent >= 50) return 'heads-up';
+  return 'safe';
 };
 
 export async function disconnectBluecoins() {
@@ -186,6 +232,69 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
     const cycleEnd = localIso(cycle.end);
     const previousMonthStart = localIso(cycle.previousStart);
     const previousMonthEnd = localIso(cycle.previousEnd);
+    const accountOptions = await db.getAllAsync<{ name: string }>(
+      `SELECT accountName AS name FROM ACCOUNTSTABLE
+       WHERE accountsTableID > 0 AND accountName NOT LIKE '(No Account)'
+       ORDER BY accountName`,
+    );
+    const categoryOptions = await db.getAllAsync<{ category: string; subcategory: string }>(
+      `SELECT DISTINCT COALESCE(pc.parentCategoryName, cc.childCategoryName, 'Uncategorised') AS category,
+              COALESCE(cc.childCategoryName, pc.parentCategoryName, 'Uncategorised') AS subcategory
+       FROM CHILDCATEGORYTABLE cc
+       LEFT JOIN PARENTCATEGORYTABLE pc ON pc.parentCategoryTableID = cc.parentCategoryID
+       ORDER BY category, subcategory`,
+    );
+    const accountBalances = await db.getAllAsync<{
+      name: string; accountType: number; balanceRaw: number; creditLimitRaw: number; cutOffDay: number; dueDay: number;
+    }>(
+      `SELECT a.accountName AS name, a.accountTypeID AS accountType,
+              COALESCE(SUM(CASE WHEN t.deletedTransaction = 6 AND t.reminderTransaction IS NULL THEN t.amount ELSE 0 END), 0) AS balanceRaw,
+              COALESCE(a.creditLimit, 0) AS creditLimitRaw,
+              COALESCE(a.cutOffDa, 0) AS cutOffDay,
+              COALESCE(a.creditCardDueDate, 0) AS dueDay
+       FROM ACCOUNTSTABLE a
+       LEFT JOIN TRANSACTIONSTABLE t ON t.accountID = a.accountsTableID
+       WHERE a.accountsTableID > 0
+       GROUP BY a.accountsTableID
+       ORDER BY a.accountName`,
+    );
+    const cashCandidates = accountBalances.filter((account) => [3, 4].includes(account.accountType));
+    const accountsInitialised = (await AsyncStorage.getItem(CASH_ACCOUNTS_INITIALISED_KEY)) === 'true';
+    const savedAccountsRaw = await AsyncStorage.getItem(CASH_ACCOUNTS_KEY);
+    let selectedAccounts: string[] = savedAccountsRaw ? JSON.parse(savedAccountsRaw) : [];
+    if (!accountsInitialised) {
+      const preferred = ['cimb', 'maybank', 'rhb', 'aeon'];
+      selectedAccounts = cashCandidates.filter((account) => preferred.includes(account.name.toLowerCase())).map((account) => account.name);
+      if (!selectedAccounts.length) selectedAccounts = cashCandidates.map((account) => account.name);
+      await setCashRealityAccounts(selectedAccounts);
+    }
+    const cashAccounts = cashCandidates.map((account) => ({
+      name: account.name,
+      balance: account.balanceRaw / AMOUNT_SCALE,
+      selected: selectedAccounts.includes(account.name),
+    }));
+    const creditCards = accountBalances.filter((account) => account.accountType === 8).map((account) => ({
+      name: account.name,
+      outstanding: Math.max(0, -account.balanceRaw / AMOUNT_SCALE),
+      creditLimit: account.creditLimitRaw / AMOUNT_SCALE,
+      cutOffDay: account.cutOffDay,
+      dueDay: account.dueDay,
+    }));
+    const liquidBalance = cashAccounts.filter((account) => account.selected).reduce((sum, account) => sum + account.balance, 0);
+    const cardOutstanding = creditCards.reduce((sum, card) => sum + card.outstanding, 0);
+    const safetyBuffer = Math.max(0, Number(await AsyncStorage.getItem(SAFETY_BUFFER_KEY)) || 0);
+    const trueSpendable = liquidBalance - cardOutstanding - safetyBuffer;
+    const cashReality = {
+      liquidBalance,
+      cardOutstanding,
+      safetyBuffer,
+      trueSpendable,
+      coveragePercent: cardOutstanding > 0 ? (liquidBalance / cardOutstanding) * 100 : 100,
+      selectedAccounts,
+      cashAccounts,
+      creditCards,
+    };
+    await AsyncStorage.setItem(WIDGET_CASH_REALITY_KEY, JSON.stringify({ ...cashReality, sourceDate }));
     const monthRows = await db.getAllAsync<{ day: string; rawSpent: number; tx: number }>(
       `SELECT substr(t.date, 1, 10) AS day,
               COALESCE(SUM(ABS(t.amount)), 0) AS rawSpent,
@@ -318,6 +427,8 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
           .map((sub) => ({ ...sub, share: category.amount > 0 ? (sub.amount / category.amount) * 100 : 0 })),
       }));
     const alerts: string[] = [];
+    if (cashReality.trueSpendable < 0) alerts.push(`Cash illusion alert: selected banks are RM ${Math.abs(cashReality.trueSpendable).toFixed(0)} short after reserving unpaid card debt${cashReality.safetyBuffer > 0 ? ' and your safety buffer' : ''}.`);
+    else if (cashReality.cardOutstanding > 0) alerts.push(`After reserving RM ${cashReality.cardOutstanding.toFixed(0)} for unpaid cards, your true spendable cash is RM ${cashReality.trueSpendable.toFixed(0)}.`);
     if (projected > budget) alerts.push(`At this pace, spending may exceed budget by RM ${(projected - budget).toFixed(0)}.`);
     else alerts.push(`Current pace is RM ${(budget - projected).toFixed(0)} below the monthly budget.`);
     if (monthlyTopCategories[0]?.share >= 40) alerts.push(`${monthlyTopCategories[0].name} makes up ${monthlyTopCategories[0].share.toFixed(0)}% of this salary cycle's spending.`);
@@ -325,6 +436,67 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
       const paceVsPrevious = ((projected - previousMonth) / previousMonth) * 100;
       alerts.push(`Projected month-end is ${Math.abs(paceVsPrevious).toFixed(0)}% ${paceVsPrevious > 0 ? 'higher' : 'lower'} than last month.`);
     }
+
+    const guardConfigs = await ensureDefaultCreditCardGuard(accountOptions.map((item) => item.name));
+    const evaluateGuard = async (guard: SpendingGuard): Promise<SpendingGuardResult> => {
+      const selectedCycle = guard.cycle === 'calendar' ? calendarCycle(source) : cycle;
+      const guardStart = localIso(selectedCycle.start);
+      const guardEnd = localIso(selectedCycle.end);
+      const elapsedEnd = sourceDate < guardEnd ? sourceDate : guardEnd;
+      const filter = guard.scope === 'account'
+        ? 'a.accountName = ?'
+        : guard.scope === 'category'
+          ? `COALESCE(pc.parentCategoryName, cc.childCategoryName, 'Uncategorised') = ?`
+          : `COALESCE(cc.childCategoryName, pc.parentCategoryName, 'Uncategorised') = ?`;
+      const joins = `LEFT JOIN ACCOUNTSTABLE a ON a.accountsTableID = t.accountID
+        LEFT JOIN CHILDCATEGORYTABLE cc ON cc.categoryTableID = t.categoryID
+        LEFT JOIN PARENTCATEGORYTABLE pc ON pc.parentCategoryTableID = cc.parentCategoryID`;
+      const rows = await db.getAllAsync<{ date: string; rawAmount: number; category: string; subcategory: string; note: string }>(
+        `SELECT substr(t.date, 1, 10) AS date, ABS(t.amount) AS rawAmount,
+                COALESCE(pc.parentCategoryName, cc.childCategoryName, 'Uncategorised') AS category,
+                COALESCE(cc.childCategoryName, pc.parentCategoryName, 'Uncategorised') AS subcategory,
+                COALESCE(t.notes, '') AS note
+         FROM TRANSACTIONSTABLE t ${joins}
+         WHERE t.deletedTransaction = 6 AND t.transactionTypeID = 3
+           AND t.reminderTransaction IS NULL AND substr(t.date, 1, 10) BETWEEN ? AND ?
+           AND ${filter}
+         ORDER BY t.date DESC`,
+        guardStart,
+        elapsedEnd,
+        guard.target,
+      );
+      const spent = rows.reduce((sum, row) => sum + row.rawAmount / AMOUNT_SCALE, 0);
+      const breakdownMap = new Map<string, number>();
+      rows.forEach((row) => {
+        const key = guard.scope === 'account' ? row.subcategory : row.category;
+        breakdownMap.set(key, (breakdownMap.get(key) || 0) + row.rawAmount / AMOUNT_SCALE);
+      });
+      const elapsed = Math.max(1, Math.floor((source.getTime() - selectedCycle.start.getTime()) / 86400000) + 1);
+      const cycleDays = Math.max(1, Math.floor((selectedCycle.end.getTime() - selectedCycle.start.getTime()) / 86400000) + 1);
+      const percent = guard.limit > 0 ? (spent / guard.limit) * 100 : 0;
+      return {
+        ...guard,
+        spent,
+        remaining: guard.limit - spent,
+        percent,
+        projected: (spent / elapsed) * cycleDays,
+        level: guardLevel(percent),
+        cycleStart: guardStart,
+        cycleEnd: guardEnd,
+        transactions: rows.slice(0, 8).map((row) => ({
+          date: row.date,
+          amount: row.rawAmount / AMOUNT_SCALE,
+          category: row.category,
+          subcategory: row.subcategory,
+          note: row.note,
+        })),
+        breakdown: [...breakdownMap.entries()]
+          .map(([name, amount]) => ({ name, amount, share: spent > 0 ? (amount / spent) * 100 : 0 }))
+          .sort((a, b) => b.amount - a.amount)
+          .slice(0, 6),
+      };
+    };
+    const spendingGuards = await Promise.all(guardConfigs.map(evaluateGuard));
 
     return {
       sourceName,
@@ -339,6 +511,13 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
       previousTotal,
       changePercent: previousTotal > 0 ? ((total - previousTotal) / previousTotal) * 100 : null,
       days,
+      guardOptions: {
+        accounts: accountOptions.map((item) => item.name),
+        categories: [...new Set(categoryOptions.map((item) => item.category))],
+        subcategories: [...new Set(categoryOptions.map((item) => item.subcategory))],
+      },
+      spendingGuards,
+      cashReality,
       monthly: {
         spent: monthSpent,
         budget,

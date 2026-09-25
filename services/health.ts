@@ -123,7 +123,7 @@ export async function readRecentHealthWorkouts(): Promise<ActivityEntry[]> {
     readRecords('ExerciseSession', { timeRangeFilter: recentRange(), dataOriginFilter }).catch(() => ({ records: [] })),
     readRecords('ActiveCaloriesBurned', { timeRangeFilter: recentRange(), dataOriginFilter }).catch(() => ({ records: [] })),
   ]);
-  return sessions.records.map((session: any) => {
+  return [...sessions.records].sort((a: any, b: any) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()).map((session: any) => {
     const start = new Date(session.startTime);
     const end = new Date(session.endTime);
     const overlappingCalories = calories.records.filter((record: any) =>

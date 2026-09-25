@@ -1,14 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { ActivityEntry, FoodEntry } from '../types';
 import type { LeanLogWidgetProps } from './LeanLogWidget';
+import { WIDGET_CASH_REALITY_KEY, WIDGET_GUARD_KEY, WidgetGuardSnapshot } from '../services/spendingGuards';
 
 export async function getWidgetData(): Promise<LeanLogWidgetProps> {
-  const [foodRaw, activityRaw, goalRaw, healthRaw, agendaRaw] = await Promise.all([
+  const [foodRaw, activityRaw, goalRaw, healthRaw, agendaRaw, guardRaw, cashRealityRaw] = await Promise.all([
     AsyncStorage.getItem('calorie_entries'),
     AsyncStorage.getItem('activity_entries'),
     AsyncStorage.getItem('calorie_goal'),
     AsyncStorage.getItem('widget_health_snapshot'),
     AsyncStorage.getItem('widget_agenda_snapshot'),
+    AsyncStorage.getItem(WIDGET_GUARD_KEY),
+    AsyncStorage.getItem(WIDGET_CASH_REALITY_KEY),
   ]);
   const food: FoodEntry[] = foodRaw ? JSON.parse(foodRaw) : [];
   const activities: ActivityEntry[] = activityRaw ? JSON.parse(activityRaw) : [];
@@ -18,6 +21,8 @@ export async function getWidgetData(): Promise<LeanLogWidgetProps> {
   const burned = activities.filter((entry) => entry.date === today).reduce((sum, entry) => sum + entry.caloriesBurned, 0);
   const health = healthRaw ? JSON.parse(healthRaw) : { steps: 0 };
   const agenda = agendaRaw ? JSON.parse(agendaRaw) : [];
+  const pinnedGuard: WidgetGuardSnapshot | null = guardRaw ? JSON.parse(guardRaw) : null;
+  const cashReality = cashRealityRaw ? JSON.parse(cashRealityRaw) : null;
   return {
     eaten,
     burned,
@@ -25,6 +30,8 @@ export async function getWidgetData(): Promise<LeanLogWidgetProps> {
     goal: Number(goalRaw) || 2000,
     steps: Number(health.steps) || 0,
     nextEvent: agenda[0]?.title || '',
+    pinnedGuard,
+    cashReality,
     updated: new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' }),
   };
 }

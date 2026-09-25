@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { Picker } from '@react-native-picker/picker';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
@@ -16,14 +17,16 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { auth, fsFetchAll, fsFetchSettings, fsUpsert } from '../firebase';
-import { ActivityEntry, FoodEntry } from '../types';
+import { auth, fsDelete, fsFetchAll, fsFetchSettings, fsUpsert } from '../firebase';
+import { ActivityEntry, FoodEntry, GymSession } from '../types';
 import { colors, radii, shadow } from '../theme';
 import {
   BluecoinsSummary,
   chooseBluecoinsFolder,
   getBluecoinsFolder,
   refreshBluecoinsSummary,
+  setCashRealityAccounts,
+  setCashRealitySafetyBuffer,
   setBluecoinsMonthlyBudget,
   setBluecoinsPayday,
 } from '../services/bluecoins';
@@ -33,9 +36,22 @@ import { loadInsightData, PersonalStreaks, QuickNote, WeeklyReview } from '../se
 import { refreshLeanLogWidget } from '../services/widget';
 import { runLeanLogAi } from '../services/ai';
 import { HabitCheckins, habitDateKey, habitReport, habitStreak, loadTinyHabits, saveTinyHabits, setHabitStatus, TinyHabit } from '../services/habits';
+import {
+  GuardCycle,
+  GuardScope,
+  GuardTone,
+  notifySpendingGuardChanges,
+  notifyCashRealityRisk,
+  pinSpendingGuard,
+  requestSpendingGuardNotifications,
+  saveSpendingGuards,
+  SpendingGuard,
+  syncPinnedGuardSnapshot,
+} from '../services/spendingGuards';
 
 const todayKey = () => new Date().toLocaleDateString('ms-MY');
 const money = (value: number) => `RM ${value.toFixed(2)}`;
+type HealthSyncStatus = { syncedAt: string; detected: number; imported: number; latest: ActivityEntry | null };
 
 const greeting = () => {
   const hour = new Date().getHours();
@@ -58,7 +74,18 @@ export default function HomeScreen({ navigation }: any) {
   const [showBudgetCoach, setShowBudgetCoach] = useState(false);
   const [budgetInput, setBudgetInput] = useState('');
   const [paydayInput, setPaydayInput] = useState('25');
+  const [safetyBufferInput, setSafetyBufferInput] = useState('0');
   const [expandedBudgetCategory, setExpandedBudgetCategory] = useState<string | null>(null);
+  const [selectedGuardId, setSelectedGuardId] = useState<string | null>(null);
+  const [pinnedGuardId, setPinnedGuardId] = useState<string | null>(null);
+  const [showGuardEditor, setShowGuardEditor] = useState(false);
+  const [editingGuardId, setEditingGuardId] = useState<string | null>(null);
+  const [guardName, setGuardName] = useState('');
+  const [guardScope, setGuardScope] = useState<GuardScope>('account');
+  const [guardTarget, setGuardTarget] = useState('');
+  const [guardLimit, setGuardLimit] = useState('');
+  const [guardCycle, setGuardCycle] = useState<GuardCycle>('salary');
+  const [guardTone, setGuardTone] = useState<GuardTone>('karen');
   const [consumed, setConsumed] = useState(0);
   const [burned, setBurned] = useState(0);
   const [protein, setProtein] = useState(0);
@@ -66,6 +93,7 @@ export default function HomeScreen({ navigation }: any) {
   const [healthConnected, setHealthConnected] = useState(false);
   const [healthLoading, setHealthLoading] = useState(false);
   const [health, setHealth] = useState<HealthSnapshot | null>(null);
+  const [healthSync, setHealthSync] = useState<HealthSyncStatus | null>(null);
   const [calendarConnected, setCalendarConnected] = useState(false);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [agenda, setAgenda] = useState<AgendaEvent[]>([]);
@@ -129,7 +157,13 @@ export default function HomeScreen({ navigation }: any) {
     if (!folder) return;
     if (!quiet) setBluecoinsLoading(true);
     try {
-      setBluecoins(await refreshBluecoinsSummary(folder));
+      const summary = await refreshBluecoinsSummary(folder);
+      setBluecoins(summary);
+      await notifySpendingGuardChanges(summary.spendingGuards);
+      await notifyCashRealityRisk(summary.cashReality, summary.sourceDate);
+      const pinned = await syncPinnedGuardSnapshot(summary.spendingGuards, summary.sourceDate);
+      setPinnedGuardId(pinned);
+      await refreshLeanLogWidget();
     } catch (error: any) {
       if (!quiet) Alert.alert('Bluecoins', error?.message === 'NO_BLUECOINS_BACKUP'
         ? 'No .fydb backup was found in that folder.'
@@ -139,27 +173,77 @@ export default function HomeScreen({ navigation }: any) {
     }
   }, []);
 
-  const loadHealth = useCallback(async () => {
+  const loadHealth = useCallback(async (showResult = false) => {
+    if (showResult) setHealthLoading(true);
     const connected = await healthIsConnected();
     setHealthConnected(connected);
-    if (!connected) return;
+    if (!connected) {
+      if (showResult) Alert.alert('Health Connect', 'Connect Health Connect first so LeanLog can read Mi Fitness workouts.');
+      setHealthLoading(false);
+      return;
+    }
     try {
       const snapshot = await readHealthSnapshot();
       setHealth(snapshot);
       await AsyncStorage.setItem('widget_health_snapshot', JSON.stringify(snapshot));
       const workouts = await readRecentHealthWorkouts();
+      const raw = await AsyncStorage.getItem('activity_entries');
+      const existing: ActivityEntry[] = raw ? JSON.parse(raw) : [];
+      const existingIds = new Set(existing.map((entry) => entry.id));
+      const gymRaw = await AsyncStorage.getItem('gym_sessions');
+      const gymSessions: GymSession[] = gymRaw ? JSON.parse(gymRaw) : [];
+      const mergedActivities = new Map(existing.map((entry) => [entry.id, entry]));
+      let imported = 0;
+      let mergedWithCoach = 0;
+      const matchedGymIds = new Set<string>();
       if (workouts.length) {
-        const raw = await AsyncStorage.getItem('activity_entries');
-        const existing: ActivityEntry[] = raw ? JSON.parse(raw) : [];
-        const byId = new Map(existing.map((entry) => [entry.id, entry]));
-        workouts.forEach((entry) => byId.set(entry.id, entry));
-        const merged = [...byId.values()];
+        workouts.forEach((entry) => {
+          const isGymLike = /strength|weight|gym|workout|resistance/i.test(entry.name);
+          const gym = isGymLike ? gymSessions.find((session) => !matchedGymIds.has(session.id) && session.date === entry.date && Math.abs(session.durationMin - entry.duration) <= 20) : undefined;
+          if (gym) {
+            matchedGymIds.add(gym.id);
+            const activityId = gym.activityEntryId || entry.id;
+            const linked: ActivityEntry = { ...entry, id: activityId, name: `💪 ${gym.planDayLabel}` };
+            if (entry.id !== activityId) {
+              mergedActivities.delete(entry.id);
+              fsDelete('activityEntries', entry.id).catch(() => {});
+            }
+            mergedActivities.set(activityId, linked);
+            gym.activityEntryId = activityId;
+            gym.source = 'health-merged';
+            gym.caloriesBurned = entry.caloriesBurned;
+            mergedWithCoach += 1;
+            return;
+          }
+          if (!existingIds.has(entry.id)) imported += 1;
+          mergedActivities.set(entry.id, entry);
+        });
+        const merged = [...mergedActivities.values()];
         await AsyncStorage.setItem('activity_entries', JSON.stringify(merged));
-        await Promise.all(workouts.map((entry) => fsUpsert('activityEntries', entry.id, entry)));
+        await AsyncStorage.setItem('gym_sessions', JSON.stringify(gymSessions));
+        await Promise.all(merged.filter((entry) => workouts.some((workout) => workout.id === entry.id) || entry.name.startsWith('💪')).map((entry) => fsUpsert('activityEntries', entry.id, entry)));
+        await Promise.all(gymSessions.filter((session) => session.source === 'health-merged').map((session) => fsUpsert('gymSessions', session.id, session)));
         const today = todayKey();
         setBurned(merged.filter((entry) => entry.date === today).reduce((sum, entry) => sum + entry.caloriesBurned, 0));
       }
-    } catch {}
+      const status: HealthSyncStatus = { syncedAt: new Date().toISOString(), detected: workouts.length, imported, latest: workouts[0] || null };
+      setHealthSync(status);
+      await AsyncStorage.setItem('health_workout_sync_status_v1', JSON.stringify(status));
+      await refreshLeanLogWidget();
+      if (showResult) Alert.alert(
+        'Health synced ✓',
+        imported > 0
+          ? `${imported} new workout${imported === 1 ? '' : 's'} imported. ${workouts.length - imported} existing workout${workouts.length - imported === 1 ? '' : 's'} already up to date.`
+          + (mergedWithCoach ? ` ${mergedWithCoach} matched with Coach session${mergedWithCoach === 1 ? '' : 's'}—no double count.` : '')
+          : workouts.length > 0
+            ? `No standalone workouts to add. ${workouts.length} recent workout${workouts.length === 1 ? '' : 's'} checked.${mergedWithCoach ? ` ${mergedWithCoach} matched with Coach—no double count.` : ' Everything is up to date.'}`
+            : 'No workouts were found in Health Connect for the last 7 days.',
+      );
+    } catch (error: any) {
+      if (showResult) Alert.alert('Health sync failed', error?.message || 'LeanLog could not read workouts from Health Connect.');
+    } finally {
+      if (showResult) setHealthLoading(false);
+    }
   }, []);
 
   const loadAgenda = useCallback(async () => {
@@ -208,7 +292,7 @@ export default function HomeScreen({ navigation }: any) {
     try {
       const connected = await connectHealth();
       setHealthConnected(connected);
-      if (connected) setHealth(await readHealthSnapshot());
+      if (connected) await loadHealth(true);
     } catch (error: any) {
       Alert.alert('Health Connect', error?.message === 'HEALTH_CONNECT_UNAVAILABLE'
         ? 'Health Connect is not available on this device.'
@@ -270,6 +354,7 @@ export default function HomeScreen({ navigation }: any) {
     if (!bluecoins) return;
     setBudgetInput(bluecoins.monthly.budget.toFixed(0));
     setPaydayInput(String(bluecoins.monthly.payday));
+    setSafetyBufferInput(String(bluecoins.cashReality.safetyBuffer));
     setExpandedBudgetCategory(null);
     setShowBudgetCoach(true);
   };
@@ -308,6 +393,8 @@ export default function HomeScreen({ navigation }: any) {
     setShowHabitCreator(false);
   };
 
+  const manualHealthSync = () => loadHealth(true);
+
   const openHabitCreator = (habit?: TinyHabit) => {
     setEditingHabit(habit || null);
     setNewHabitName(habit?.name || '');
@@ -338,11 +425,106 @@ export default function HomeScreen({ navigation }: any) {
     setShowBudgetCoach(false);
   };
 
+  const toggleCashAccount = async (name: string) => {
+    if (!bluecoins) return;
+    const selected = bluecoins.cashReality.selectedAccounts.includes(name)
+      ? bluecoins.cashReality.selectedAccounts.filter((account) => account !== name)
+      : [...bluecoins.cashReality.selectedAccounts, name];
+    if (!selected.length) return Alert.alert('Cash Reality', 'Keep at least one spendable bank account selected.');
+    await setCashRealityAccounts(selected);
+    await loadBluecoins(false);
+  };
+
+  const saveSafetyBuffer = async () => {
+    const amount = Number(safetyBufferInput);
+    if (!Number.isFinite(amount) || amount < 0) return Alert.alert('Safety buffer', 'Enter RM 0 or a positive amount.');
+    await setCashRealitySafetyBuffer(amount);
+    await loadBluecoins(false);
+  };
+
+  const guardTargets = bluecoins ? (
+    guardScope === 'account' ? bluecoins.guardOptions.accounts
+      : guardScope === 'category' ? bluecoins.guardOptions.categories
+        : bluecoins.guardOptions.subcategories
+  ) : [];
+
+  const openGuardEditor = (guard?: SpendingGuard) => {
+    const scope = guard?.scope || 'account';
+    const options = bluecoins ? (scope === 'account' ? bluecoins.guardOptions.accounts : scope === 'category' ? bluecoins.guardOptions.categories : bluecoins.guardOptions.subcategories) : [];
+    setEditingGuardId(guard?.id || null);
+    setGuardName(guard?.name || '');
+    setGuardScope(scope);
+    setGuardTarget(guard?.target || options[0] || '');
+    setGuardLimit(guard ? String(guard.limit) : '');
+    setGuardCycle(guard?.cycle || 'salary');
+    setGuardTone(guard?.tone || 'karen');
+    setShowGuardEditor(true);
+  };
+
+  const changeGuardScope = (scope: GuardScope) => {
+    setGuardScope(scope);
+    const options = bluecoins ? (scope === 'account' ? bluecoins.guardOptions.accounts : scope === 'category' ? bluecoins.guardOptions.categories : bluecoins.guardOptions.subcategories) : [];
+    setGuardTarget(options[0] || '');
+  };
+
+  const saveGuard = async () => {
+    if (!bluecoins || !guardTarget || !Number.isFinite(Number(guardLimit)) || Number(guardLimit) <= 0) {
+      Alert.alert('Spending Guard', 'Choose what to watch and enter a valid limit.');
+      return;
+    }
+    const guard: SpendingGuard = {
+      id: editingGuardId || `guard_${Date.now()}`,
+      name: guardName.trim() || guardTarget,
+      scope: guardScope,
+      target: guardTarget,
+      limit: Number(guardLimit),
+      cycle: guardCycle,
+      thresholds: [50, 70, 85, 100],
+      tone: guardTone,
+      enabled: true,
+    };
+    const next = editingGuardId
+      ? bluecoins.spendingGuards.map((item) => item.id === editingGuardId ? guard : item)
+      : [...bluecoins.spendingGuards, guard];
+    await saveSpendingGuards(next);
+    await requestSpendingGuardNotifications();
+    setShowGuardEditor(false);
+    await loadBluecoins(false);
+  };
+
+  const toggleGuard = async (guard: SpendingGuard) => {
+    if (!bluecoins) return;
+    await saveSpendingGuards(bluecoins.spendingGuards.map((item) => item.id === guard.id ? { ...item, enabled: !item.enabled } : item));
+    setSelectedGuardId(null);
+    await loadBluecoins(false);
+  };
+
+  const makeGuardTopPriority = async (guard: SpendingGuard) => {
+    await pinSpendingGuard(guard.id);
+    setPinnedGuardId(guard.id);
+    if (bluecoins) await syncPinnedGuardSnapshot(bluecoins.spendingGuards, bluecoins.sourceDate);
+    await refreshLeanLogWidget();
+    Alert.alert('Top priority set', `${guard.name} will stay visible on your Android widget.`);
+  };
+
+  const deleteGuard = (guard: SpendingGuard) => Alert.alert('Remove Spending Guard?', `Stop watching “${guard.name}”?`, [
+    { text: 'Cancel', style: 'cancel' },
+    { text: 'Remove', style: 'destructive', onPress: async () => {
+      if (!bluecoins) return;
+      await saveSpendingGuards(bluecoins.spendingGuards.filter((item) => item.id !== guard.id));
+      setSelectedGuardId(null);
+      await loadBluecoins(false);
+    } },
+  ]);
+
   const remaining = goal - consumed;
   const progress = Math.max(0, Math.min(1, consumed / Math.max(goal, 1)));
   const dateLabel = useMemo(() => new Intl.DateTimeFormat('en-MY', {
     weekday: 'short', day: '2-digit', month: 'short',
   }).format(new Date()).toUpperCase(), []);
+  const primaryGuard = bluecoins?.spendingGuards.find((guard) => guard.enabled);
+  const selectedGuard = bluecoins?.spendingGuards.find((guard) => guard.id === selectedGuardId);
+  const backupAgeDays = bluecoins ? Math.max(0, Math.floor((Date.now() - new Date(`${bluecoins.sourceDate}T23:59:59`).getTime()) / 86400000)) : 0;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -433,11 +615,30 @@ export default function HomeScreen({ navigation }: any) {
           <View style={styles.healthRule} />
           <HealthMetric icon="heart-outline" value={health?.averageBpm ? String(health.averageBpm) : '—'} label="bpm" color={colors.coral} />
         </View>
-        <TouchableOpacity style={styles.connectHealth} onPress={healthConnected ? loadHealth : handleConnectHealth} disabled={healthLoading}>
+        {healthConnected && (
+          <View style={styles.healthSyncCard}>
+            <View style={styles.healthSyncHeader}>
+              <View style={styles.healthSyncStatusDot} />
+              <Text style={styles.healthSyncEyebrow}>HEALTH CONNECT · {health?.sourceLabel || 'CONNECTED'}</Text>
+              <Text style={styles.healthSyncTime}>{healthSync ? new Intl.DateTimeFormat('en-MY', { hour: '2-digit', minute: '2-digit' }).format(new Date(healthSync.syncedAt)) : '—'}</Text>
+            </View>
+            {healthSync?.latest ? (
+              <View style={styles.healthWorkoutRow}>
+                <View style={styles.healthWorkoutIcon}><Ionicons name="barbell-outline" size={19} color={colors.cornflower} /></View>
+                <View style={{ flex: 1 }}><Text style={styles.healthWorkoutName}>{healthSync.latest.name}</Text><Text style={styles.healthWorkoutMeta}>{healthSync.latest.date} · {healthSync.latest.duration} min · {healthSync.latest.caloriesBurned} kcal</Text></View>
+                <View style={styles.healthImportedBadge}><Text style={styles.healthImportedText}>{healthSync.imported ? `+${healthSync.imported} NEW` : 'UP TO DATE'}</Text></View>
+              </View>
+            ) : (
+              <Text style={styles.healthNoWorkout}>No workout detected in the last 7 days.</Text>
+            )}
+            <Text style={styles.healthDetected}>{healthSync?.detected || 0} recent workout{healthSync?.detected === 1 ? '' : 's'} found · imported activities appear in Log</Text>
+          </View>
+        )}
+        <TouchableOpacity style={styles.connectHealth} onPress={healthConnected ? manualHealthSync : handleConnectHealth} disabled={healthLoading}>
           {healthLoading
             ? <ActivityIndicator size="small" color={colors.mint} />
             : <Ionicons name={healthConnected ? 'refresh-circle-outline' : 'add-circle-outline'} size={17} color={colors.mint} />}
-          <Text style={styles.connectHealthText}>{healthConnected ? (health?.sourceLabel || 'Refresh Health Connect') : 'Connect Mi Fitness via Health Connect'}</Text>
+          <Text style={styles.connectHealthText}>{healthConnected ? 'Sync workouts now' : 'Connect Mi Fitness via Health Connect'}</Text>
         </TouchableOpacity>
 
         <View style={styles.sectionRow}>
@@ -519,12 +720,53 @@ export default function HomeScreen({ navigation }: any) {
               </>
             )}
           </TouchableOpacity>
+
+          {bluecoins && (
+            <TouchableOpacity style={[styles.realityCard, bluecoins.cashReality.trueSpendable < 0 && styles.realityCardDanger]} onPress={openBudgetCoach} activeOpacity={0.88}>
+              <View style={styles.realityTopRow}>
+                <View><Text style={styles.realityEyebrow}>CASH REALITY</Text><Text style={styles.realityTitle}>What is actually yours.</Text></View>
+                <Ionicons name="eye-outline" size={22} color={colors.mint} />
+              </View>
+              <Text style={[styles.realityValue, bluecoins.cashReality.trueSpendable < 0 && { color: colors.coral }]}>{money(bluecoins.cashReality.trueSpendable)}</Text>
+              <Text style={styles.realityValueLabel}>TRUE SPENDABLE</Text>
+              <View style={styles.realityEquation}>
+                <View style={styles.realityEquationItem}><Text style={styles.realityEquationValue}>{money(bluecoins.cashReality.liquidBalance)}</Text><Text style={styles.realityEquationLabel}>selected banks</Text></View>
+                <Text style={styles.realityOperator}>−</Text>
+                <View style={styles.realityEquationItem}><Text style={[styles.realityEquationValue, { color: colors.coral }]}>{money(bluecoins.cashReality.cardOutstanding)}</Text><Text style={styles.realityEquationLabel}>card reserved</Text></View>
+                {bluecoins.cashReality.safetyBuffer > 0 && <><Text style={styles.realityOperator}>−</Text><View style={styles.realityEquationItem}><Text style={styles.realityEquationValue}>{money(bluecoins.cashReality.safetyBuffer)}</Text><Text style={styles.realityEquationLabel}>safety buffer</Text></View></>}
+              </View>
+              <Text style={styles.realityCoach}>{bluecoins.cashReality.trueSpendable < 0 ? `Bank balance nampak ada, tapi card debt belum fully covered.` : `${bluecoins.cashReality.coveragePercent.toFixed(0)}% card-debt coverage · repayments won't be double-counted.`}</Text>
+            </TouchableOpacity>
+          )}
+
+          {primaryGuard && (
+            <TouchableOpacity style={[styles.guardCard, primaryGuard.level === 'breached' && styles.guardCardBreached]} onPress={() => setSelectedGuardId(primaryGuard.id)} activeOpacity={0.88}>
+              <View style={styles.guardTopRow}>
+                <View>
+                  <Text style={styles.guardEyebrow}>SPENDING GUARD · {primaryGuard.level.replace('-', ' ').toUpperCase()}</Text>
+                  <Text style={styles.guardTitle}>{primaryGuard.name}</Text>
+                </View>
+                <View style={[styles.guardPercentBadge, primaryGuard.level === 'breached' && styles.guardPercentBadgeDanger]}>
+                  <Text style={styles.guardPercent}>{primaryGuard.percent.toFixed(0)}%</Text>
+                </View>
+              </View>
+              <View style={styles.guardAmountRow}>
+                <Text style={styles.guardSpent}>{money(primaryGuard.spent)}</Text>
+                <Text style={styles.guardLimit}> / {money(primaryGuard.limit)}</Text>
+              </View>
+              <View style={styles.guardTrack}><View style={[styles.guardFill, { width: `${Math.min(100, primaryGuard.percent)}%` }, primaryGuard.percent >= 85 && styles.guardFillDanger]} /></View>
+              <View style={styles.guardFooter}>
+                <Text style={styles.guardRemaining}>{primaryGuard.remaining >= 0 ? `${money(primaryGuard.remaining)} left` : `${money(Math.abs(primaryGuard.remaining))} over limit`}</Text>
+                <Text style={styles.guardCycle}>{primaryGuard.cycle === 'salary' ? 'SALARY CYCLE' : 'CALENDAR MONTH'} · VIEW DETAILS →</Text>
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
 
         {bluecoins && (
           <View style={styles.syncRow}>
             <Ionicons name="checkmark-circle" size={16} color={colors.mint} />
-            <Text style={styles.syncText}>Bluecoins · {bluecoins.sourceName} · tap card for Budget Coach</Text>
+            <Text style={[styles.syncText, backupAgeDays > 0 && { color: colors.coral }]}>Bluecoins · {bluecoins.sourceName} · {backupAgeDays > 0 ? `data is ${backupAgeDays}d old` : 'latest backup loaded'}</Text>
           </View>
         )}
 
@@ -591,6 +833,35 @@ export default function HomeScreen({ navigation }: any) {
                   <BudgetStat value={String(bluecoins.monthly.noSpendDays)} label="no-spend days" />
                 </View>
 
+                <Text style={styles.budgetSectionTitle}>CASH REALITY · BANK MINUS CARD DEBT</Text>
+                <View style={[styles.realityPanel, bluecoins.cashReality.trueSpendable < 0 && styles.realityPanelDanger]}>
+                  <Text style={styles.realityPanelLabel}>TRUE SPENDABLE NOW</Text>
+                  <Text style={[styles.realityPanelValue, bluecoins.cashReality.trueSpendable < 0 && { color: colors.coral }]}>{money(bluecoins.cashReality.trueSpendable)}</Text>
+                  <Text style={styles.realityPanelFormula}>{money(bluecoins.cashReality.liquidBalance)} selected cash − {money(bluecoins.cashReality.cardOutstanding)} unpaid cards{bluecoins.cashReality.safetyBuffer > 0 ? ` − ${money(bluecoins.cashReality.safetyBuffer)} buffer` : ''}</Text>
+                  {bluecoins.cashReality.creditCards.map((card) => (
+                    <View key={card.name} style={styles.realityCardDebtRow}>
+                      <View style={{ flex: 1 }}><Text style={styles.realityDebtName}>💳 {card.name}</Text><Text style={styles.realityDebtMeta}>Cutoff day {card.cutOffDay || '—'} · due day {card.dueDay || '—'}</Text></View>
+                      <Text style={styles.realityDebtAmount}>{money(card.outstanding)} owed</Text>
+                    </View>
+                  ))}
+                </View>
+                <Text style={styles.realityPickerHint}>WHICH BALANCES COUNT AS SPENDABLE CASH?</Text>
+                <View style={styles.realityAccountWrap}>
+                  {bluecoins.cashReality.cashAccounts.map((account) => (
+                    <TouchableOpacity key={account.name} style={[styles.realityAccountChip, account.selected && styles.realityAccountChipActive]} onPress={() => toggleCashAccount(account.name)}>
+                      <Ionicons name={account.selected ? 'checkmark-circle' : 'ellipse-outline'} size={14} color={account.selected ? colors.ink : colors.muted} />
+                      <Text style={[styles.realityAccountText, account.selected && styles.realityAccountTextActive]}>{account.name} · {money(account.balance)}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <Text style={styles.realityPickerHint}>SAFETY BUFFER</Text>
+                <View style={styles.budgetEditRow}>
+                  <Text style={styles.currencyPrefix}>RM</Text>
+                  <TextInput style={styles.budgetInput} value={safetyBufferInput} onChangeText={setSafetyBufferInput} keyboardType="decimal-pad" />
+                  <TouchableOpacity style={styles.budgetSave} onPress={saveSafetyBuffer}><Text style={styles.budgetSaveText}>Reserve</Text></TouchableOpacity>
+                </View>
+                <Text style={styles.suggestedHint}>Card purchases reduce true spendable immediately. Paying the card later is settlement—not a second expense.</Text>
+
                 <Text style={styles.budgetSectionTitle}>COACH NOTES</Text>
                 {bluecoins.monthly.alerts.map((alert, index) => (
                   <View key={alert} style={styles.coachNote}><View style={[styles.coachDot, { backgroundColor: [colors.coral, colors.mustard, colors.mint][index % 3] }]} /><Text style={styles.coachNoteText}>{alert}</Text></View>
@@ -618,6 +889,18 @@ export default function HomeScreen({ navigation }: any) {
                   </View>
                 ))}
 
+                <View style={styles.guardSectionHeader}>
+                  <Text style={[styles.budgetSectionTitle, { marginBottom: 0 }]}>SPENDING GUARDS</Text>
+                  <TouchableOpacity style={styles.guardAddButton} onPress={() => openGuardEditor()}><Ionicons name="add" size={16} color={colors.ink} /><Text style={styles.guardAddText}>NEW GUARD</Text></TouchableOpacity>
+                </View>
+                {bluecoins.spendingGuards.length ? bluecoins.spendingGuards.map((guard) => (
+                  <TouchableOpacity key={guard.id} style={styles.guardListRow} onPress={() => setSelectedGuardId(guard.id)} onLongPress={() => openGuardEditor(guard)} activeOpacity={0.75}>
+                    <View style={[styles.guardStatusDot, { backgroundColor: !guard.enabled ? '#AAA' : guard.percent >= 100 ? colors.coral : guard.percent >= 70 ? colors.mustard : colors.mint }]} />
+                    <View style={{ flex: 1 }}><View style={styles.guardListTitleRow}><Text style={styles.guardListName}>{guard.name}</Text>{pinnedGuardId === guard.id && <View style={styles.pinnedPill}><Ionicons name="pin" size={9} color={colors.ink} /><Text style={styles.pinnedPillText}>WIDGET</Text></View>}</View><Text style={styles.guardListMeta}>{guard.scope} · {guard.cycle} · long-press to edit</Text></View>
+                    <View style={{ alignItems: 'flex-end' }}><Text style={styles.guardListAmount}>{guard.enabled ? money(guard.spent) : 'PAUSED'}</Text><Text style={styles.guardListPercent}>{guard.percent.toFixed(0)}% of {money(guard.limit)}</Text></View>
+                  </TouchableOpacity>
+                )) : <Text style={styles.guardEmpty}>No guards yet. Add one for an account or category you want LeanLog to watch.</Text>}
+
                 <Text style={styles.budgetSectionTitle}>SALARY CYCLE</Text>
                 <View style={styles.paydayRow}>
                   <View style={{ flex: 1 }}><Text style={styles.paydayTitle}>DXC payday</Text><Text style={styles.paydayHint}>Cycle runs payday → day before next payday</Text></View>
@@ -637,6 +920,77 @@ export default function HomeScreen({ navigation }: any) {
               </ScrollView>
             )}
           </View>
+        </View>
+      </Modal>
+
+      <Modal visible={!!selectedGuard} transparent animationType="slide" onRequestClose={() => setSelectedGuardId(null)}>
+        <View style={styles.budgetOverlay}>
+          <View style={styles.guardDetailSheet}>
+            <View style={styles.budgetHandle} />
+            {selectedGuard && (
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 28 }}>
+                <View style={styles.budgetHeader}>
+                  <View><Text style={styles.budgetEyebrow}>SPENDING GUARD</Text><Text style={styles.budgetTitle}>{selectedGuard.name}</Text></View>
+                  <TouchableOpacity style={styles.budgetClose} onPress={() => setSelectedGuardId(null)}><Ionicons name="close" size={22} color={colors.text} /></TouchableOpacity>
+                </View>
+                <View style={[styles.guardDetailHero, selectedGuard.level === 'breached' && styles.guardDetailHeroDanger]}>
+                  <Text style={styles.guardDetailStatus}>{selectedGuard.level.replace('-', ' ').toUpperCase()}</Text>
+                  <Text style={styles.guardDetailValue}>{money(selectedGuard.spent)}</Text>
+                  <Text style={styles.guardDetailLimit}>of {money(selectedGuard.limit)} · {selectedGuard.percent.toFixed(0)}%</Text>
+                  <View style={styles.guardDarkTrack}><View style={[styles.guardFill, { width: `${Math.min(100, selectedGuard.percent)}%` }, selectedGuard.percent >= 85 && styles.guardFillDanger]} /></View>
+                  <Text style={styles.guardDetailMessage}>{selectedGuard.remaining >= 0 ? `${money(selectedGuard.remaining)} still available` : `${money(Math.abs(selectedGuard.remaining))} beyond your limit`}</Text>
+                </View>
+                <View style={styles.budgetStats}>
+                  <BudgetStat value={money(selectedGuard.projected)} label="projected cycle total" />
+                  <BudgetStat value={cycleDate(selectedGuard.cycleEnd)} label="cycle ends" />
+                  <BudgetStat value={String(selectedGuard.transactions.length)} label="recent charges shown" />
+                </View>
+                <Text style={styles.budgetSectionTitle}>WHERE IT WENT</Text>
+                {selectedGuard.breakdown.map((item, index) => (
+                  <View key={item.name} style={styles.guardBreakdownRow}>
+                    <Text style={styles.budgetCategoryRank}>{String(index + 1).padStart(2, '0')}</Text>
+                    <View style={{ flex: 1 }}><Text style={styles.guardBreakdownName}>{item.name}</Text><View style={styles.categoryTrack}><View style={[styles.categoryFill, { width: `${item.share}%` }]} /></View></View>
+                    <Text style={styles.guardBreakdownAmount}>{money(item.amount)}</Text>
+                  </View>
+                ))}
+                <Text style={styles.budgetSectionTitle}>LATEST CHARGES</Text>
+                {selectedGuard.transactions.map((tx, index) => (
+                  <View key={`${tx.date}-${tx.amount}-${index}`} style={styles.guardTransaction}>
+                    <View style={{ flex: 1 }}><Text style={styles.guardTransactionName}>{tx.subcategory}</Text><Text style={styles.guardTransactionMeta}>{cycleDate(tx.date)} · {tx.category}{tx.note ? ` · ${tx.note}` : ''}</Text></View>
+                    <Text style={styles.guardTransactionAmount}>{money(tx.amount)}</Text>
+                  </View>
+                ))}
+                <Text style={styles.guardFreshness}>Based on {bluecoins?.sourceName}. Refresh follows the newest Bluecoins backup—not live card activity.</Text>
+                <View style={styles.guardDetailActions}>
+                  <TouchableOpacity style={styles.guardEditButton} onPress={() => { setSelectedGuardId(null); openGuardEditor(selectedGuard); }}><Text style={styles.guardEditText}>EDIT GUARD</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.guardPinButton, pinnedGuardId === selectedGuard.id && styles.guardPinButtonActive]} onPress={() => makeGuardTopPriority(selectedGuard)}><Ionicons name="pin" size={17} color={pinnedGuardId === selectedGuard.id ? colors.ink : colors.oat} /></TouchableOpacity>
+                  <TouchableOpacity style={styles.guardPauseButton} onPress={() => toggleGuard(selectedGuard)}><Ionicons name={selectedGuard.enabled ? 'pause' : 'play'} size={17} color={colors.text} /></TouchableOpacity>
+                  <TouchableOpacity style={styles.guardDeleteButton} onPress={() => deleteGuard(selectedGuard)}><Ionicons name="trash-outline" size={18} color={colors.coral} /></TouchableOpacity>
+                </View>
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showGuardEditor} transparent animationType="fade" onRequestClose={() => setShowGuardEditor(false)}>
+        <View style={styles.habitModalOverlay}>
+          <ScrollView style={styles.guardEditor} contentContainerStyle={styles.guardEditorContent} showsVerticalScrollIndicator={false}>
+            <View style={styles.cardHeadingRow}><View><Text style={styles.habitModalEyebrow}>SPENDING GUARD</Text><Text style={styles.habitModalTitle}>{editingGuardId ? 'Edit your limit.' : 'Watch the leak.'}</Text></View><TouchableOpacity style={styles.budgetClose} onPress={() => setShowGuardEditor(false)}><Ionicons name="close" size={21} color={colors.text} /></TouchableOpacity></View>
+            <Text style={styles.guardFieldLabel}>WATCH</Text>
+            <View style={styles.guardChoiceRow}>{(['account', 'category', 'subcategory'] as GuardScope[]).map((scope) => <TouchableOpacity key={scope} style={[styles.guardChoice, guardScope === scope && styles.guardChoiceActive]} onPress={() => changeGuardScope(scope)}><Text style={[styles.guardChoiceText, guardScope === scope && styles.guardChoiceTextActive]}>{scope.toUpperCase()}</Text></TouchableOpacity>)}</View>
+            <View style={styles.guardPickerWrap}><Picker selectedValue={guardTarget} onValueChange={(value) => setGuardTarget(String(value))} style={styles.guardPicker}>{guardTargets.map((target) => <Picker.Item key={target} label={target} value={target} />)}</Picker></View>
+            <Text style={styles.guardFieldLabel}>DISPLAY NAME · OPTIONAL</Text>
+            <TextInput style={styles.guardTextInput} value={guardName} onChangeText={setGuardName} placeholder={guardTarget || 'My guard'} placeholderTextColor="#8B8B8B" />
+            <Text style={styles.guardFieldLabel}>LIMIT</Text>
+            <View style={styles.budgetEditRow}><Text style={styles.currencyPrefix}>RM</Text><TextInput style={styles.budgetInput} value={guardLimit} onChangeText={setGuardLimit} keyboardType="decimal-pad" placeholder="1400" placeholderTextColor="#8B8B8B" /></View>
+            <Text style={styles.guardFieldLabel}>RESET CYCLE</Text>
+            <View style={styles.guardChoiceRow}>{(['salary', 'calendar'] as GuardCycle[]).map((cycle) => <TouchableOpacity key={cycle} style={[styles.guardChoice, guardCycle === cycle && styles.guardChoiceActive]} onPress={() => setGuardCycle(cycle)}><Text style={[styles.guardChoiceText, guardCycle === cycle && styles.guardChoiceTextActive]}>{cycle === 'salary' ? 'PAYDAY → PAYDAY' : 'CALENDAR MONTH'}</Text></TouchableOpacity>)}</View>
+            <Text style={styles.guardFieldLabel}>COACH TONE</Text>
+            <View style={styles.guardChoiceRow}>{(['normal', 'firm', 'karen'] as GuardTone[]).map((tone) => <TouchableOpacity key={tone} style={[styles.guardChoice, guardTone === tone && styles.guardChoiceActive]} onPress={() => setGuardTone(tone)}><Text style={[styles.guardChoiceText, guardTone === tone && styles.guardChoiceTextActive]}>{tone.toUpperCase()}</Text></TouchableOpacity>)}</View>
+            <Text style={styles.guardThresholdHint}>Alerts fire once at 50%, 70%, 85% and 100%, then every additional RM100 over limit.</Text>
+            <TouchableOpacity style={styles.guardSaveButton} onPress={saveGuard}><Text style={styles.guardSaveText}>SAVE SPENDING GUARD</Text></TouchableOpacity>
+          </ScrollView>
         </View>
       </Modal>
 
@@ -796,6 +1150,19 @@ const styles = StyleSheet.create({
   healthRule: { width: 1, backgroundColor: colors.inkMuted, marginVertical: 3 },
   connectHealth: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 10 },
   connectHealthText: { color: colors.mint, fontSize: 12, fontWeight: '700' },
+  healthSyncCard: { backgroundColor: '#17243A', borderRadius: 17, borderWidth: 1, borderColor: '#2B3C58', padding: 12, marginTop: 9 },
+  healthSyncHeader: { flexDirection: 'row', alignItems: 'center' },
+  healthSyncStatusDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.mint, marginRight: 6 },
+  healthSyncEyebrow: { flex: 1, color: '#94A1B4', fontSize: 7, fontWeight: '900', letterSpacing: 0.8 },
+  healthSyncTime: { color: colors.mint, fontSize: 8, fontWeight: '800' },
+  healthWorkoutRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 10 },
+  healthWorkoutIcon: { width: 38, height: 38, borderRadius: 13, backgroundColor: '#242E50', alignItems: 'center', justifyContent: 'center' },
+  healthWorkoutName: { color: colors.white, fontSize: 12, fontWeight: '900' },
+  healthWorkoutMeta: { color: '#8996A9', fontSize: 8, marginTop: 3 },
+  healthImportedBadge: { backgroundColor: 'rgba(147,220,184,0.15)', borderRadius: 9, paddingHorizontal: 7, paddingVertical: 5 },
+  healthImportedText: { color: colors.mint, fontSize: 7, fontWeight: '900' },
+  healthNoWorkout: { color: '#9AA7BA', fontSize: 10, paddingVertical: 12 },
+  healthDetected: { color: '#718096', fontSize: 8, marginTop: 8 },
   sectionRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 10, marginBottom: 11 },
   sectionTitle: { color: colors.oat, fontFamily: 'serif', fontSize: 24, fontWeight: '700' },
   sectionHint: { color: '#748096', fontSize: 11 },
@@ -897,4 +1264,99 @@ const styles = StyleSheet.create({
   suggestedHint: { color: colors.muted, fontSize: 9, lineHeight: 13, marginTop: 6 },
   refreshBudget: { flexDirection: 'row', gap: 7, alignItems: 'center', alignSelf: 'center', padding: 13, marginTop: 8 },
   refreshBudgetText: { color: colors.cornflower, fontSize: 11, fontWeight: '800' },
+  realityCard: { backgroundColor: '#15243A', borderRadius: radii.medium, padding: 17, borderWidth: 1, borderColor: '#29405E' },
+  realityCardDanger: { borderColor: colors.coral, borderWidth: 2 },
+  realityTopRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  realityEyebrow: { color: colors.mint, fontSize: 9, fontWeight: '900', letterSpacing: 1.3 },
+  realityTitle: { color: '#9AA8BA', fontSize: 10, marginTop: 3 },
+  realityValue: { color: colors.white, fontFamily: 'serif', fontSize: 38, fontWeight: '800', marginTop: 13 },
+  realityValueLabel: { color: colors.mint, fontSize: 8, fontWeight: '900', letterSpacing: 1.3 },
+  realityEquation: { flexDirection: 'row', alignItems: 'center', marginTop: 15, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14, padding: 10 },
+  realityEquationItem: { flex: 1 },
+  realityEquationValue: { color: colors.oat, fontSize: 11, fontWeight: '900' },
+  realityEquationLabel: { color: '#7E8AA0', fontSize: 7, marginTop: 2 },
+  realityOperator: { color: '#6F7E93', fontSize: 17, marginHorizontal: 5 },
+  realityCoach: { color: '#9AA8BA', fontSize: 9, lineHeight: 14, marginTop: 10 },
+  realityPanel: { backgroundColor: colors.ink, borderRadius: 21, padding: 16, borderWidth: 1, borderColor: colors.inkMuted },
+  realityPanelDanger: { borderColor: colors.coral },
+  realityPanelLabel: { color: colors.mint, fontSize: 8, fontWeight: '900', letterSpacing: 1.2 },
+  realityPanelValue: { color: colors.oat, fontFamily: 'serif', fontSize: 34, fontWeight: '800', marginTop: 5 },
+  realityPanelFormula: { color: '#93A0B3', fontSize: 9, lineHeight: 14, marginTop: 3, marginBottom: 10 },
+  realityCardDebtRow: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.inkMuted, paddingTop: 9, marginTop: 7 },
+  realityDebtName: { color: colors.white, fontSize: 11, fontWeight: '800' },
+  realityDebtMeta: { color: '#7E8AA0', fontSize: 7, marginTop: 2 },
+  realityDebtAmount: { color: colors.coral, fontSize: 11, fontWeight: '900' },
+  realityPickerHint: { color: colors.muted, fontSize: 8, fontWeight: '900', letterSpacing: 1.1, marginTop: 12, marginBottom: 7 },
+  realityAccountWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  realityAccountChip: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderColor: '#D7CDBC', borderRadius: 12, paddingHorizontal: 9, paddingVertical: 8, backgroundColor: '#FFFFFF' },
+  realityAccountChipActive: { backgroundColor: colors.mint, borderColor: colors.mint },
+  realityAccountText: { color: colors.muted, fontSize: 9, fontWeight: '800' },
+  realityAccountTextActive: { color: colors.ink },
+  guardCard: { backgroundColor: colors.inkSoft, borderRadius: radii.medium, padding: 17, borderWidth: 1, borderColor: colors.inkMuted },
+  guardCardBreached: { borderColor: colors.coral, borderWidth: 2 },
+  guardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  guardEyebrow: { color: colors.mint, fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
+  guardTitle: { color: colors.oat, fontFamily: 'serif', fontSize: 22, fontWeight: '800', marginTop: 5 },
+  guardPercentBadge: { backgroundColor: 'rgba(147,220,184,0.16)', borderRadius: 13, paddingHorizontal: 11, paddingVertical: 8 },
+  guardPercentBadgeDanger: { backgroundColor: 'rgba(255,101,66,0.18)' },
+  guardPercent: { color: colors.oat, fontSize: 14, fontWeight: '900' },
+  guardAmountRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 17 },
+  guardSpent: { color: colors.white, fontFamily: 'serif', fontSize: 31, fontWeight: '800' },
+  guardLimit: { color: '#8E9AAF', fontSize: 12, fontWeight: '700' },
+  guardTrack: { height: 8, backgroundColor: colors.inkMuted, borderRadius: 4, overflow: 'hidden', marginTop: 12 },
+  guardFill: { height: '100%', borderRadius: 4, backgroundColor: colors.mint },
+  guardFillDanger: { backgroundColor: colors.coral },
+  guardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
+  guardRemaining: { color: colors.coral, fontSize: 11, fontWeight: '900' },
+  guardCycle: { color: '#7E8AA0', fontSize: 8, fontWeight: '900', letterSpacing: 0.5 },
+  guardSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 19, marginBottom: 8 },
+  guardAddButton: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.mint, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 11 },
+  guardAddText: { color: colors.ink, fontSize: 8, fontWeight: '900', letterSpacing: 0.7 },
+  guardListRow: { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: '#FFFFFF', borderRadius: 15, padding: 12, marginBottom: 7 },
+  guardStatusDot: { width: 9, height: 9, borderRadius: 5 },
+  guardListName: { color: colors.text, fontSize: 12, fontWeight: '900' },
+  guardListTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  pinnedPill: { flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: colors.mint, borderRadius: 7, paddingHorizontal: 5, paddingVertical: 2 },
+  pinnedPillText: { color: colors.ink, fontSize: 6, fontWeight: '900', letterSpacing: 0.5 },
+  guardListMeta: { color: colors.muted, fontSize: 8, marginTop: 2 },
+  guardListAmount: { color: colors.text, fontSize: 11, fontWeight: '900' },
+  guardListPercent: { color: colors.muted, fontSize: 8, marginTop: 2 },
+  guardEmpty: { color: colors.muted, fontSize: 10, lineHeight: 15, backgroundColor: '#FFFFFF', borderRadius: 15, padding: 13 },
+  guardDetailSheet: { maxHeight: '91%', backgroundColor: colors.paper, borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 19, paddingBottom: 12 },
+  guardDetailHero: { backgroundColor: colors.ink, borderRadius: 24, padding: 18 },
+  guardDetailHeroDanger: { borderWidth: 2, borderColor: colors.coral },
+  guardDetailStatus: { color: colors.coral, fontSize: 9, fontWeight: '900', letterSpacing: 1.4 },
+  guardDetailValue: { color: colors.oat, fontFamily: 'serif', fontSize: 41, fontWeight: '800', marginTop: 7 },
+  guardDetailLimit: { color: '#AAB5C7', fontSize: 11 },
+  guardDarkTrack: { height: 9, borderRadius: 5, backgroundColor: colors.inkMuted, overflow: 'hidden', marginTop: 15 },
+  guardDetailMessage: { color: colors.white, fontSize: 11, fontWeight: '800', marginTop: 10 },
+  guardBreakdownRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: colors.line },
+  guardBreakdownName: { color: colors.text, fontSize: 11, fontWeight: '800' },
+  guardBreakdownAmount: { color: colors.text, fontSize: 11, fontWeight: '900' },
+  guardTransaction: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.line },
+  guardTransactionName: { color: colors.text, fontSize: 12, fontWeight: '800' },
+  guardTransactionMeta: { color: colors.muted, fontSize: 8, marginTop: 3 },
+  guardTransactionAmount: { color: colors.coral, fontSize: 12, fontWeight: '900' },
+  guardFreshness: { color: colors.muted, fontSize: 9, lineHeight: 14, marginTop: 14, fontStyle: 'italic' },
+  guardDetailActions: { flexDirection: 'row', gap: 9, marginTop: 16 },
+  guardEditButton: { flex: 1, backgroundColor: colors.ink, borderRadius: 14, padding: 13, alignItems: 'center' },
+  guardEditText: { color: colors.oat, fontSize: 10, fontWeight: '900' },
+  guardDeleteButton: { width: 48, borderRadius: 14, borderWidth: 1, borderColor: colors.coral, alignItems: 'center', justifyContent: 'center' },
+  guardPauseButton: { width: 48, borderRadius: 14, backgroundColor: colors.mustard, alignItems: 'center', justifyContent: 'center' },
+  guardPinButton: { width: 48, borderRadius: 14, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
+  guardPinButtonActive: { backgroundColor: colors.mint },
+  guardEditor: { backgroundColor: colors.paper, borderRadius: 28, maxHeight: '92%' },
+  guardEditorContent: { padding: 20 },
+  guardFieldLabel: { color: colors.muted, fontSize: 8, fontWeight: '900', letterSpacing: 1.2, marginTop: 15, marginBottom: 7 },
+  guardChoiceRow: { flexDirection: 'row', gap: 6 },
+  guardChoice: { flex: 1, minHeight: 36, borderWidth: 1, borderColor: '#D9CFBF', borderRadius: 11, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },
+  guardChoiceActive: { backgroundColor: colors.ink, borderColor: colors.ink },
+  guardChoiceText: { color: colors.muted, fontSize: 7, fontWeight: '900', textAlign: 'center' },
+  guardChoiceTextActive: { color: colors.mint },
+  guardPickerWrap: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#DED5C5', borderRadius: 14, overflow: 'hidden', marginTop: 8 },
+  guardPicker: { color: colors.text, height: 48 },
+  guardTextInput: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#DED5C5', color: colors.text, borderRadius: 14, paddingHorizontal: 13, paddingVertical: 11, fontSize: 13, fontWeight: '700' },
+  guardThresholdHint: { color: colors.muted, fontSize: 9, lineHeight: 14, marginTop: 13 },
+  guardSaveButton: { backgroundColor: colors.mint, borderRadius: 15, padding: 14, alignItems: 'center', marginTop: 15 },
+  guardSaveText: { color: colors.ink, fontSize: 10, fontWeight: '900', letterSpacing: 0.6 },
 });

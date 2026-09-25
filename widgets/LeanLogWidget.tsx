@@ -1,6 +1,7 @@
 'use no memo';
 import React from 'react';
 import { FlexWidget, TextWidget } from 'react-native-android-widget';
+import type { WidgetGuardSnapshot } from '../services/spendingGuards';
 
 export type LeanLogWidgetProps = {
   eaten: number;
@@ -9,10 +10,12 @@ export type LeanLogWidgetProps = {
   goal: number;
   steps: number;
   nextEvent: string;
+  pinnedGuard: WidgetGuardSnapshot | null;
+  cashReality: { trueSpendable: number; liquidBalance: number; cardOutstanding: number; sourceDate: string } | null;
   updated: string;
 };
 
-export function LeanLogWidget({ eaten, burned, meals, goal, steps, nextEvent, updated }: LeanLogWidgetProps) {
+export function LeanLogWidget({ eaten, burned, meals, goal, steps, nextEvent, pinnedGuard, cashReality, updated }: LeanLogWidgetProps) {
   const left = Math.max(0, goal - eaten);
   const pct = Math.min(100, Math.round((eaten / Math.max(goal, 1)) * 100));
   return (
@@ -42,10 +45,12 @@ export function LeanLogWidget({ eaten, burned, meals, goal, steps, nextEvent, up
         <FlexWidget style={{ flex: 1, backgroundColor: '#EEE3CF', borderRadius: 13, paddingHorizontal: 9, paddingVertical: 7, marginRight: 6, flexDirection: 'column' }}>
           <TextWidget text={`${steps.toLocaleString()} steps`} style={{ color: '#172033', fontSize: 11, fontWeight: '700' }} />
           <TextWidget text={`${meals} meals · ${burned} burned`} style={{ color: '#777166', fontSize: 8, marginTop: 2 }} />
+          {cashReality && <TextWidget text={`TRUE CASH ${cashReality.trueSpendable < 0 ? '-' : ''}RM ${Math.abs(cashReality.trueSpendable).toFixed(0)}`} style={{ color: cashReality.trueSpendable < 0 ? '#D4422B' : '#477363', fontSize: 7, fontWeight: '700', marginTop: 2 }} />}
         </FlexWidget>
-        <FlexWidget style={{ flex: 1, backgroundColor: '#D9D8FF', borderRadius: 13, paddingHorizontal: 9, paddingVertical: 7, flexDirection: 'column' }}>
-          <TextWidget text="NEXT UP" style={{ color: '#5C5AA3', fontSize: 7, fontWeight: '700' }} />
-          <TextWidget text={nextEvent || 'Your day is clear'} maxLines={1} style={{ color: '#172033', fontSize: 10, fontWeight: '700', marginTop: 2 }} />
+        <FlexWidget style={{ flex: 1, backgroundColor: pinnedGuard ? (pinnedGuard.percent >= 100 ? '#FFD8CF' : '#D8EFE4') : '#D9D8FF', borderRadius: 13, paddingHorizontal: 9, paddingVertical: 7, flexDirection: 'column' }}>
+          <TextWidget text={pinnedGuard ? `📌 ${pinnedGuard.name.toUpperCase()}` : 'NEXT UP'} maxLines={1} style={{ color: pinnedGuard?.percent && pinnedGuard.percent >= 100 ? '#B33421' : '#315F50', fontSize: 7, fontWeight: '700' }} />
+          <TextWidget text={pinnedGuard ? `RM ${pinnedGuard.spent.toFixed(0)} / ${pinnedGuard.limit.toFixed(0)} · ${pinnedGuard.percent.toFixed(0)}%` : (nextEvent || 'Your day is clear')} maxLines={1} style={{ color: '#172033', fontSize: 10, fontWeight: '700', marginTop: 2 }} />
+          {pinnedGuard && <TextWidget text={pinnedGuard.remaining >= 0 ? `RM ${pinnedGuard.remaining.toFixed(0)} left` : `RM ${Math.abs(pinnedGuard.remaining).toFixed(0)} OVER`} style={{ color: pinnedGuard.remaining >= 0 ? '#477363' : '#D4422B', fontSize: 7, fontWeight: '700', marginTop: 1 }} />}
         </FlexWidget>
       </FlexWidget>
     </FlexWidget>

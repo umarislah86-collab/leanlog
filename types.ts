@@ -59,6 +59,8 @@ export interface ExerciseSet {
   reps: number;
   weight: number;
   done: boolean;
+  warmup?: boolean;
+  rpe?: number;
 }
 
 export interface WorkoutExercise {
@@ -86,7 +88,13 @@ export interface GymSession {
   date: string;
   time: string;
   planDayLabel: string;
-  exercises: { name: string; sets: ExerciseSet[] }[];
+  exercises: { name: string; sets: ExerciseSet[]; notes?: string }[];
   durationMin: number;
   activityEntryId?: string;
+  startedAt?: string;
+  endedAt?: string;
+  source?: 'coach' | 'health-merged';
+  caloriesBurned?: number;
+  readiness?: { energy: number; soreness: number; sleepMinutes: number };
+  notes?: string;
 }
