@@ -13,6 +13,7 @@ import TodayScreen from './screens/TodayScreen';
 import ProgressScreen from './screens/ProgressScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import CoachScreen from './screens/CoachScreen';
+import RedCoinsScreen from './screens/RedCoinsScreen';
 import AuthScreen from './screens/AuthScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import PaywallScreen from './screens/PaywallScreen';
@@ -53,7 +54,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
       paddingBottom: insets.bottom || 6,
       paddingTop: 6,
     }}>
-      {state.routes.map((route: any, index: number) => {
+      {state.routes.map((route: any, index: number) => ({ route, index })).filter(({ route }: any) => route.name !== 'RedCoins').map(({ route, index }: any) => {
         const focused = state.index === index;
         const color = focused ? colors.coral : '#5F6670';
         const iconBase = TAB_ICONS[route.name] ?? 'ellipse';
@@ -104,6 +105,7 @@ function MainTabs() {
       <Tab.Screen name="Progress" component={ProgressScreen} options={{ title: t('tabProgress') }} />
       <Tab.Screen name="Coach" component={CoachScreen} options={{ title: t('tabCoach') }} />
       <Tab.Screen name="Me" component={SettingsScreen} options={{ title: 'Me' }} />
+      <Tab.Screen name="RedCoins" component={RedCoinsScreen} options={{ title: 'RedCoins', swipeEnabled: false }} />
     </Tab.Navigator>
   );
 }

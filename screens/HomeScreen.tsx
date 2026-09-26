@@ -94,6 +94,7 @@ export default function HomeScreen({ navigation }: any) {
   const [expandedBudgetCategory, setExpandedBudgetCategory] = useState<string | null>(null);
   const [showFixedCommitments, setShowFixedCommitments] = useState(false);
   const [showFixedManager, setShowFixedManager] = useState(false);
+  const [fixedCommitmentSearch, setFixedCommitmentSearch] = useState('');
   const [selectedGuardId, setSelectedGuardId] = useState<string | null>(null);
   const [pinnedGuardId, setPinnedGuardId] = useState<string | null>(null);
   const [showGuardEditor, setShowGuardEditor] = useState(false);
@@ -879,6 +880,11 @@ export default function HomeScreen({ navigation }: any) {
             </View>
             {bluecoins && (
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+                <TouchableOpacity style={styles.openRedCoins} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins'); }} activeOpacity={0.86}>
+                  <View style={styles.openRedCoinsMark}><Text style={styles.openRedCoinsMarkText}>R</Text></View>
+                  <View style={{ flex: 1 }}><Text style={styles.openRedCoinsTitle}>OPEN REDCOINS</Text><Text style={styles.openRedCoinsMeta}>Log daily money · accounts · plan · reports · Bluecoins export</Text></View>
+                  <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
                 <View style={styles.budgetHero}>
                   <Text style={styles.budgetHeroLabel}>SAFE TO SPEND TODAY</Text>
                   <Text style={styles.budgetHeroValue}>{money(bluecoins.monthly.safeToday)}</Text>
@@ -1015,19 +1021,34 @@ export default function HomeScreen({ navigation }: any) {
           <View style={styles.fixedManagerSheet}>
             <View style={styles.fixedManagerHeader}>
               <View style={{ flex: 1 }}><Text style={styles.habitModalEyebrow}>FIXED COMMITMENTS</Text><Text style={styles.fixedManagerTitle}>What repeats every month?</Text></View>
-              <TouchableOpacity style={styles.budgetClose} onPress={() => setShowFixedManager(false)}><Ionicons name="close" size={22} color={colors.text} /></TouchableOpacity>
+              <TouchableOpacity style={styles.budgetClose} onPress={() => { setShowFixedManager(false); setFixedCommitmentSearch(''); }}><Ionicons name="close" size={22} color={colors.text} /></TouchableOpacity>
             </View>
-            <Text style={styles.fixedManagerHint}>Selected items stay inside monthly spending, but disappear from controllable daily-expense rankings.</Text>
+            <Text style={styles.fixedManagerHint}>Search every item in your Bluecoins history. Selected items stay inside monthly spending, but disappear from controllable daily-expense rankings.</Text>
+            <View style={styles.fixedSearchBox}>
+              <Ionicons name="search" size={17} color={colors.muted} />
+              <TextInput
+                style={styles.fixedSearchInput}
+                value={fixedCommitmentSearch}
+                onChangeText={setFixedCommitmentSearch}
+                placeholder="Search Unifi, YouTube, insurance…"
+                placeholderTextColor={colors.muted}
+                autoCorrect={false}
+              />
+              {!!fixedCommitmentSearch && <TouchableOpacity onPress={() => setFixedCommitmentSearch('')}><Ionicons name="close-circle" size={17} color={colors.muted} /></TouchableOpacity>}
+            </View>
             <ScrollView style={styles.fixedManagerList} showsVerticalScrollIndicator={false}>
-              {bluecoins?.monthly.fixedCommitmentOptions.map((option) => (
+              {bluecoins?.monthly.fixedCommitmentOptions.filter((option) => {
+                const query = fixedCommitmentSearch.trim().toLowerCase();
+                return !query || `${option.label} ${option.category}`.toLowerCase().includes(query);
+              }).map((option) => (
                 <TouchableOpacity key={option.key} style={[styles.fixedOption, option.selected && styles.fixedOptionSelected]} onPress={() => toggleFixedCommitment(option.key)} activeOpacity={0.72}>
                   <Ionicons name={option.selected ? 'checkmark-circle' : 'ellipse-outline'} size={20} color={option.selected ? colors.coral : colors.muted} />
-                  <View style={{ flex: 1 }}><Text style={styles.fixedOptionLabel}>{option.label}</Text><Text style={styles.fixedOptionCategory}>{option.category}</Text></View>
-                  <Text style={styles.fixedOptionAmount}>{money(option.amount)}</Text>
+                  <View style={{ flex: 1 }}><Text style={styles.fixedOptionLabel}>{option.label}</Text><Text style={styles.fixedOptionCategory}>{option.category} · {option.lifetimeTransactions} historical entries · last {option.lastUsed}</Text></View>
+                  <Text style={styles.fixedOptionAmount}>{option.amount > 0 ? money(option.amount) : 'not this cycle'}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
-            <TouchableOpacity style={styles.fixedManagerDone} onPress={() => setShowFixedManager(false)}><Text style={styles.fixedManagerDoneText}>DONE</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.fixedManagerDone} onPress={() => { setShowFixedManager(false); setFixedCommitmentSearch(''); }}><Text style={styles.fixedManagerDoneText}>DONE</Text></TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -1337,6 +1358,11 @@ const styles = StyleSheet.create({
   budgetSheet: { maxHeight: '91%', backgroundColor: colors.paper, borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 19, paddingBottom: 12 },
   budgetHandle: { width: 42, height: 5, borderRadius: 3, backgroundColor: '#D2C8B8', alignSelf: 'center', marginTop: 10, marginBottom: 13 },
   budgetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 15 },
+  openRedCoins: { flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: '#EF3F43', borderRadius: 19, padding: 14, marginBottom: 12 },
+  openRedCoinsMark: { width: 38, height: 38, borderRadius: 13, backgroundColor: '#101A2B', alignItems: 'center', justifyContent: 'center' },
+  openRedCoinsMarkText: { color: '#FFF7E8', fontFamily: 'serif', fontSize: 20, fontWeight: '900' },
+  openRedCoinsTitle: { color: '#FFFFFF', fontSize: 12, fontWeight: '900', letterSpacing: 0.8 },
+  openRedCoinsMeta: { color: '#FFE2DB', fontSize: 9, lineHeight: 13, marginTop: 2 },
   budgetEyebrow: { color: colors.coral, fontSize: 10, fontWeight: '900', letterSpacing: 1.4 },
   budgetTitle: { color: colors.text, fontFamily: 'serif', fontSize: 28, fontWeight: '800', marginTop: 5 },
   budgetClose: { width: 38, height: 38, borderRadius: 14, backgroundColor: colors.oat, alignItems: 'center', justifyContent: 'center' },
@@ -1388,6 +1414,8 @@ const styles = StyleSheet.create({
   fixedManagerHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   fixedManagerTitle: { color: colors.text, fontFamily: 'serif', fontSize: 24, fontWeight: '800', marginTop: 5 },
   fixedManagerHint: { color: colors.muted, fontSize: 10, lineHeight: 15, marginTop: 9, marginBottom: 12 },
+  fixedSearchBox: { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E1D8C8', borderRadius: 15, paddingHorizontal: 12, marginBottom: 10 },
+  fixedSearchInput: { flex: 1, color: colors.text, fontSize: 13, paddingVertical: 11 },
   fixedManagerList: { flexGrow: 0 },
   fixedOption: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, backgroundColor: '#FFFFFF', borderRadius: 15, marginBottom: 7, borderWidth: 1, borderColor: '#E1D8C8' },
   fixedOptionSelected: { backgroundColor: '#FFF1E9', borderColor: colors.coral },

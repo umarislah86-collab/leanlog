@@ -76,7 +76,7 @@ export interface BluecoinsSummary {
     daysInMonth: number;
     topCategories: { name: string; amount: number; share: number; details: { subcategory: string; item: string; amount: number; share: number; transactions: number }[] }[];
     fixedCommitments: { total: number; items: { name: string; amount: number; transactions: number }[] };
-    fixedCommitmentOptions: { key: string; label: string; category: string; selected: boolean; amount: number }[];
+    fixedCommitmentOptions: { key: string; label: string; category: string; selected: boolean; amount: number; lastUsed: string; lifetimeTransactions: number }[];
     fixedCommitmentSelection: string[];
     alerts: string[];
   };
@@ -416,6 +416,26 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
       monthStart,
       sourceDate,
     );
+    const historicalItemRows = await db.getAllAsync<{
+      category: string; subcategory: string; item: string; lastUsed: string; lifetimeTransactions: number;
+    }>(
+      `SELECT COALESCE(pc.parentCategoryName, cc.childCategoryName, 'Uncategorised') AS category,
+              COALESCE(cc.childCategoryName, pc.parentCategoryName, 'Uncategorised') AS subcategory,
+              COALESCE(NULLIF(TRIM(i.itemName), ''), 'Unnamed entry') AS item,
+              MAX(substr(t.date, 1, 10)) AS lastUsed,
+              COUNT(*) AS lifetimeTransactions
+       FROM TRANSACTIONSTABLE t
+       LEFT JOIN CHILDCATEGORYTABLE cc ON cc.categoryTableID = t.categoryID
+       LEFT JOIN PARENTCATEGORYTABLE pc ON pc.parentCategoryTableID = cc.parentCategoryID
+       LEFT JOIN ITEMTABLE i ON i.itemTableID = t.itemID
+       WHERE t.deletedTransaction = 6
+         AND t.transactionTypeID = 3
+         AND t.reminderTransaction IS NULL
+         AND i.itemName IS NOT NULL
+         AND TRIM(i.itemName) != ''
+       GROUP BY category, subcategory, item
+       ORDER BY lastUsed DESC, item`,
+    );
     const previousMonthRow = await db.getFirstAsync<{ rawSpent: number }>(
       `SELECT COALESCE(SUM(ABS(t.amount)), 0) AS rawSpent
        FROM TRANSACTIONSTABLE t
@@ -553,10 +573,19 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
     const selectedFixed = new Set<string>(selectedFixedRaw ? JSON.parse(selectedFixedRaw) : []);
     const fixedKey = (subcategory: string, item: string) => `${subcategory}::${item}`;
     const customCommitmentMap = new Map<string, { name: string; amount: number; transactions: number }>();
-    const fixedCommitmentOptions = monthlyCategoriesRows.map((row) => {
+    const currentCycleByKey = new Map(monthlyCategoriesRows.map((row) => [fixedKey(row.subcategory, row.item), row.rawSpent / AMOUNT_SCALE]));
+    const fixedCommitmentOptions = historicalItemRows.map((row) => {
       const key = fixedKey(row.subcategory, row.item);
-      return { key, label: `${row.subcategory} | ${row.item}`, category: row.category, selected: selectedFixed.has(key), amount: row.rawSpent / AMOUNT_SCALE };
-    }).sort((a, b) => Number(b.selected) - Number(a.selected) || b.amount - a.amount);
+      return {
+        key,
+        label: `${row.subcategory} | ${row.item}`,
+        category: row.category,
+        selected: selectedFixed.has(key),
+        amount: currentCycleByKey.get(key) || 0,
+        lastUsed: row.lastUsed,
+        lifetimeTransactions: row.lifetimeTransactions,
+      };
+    }).sort((a, b) => Number(b.selected) - Number(a.selected) || b.lastUsed.localeCompare(a.lastUsed));
     const categoryMap = new Map<string, { name: string; amount: number; details: { subcategory: string; item: string; amount: number; share: number; transactions: number }[] }>();
     monthlyCategoriesRows.forEach((item) => {
       const amount = item.rawSpent / AMOUNT_SCALE;
