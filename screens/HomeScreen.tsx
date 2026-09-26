@@ -53,6 +53,18 @@ const todayKey = () => new Date().toLocaleDateString('ms-MY');
 const money = (value: number) => `RM ${value.toFixed(2)}`;
 type HealthSyncStatus = { syncedAt: string; detected: number; imported: number; latest: ActivityEntry | null };
 
+const bluecoinsReadError = (error: any) => {
+  const message = String(error?.message || error || 'Unknown error');
+  if (message === 'NO_BLUECOINS_BACKUP') return 'No .fydb file was found in that folder.';
+  if (message.startsWith('BLUECOINS_PROVIDER_COPY_FAILED|')) {
+    return `Google Drive exposed the .fydb file, but Android could not download its contents yet. Keep Drive online and try Sync again.\n\nTechnical detail: ${message.split('|').slice(1).join('|')}`;
+  }
+  if (message.startsWith('BLUECOINS_DATABASE_UNREADABLE|')) {
+    return `The .fydb file was downloaded, but it is not a readable Bluecoins SQLite backup. QuickSync may use a different or incomplete database format.\n\nTechnical detail: ${message.split('|').slice(1).join('|')}`;
+  }
+  return `LeanLog found the file but could not analyse it.\n\nTechnical detail: ${message}`;
+};
+
 const greeting = () => {
   const hour = new Date().getHours();
   if (hour < 12) return 'Good morning';
@@ -165,9 +177,7 @@ export default function HomeScreen({ navigation }: any) {
       setPinnedGuardId(pinned);
       await refreshLeanLogWidget();
     } catch (error: any) {
-      if (!quiet) Alert.alert('Bluecoins', error?.message === 'NO_BLUECOINS_BACKUP'
-        ? 'No .fydb backup was found in that folder.'
-        : 'LeanLog could not read the latest Bluecoins backup.');
+      if (!quiet) Alert.alert('Bluecoins sync failed', bluecoinsReadError(error));
     } finally {
       setBluecoinsLoading(false);
     }
@@ -278,6 +288,8 @@ export default function HomeScreen({ navigation }: any) {
     loadInsights();
     loadHabits();
     refreshLeanLogWidget();
+    const bluecoinsWatcher = setInterval(() => loadBluecoins(true), 60_000);
+    return () => clearInterval(bluecoinsWatcher);
   }, [loadLeanLog, loadBluecoins, loadHealth, loadAgenda, loadInsights, loadHabits]));
 
   const refresh = async () => {
@@ -321,17 +333,25 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
-  const connectBluecoins = async () => {
+  const connectBluecoins = async (changingSource = false) => {
     const uri = await chooseBluecoinsFolder();
     if (!uri) return;
     setBluecoinsConnected(true);
     setBluecoinsLoading(true);
     try {
-      setBluecoins(await refreshBluecoinsSummary(uri));
+      const summary = await refreshBluecoinsSummary(uri);
+      setBluecoins(summary);
+      await notifySpendingGuardChanges(summary.spendingGuards);
+      await notifyCashRealityRisk(summary.cashReality, summary.sourceDate);
+      const pinned = await syncPinnedGuardSnapshot(summary.spendingGuards, summary.sourceDate);
+      setPinnedGuardId(pinned);
+      await refreshLeanLogWidget();
+      Alert.alert(
+        changingSource ? 'Bluecoins source changed' : 'Bluecoins connected',
+        `Now reading ${summary.sourceName}. Future syncs will use this folder.`,
+      );
     } catch (error: any) {
-      Alert.alert('Folder connected', error?.message === 'NO_BLUECOINS_BACKUP'
-        ? 'This folder has no .fydb backup. Select the Bluecoins AutoBackups folder.'
-        : 'The folder was connected, but the newest backup could not be read.');
+      Alert.alert('Folder selected, file unreadable', bluecoinsReadError(error));
     } finally {
       setBluecoinsLoading(false);
     }
@@ -522,7 +542,7 @@ export default function HomeScreen({ navigation }: any) {
   const dateLabel = useMemo(() => new Intl.DateTimeFormat('en-MY', {
     weekday: 'short', day: '2-digit', month: 'short',
   }).format(new Date()).toUpperCase(), []);
-  const primaryGuard = bluecoins?.spendingGuards.find((guard) => guard.enabled);
+  const activeGuards = bluecoins?.spendingGuards.filter((guard) => guard.enabled) || [];
   const selectedGuard = bluecoins?.spendingGuards.find((guard) => guard.id === selectedGuardId);
   const backupAgeDays = bluecoins ? Math.max(0, Math.floor((Date.now() - new Date(`${bluecoins.sourceDate}T23:59:59`).getTime()) / 86400000)) : 0;
 
@@ -669,7 +689,7 @@ export default function HomeScreen({ navigation }: any) {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.moneyCard} onPress={bluecoinsConnected && bluecoins ? openBudgetCoach : connectBluecoins} activeOpacity={0.9}>
+          <TouchableOpacity style={styles.moneyCard} onPress={bluecoinsConnected && bluecoins ? openBudgetCoach : () => connectBluecoins(false)} activeOpacity={0.9}>
             <View style={styles.moneyTop}>
               <Text style={styles.moneyEyebrow}>LAST 7 DAYS</Text>
               <Ionicons name="wallet-outline" size={22} color={colors.text} />
@@ -721,6 +741,28 @@ export default function HomeScreen({ navigation }: any) {
             )}
           </TouchableOpacity>
 
+          {bluecoinsConnected && (
+            <View style={styles.bluecoinsActions}>
+              <TouchableOpacity style={styles.bluecoinsSyncButton} onPress={() => loadBluecoins(false)} disabled={bluecoinsLoading} activeOpacity={0.82}>
+                {bluecoinsLoading
+                  ? <ActivityIndicator size="small" color={colors.oat} />
+                  : <Ionicons name="cloud-download-outline" size={19} color={colors.oat} />}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.bluecoinsSyncTitle}>{bluecoinsLoading ? 'READING QUICKSYNC…' : 'SYNC FROM BLUECOINS DRIVE'}</Text>
+                  <Text style={styles.bluecoinsSyncMeta}>{bluecoins ? `${bluecoins.sourceName} · reads newest .fydb` : 'Read the newest .fydb in your selected folder'}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={17} color="#AAB5C7" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.bluecoinsSourceButton} onPress={() => connectBluecoins(true)} disabled={bluecoinsLoading} activeOpacity={0.82}>
+                <Ionicons name="folder-open-outline" size={18} color={colors.ink} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.bluecoinsSourceTitle}>CHANGE SOURCE</Text>
+                  <Text style={styles.bluecoinsSourceMeta}>Pick Phone storage or Google Drive &gt; Bluecoins &gt; Quicksync</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {bluecoins && (
             <TouchableOpacity style={[styles.realityCard, bluecoins.cashReality.trueSpendable < 0 && styles.realityCardDanger]} onPress={openBudgetCoach} activeOpacity={0.88}>
               <View style={styles.realityTopRow}>
@@ -739,28 +781,28 @@ export default function HomeScreen({ navigation }: any) {
             </TouchableOpacity>
           )}
 
-          {primaryGuard && (
-            <TouchableOpacity style={[styles.guardCard, primaryGuard.level === 'breached' && styles.guardCardBreached]} onPress={() => setSelectedGuardId(primaryGuard.id)} activeOpacity={0.88}>
+          {activeGuards.map((guard) => (
+            <TouchableOpacity key={guard.id} style={[styles.guardCard, guard.level === 'breached' && styles.guardCardBreached]} onPress={() => setSelectedGuardId(guard.id)} activeOpacity={0.88}>
               <View style={styles.guardTopRow}>
                 <View>
-                  <Text style={styles.guardEyebrow}>SPENDING GUARD · {primaryGuard.level.replace('-', ' ').toUpperCase()}</Text>
-                  <Text style={styles.guardTitle}>{primaryGuard.name}</Text>
+                  <Text style={styles.guardEyebrow}>SPENDING GUARD · {guard.level.replace('-', ' ').toUpperCase()}{pinnedGuardId === guard.id ? ' · PINNED' : ''}</Text>
+                  <Text style={styles.guardTitle}>{guard.name}</Text>
                 </View>
-                <View style={[styles.guardPercentBadge, primaryGuard.level === 'breached' && styles.guardPercentBadgeDanger]}>
-                  <Text style={styles.guardPercent}>{primaryGuard.percent.toFixed(0)}%</Text>
+                <View style={[styles.guardPercentBadge, guard.level === 'breached' && styles.guardPercentBadgeDanger]}>
+                  <Text style={styles.guardPercent}>{guard.percent.toFixed(0)}%</Text>
                 </View>
               </View>
               <View style={styles.guardAmountRow}>
-                <Text style={styles.guardSpent}>{money(primaryGuard.spent)}</Text>
-                <Text style={styles.guardLimit}> / {money(primaryGuard.limit)}</Text>
+                <Text style={styles.guardSpent}>{money(guard.spent)}</Text>
+                <Text style={styles.guardLimit}> / {money(guard.limit)}</Text>
               </View>
-              <View style={styles.guardTrack}><View style={[styles.guardFill, { width: `${Math.min(100, primaryGuard.percent)}%` }, primaryGuard.percent >= 85 && styles.guardFillDanger]} /></View>
+              <View style={styles.guardTrack}><View style={[styles.guardFill, { width: `${Math.min(100, guard.percent)}%` }, guard.percent >= 85 && styles.guardFillDanger]} /></View>
               <View style={styles.guardFooter}>
-                <Text style={styles.guardRemaining}>{primaryGuard.remaining >= 0 ? `${money(primaryGuard.remaining)} left` : `${money(Math.abs(primaryGuard.remaining))} over limit`}</Text>
-                <Text style={styles.guardCycle}>{primaryGuard.cycle === 'salary' ? 'SALARY CYCLE' : 'CALENDAR MONTH'} · VIEW DETAILS →</Text>
+                <Text style={styles.guardRemaining}>{guard.remaining >= 0 ? `${money(guard.remaining)} left` : `${money(Math.abs(guard.remaining))} over limit`}</Text>
+                <Text style={styles.guardCycle}>{guard.cycle === 'salary' ? 'SALARY CYCLE' : 'CALENDAR MONTH'} · VIEW DETAILS →</Text>
               </View>
             </TouchableOpacity>
-          )}
+          ))}
         </View>
 
         {bluecoins && (
@@ -829,8 +871,16 @@ export default function HomeScreen({ navigation }: any) {
 
                 <View style={styles.budgetStats}>
                   <BudgetStat value={money(bluecoins.monthly.spent)} label="spent this cycle" />
-                  <BudgetStat value={money(bluecoins.monthly.projected)} label="projected payday" />
+                  <BudgetStat value={money(bluecoins.monthly.projected)} label="likely at payday" />
                   <BudgetStat value={String(bluecoins.monthly.noSpendDays)} label="no-spend days" />
+                </View>
+                <View style={styles.forecastStrip}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.forecastLabel}>PROBABILITY FORECAST · {bluecoins.monthly.projectionConfidence.toUpperCase()} CONFIDENCE</Text>
+                    <Text style={styles.forecastRange}>{money(bluecoins.monthly.projectedLow)} — {money(bluecoins.monthly.projectedHigh)}</Text>
+                    <Text style={styles.forecastMeta}>Based on {bluecoins.monthly.projectionCycles} completed salary cycles · 5-cycle median {money(bluecoins.monthly.historicalMedian)} · mean {money(bluecoins.monthly.historicalMean)}</Text>
+                  </View>
+                  <Ionicons name="analytics-outline" size={22} color={colors.cornflower} />
                 </View>
 
                 <Text style={styles.budgetSectionTitle}>CASH REALITY · BANK MINUS CARD DEBT</Text>
@@ -956,7 +1006,7 @@ export default function HomeScreen({ navigation }: any) {
                 <Text style={styles.budgetSectionTitle}>LATEST CHARGES</Text>
                 {selectedGuard.transactions.map((tx, index) => (
                   <View key={`${tx.date}-${tx.amount}-${index}`} style={styles.guardTransaction}>
-                    <View style={{ flex: 1 }}><Text style={styles.guardTransactionName}>{tx.subcategory}</Text><Text style={styles.guardTransactionMeta}>{cycleDate(tx.date)} · {tx.category}{tx.note ? ` · ${tx.note}` : ''}</Text></View>
+                    <View style={{ flex: 1 }}><Text style={styles.guardTransactionName}>{tx.itemName}</Text><Text style={styles.guardTransactionMeta}>{cycleDate(tx.date)} · {tx.category} / {tx.subcategory}{tx.note ? ` · ${tx.note}` : ''}</Text></View>
                     <Text style={styles.guardTransactionAmount}>{money(tx.amount)}</Text>
                   </View>
                 ))}
@@ -1177,6 +1227,13 @@ const styles = StyleSheet.create({
   agendaTime: { color: colors.cornflower, fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
   agendaTitle: { color: colors.text, fontSize: 13, lineHeight: 17, fontWeight: '700', marginTop: 3 },
   moneyCard: { minHeight: 260, backgroundColor: colors.mustard, borderRadius: radii.medium, padding: 17, overflow: 'hidden' },
+  bluecoinsActions: { gap: 8 },
+  bluecoinsSyncButton: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: colors.ink, borderRadius: 18, paddingHorizontal: 15, paddingVertical: 11, borderWidth: 1, borderColor: colors.inkMuted },
+  bluecoinsSyncTitle: { color: colors.oat, fontSize: 10, fontWeight: '900', letterSpacing: 0.75 },
+  bluecoinsSyncMeta: { color: '#AAB5C7', fontSize: 8, marginTop: 3 },
+  bluecoinsSourceButton: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: colors.paper, borderRadius: 16, paddingHorizontal: 15, paddingVertical: 9, borderWidth: 1, borderColor: colors.line },
+  bluecoinsSourceTitle: { color: colors.ink, fontSize: 9, fontWeight: '900', letterSpacing: 0.75 },
+  bluecoinsSourceMeta: { color: colors.muted, fontSize: 8, marginTop: 2 },
   moneyTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   moneyEyebrow: { color: 'rgba(16,23,34,0.64)', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
   moneySummaryRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 15 },
@@ -1232,6 +1289,10 @@ const styles = StyleSheet.create({
   budgetStat: { flex: 1, minHeight: 82, backgroundColor: colors.oat, borderRadius: 17, padding: 11, justifyContent: 'space-between' },
   budgetStatValue: { color: colors.text, fontFamily: 'serif', fontSize: 17, fontWeight: '800' },
   budgetStatLabel: { color: colors.muted, fontSize: 9, lineHeight: 12 },
+  forecastStrip: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#E8EDF8', borderRadius: 18, padding: 14, marginTop: 9, borderWidth: 1, borderColor: '#D5DDED' },
+  forecastLabel: { color: colors.cornflower, fontSize: 8, fontWeight: '900', letterSpacing: 1.05 },
+  forecastRange: { color: colors.text, fontFamily: 'serif', fontSize: 20, fontWeight: '800', marginTop: 4 },
+  forecastMeta: { color: colors.muted, fontSize: 9, lineHeight: 13, marginTop: 3 },
   budgetSectionTitle: { color: colors.muted, fontSize: 9, fontWeight: '900', letterSpacing: 1.4, marginTop: 21, marginBottom: 9 },
   coachNote: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#FFFFFF', borderRadius: 15, padding: 12, marginBottom: 7 },
   coachDot: { width: 8, height: 8, borderRadius: 4, marginTop: 4, marginRight: 9 },

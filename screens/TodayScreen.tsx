@@ -1237,10 +1237,6 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
               placeholder={t('activityNamePh')}
               placeholderTextColor="#7D8799"
             />
-            <Text style={styles.modalLabel}>DATE</Text>
-            <TouchableOpacity style={styles.pickerBtn} onPress={() => setShowWeightDatePicker(true)}>
-              <Text style={styles.pickerBtnText}>📅 {newWeightDate.toLocaleDateString('en-MY', { day: 'numeric', month: 'long', year: 'numeric' })}</Text>
-            </TouchableOpacity>
             <Text style={styles.modalLabel}>{t('duration')}</Text>
             <TextInput
               style={styles.modalInput}
@@ -1542,6 +1538,11 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
               placeholder="cth: 72.5"
               placeholderTextColor="#7D8799"
             />
+            <Text style={styles.modalLabel}>DATE</Text>
+            <TouchableOpacity style={styles.pickerBtn} onPress={() => setShowWeightDatePicker(true)}>
+              <Text style={styles.pickerBtnText}>📅 {newWeightDate.toLocaleDateString('en-MY', { day: 'numeric', month: 'long', year: 'numeric' })}</Text>
+              <Text style={styles.pickerBtnHint}>Tap to backdate</Text>
+            </TouchableOpacity>
             <View style={styles.modalBtns}>
               <TouchableOpacity style={styles.modalCancel} onPress={() => setShowWeightModal(false)}>
                 <Text style={styles.modalCancelText}>{t('cancel')}</Text>
@@ -1663,6 +1664,7 @@ const styles = StyleSheet.create({
   backdateBtnText: { color: '#FF6542', fontSize: 13, fontWeight: '500' },
   pickerBtn: { backgroundColor: '#26334A', borderRadius: 10, padding: 14, marginBottom: 4, borderWidth: 1, borderColor: '#3a3a4a' },
   pickerBtnText: { color: '#FF6542', fontSize: 15, fontWeight: '500' },
+  pickerBtnHint: { color: '#8D97A8', fontSize: 9, marginTop: 3 },
   pickerContainer: { backgroundColor: '#26334A', borderRadius: 10, marginBottom: 4, overflow: 'hidden' },
   genderRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
   genderBtn: { flex: 1, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#33415C', alignItems: 'center' },

@@ -37,7 +37,7 @@ export function LeanLogWidget({ eaten, burned, meals, goal, steps, nextEvent, pi
           <TextWidget text={`${eaten.toLocaleString()} / ${goal.toLocaleString()}`} style={{ color: '#F7EEDC', fontSize: 8 }} />
         </FlexWidget>
       </FlexWidget>
-      <FlexWidget style={{ width: 'match_parent', height: 7, backgroundColor: '#DED5C6', borderRadius: 4, marginTop: 9 }}>
+      <FlexWidget style={{ width: 'match_parent', height: 7, flexDirection: 'row', backgroundColor: '#DED5C6', borderRadius: 4, marginTop: 9, overflow: 'hidden' }}>
         <FlexWidget style={{ flex: Math.max(4, pct), height: 7, backgroundColor: '#FF6542', borderRadius: 4 }} />
         <FlexWidget style={{ flex: Math.max(0, 100 - Math.max(4, pct)), height: 7 }} />
       </FlexWidget>

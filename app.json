@@ -2,7 +2,7 @@
   "expo": {
     "name": "LeanLog",
     "slug": "umarcoc93",
-    "version": "2.4.0",
+    "version": "2.5.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
@@ -80,7 +80,9 @@
             "minSdkVersion": 26
           }
         }
-      ]
+      ],
+      "expo-background-task",
+      "expo-font"
     ],
     "extra": {
       "eas": {

@@ -31,6 +31,7 @@ export interface SpendingGuard {
 export interface GuardTransaction {
   date: string;
   amount: number;
+  itemName: string;
   category: string;
   subcategory: string;
   note: string;

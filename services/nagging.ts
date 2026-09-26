@@ -84,7 +84,7 @@ async function configureCategory() {
   }).catch(() => {});
   await Notifications.setNotificationCategoryAsync(CATEGORY, [
     { identifier: 'NAG_LOG', buttonTitle: '📸 Fine, log now', options: { opensAppToForeground: true } },
-    { identifier: 'NAG_SNOOZE', buttonTitle: '😴 Snooze 2h', options: { opensAppToForeground: false } },
+    { identifier: 'NAG_SNOOZE', buttonTitle: '😴 Snooze…', options: { opensAppToForeground: true } },
     { identifier: 'NAG_LAZY', buttonTitle: '🏳️ Lazy day', options: { opensAppToForeground: false } },
   ]).catch(() => {});
 }
@@ -175,7 +175,7 @@ export async function cancelNaggingToday() {
   await AsyncStorage.setItem(SCHEDULE_KEY, JSON.stringify(schedule.filter((item) => !remove.some((removed) => removed.id === item.id))));
 }
 
-export async function snoozeNagging(hours = 2, actionId?: string) {
+export async function snoozeNagging(hours = 1, actionId?: string) {
   if (!Notifications) return;
   if (actionId) {
     if ((await AsyncStorage.getItem(LAST_SNOOZE_ACTION_KEY)) === actionId) return;
@@ -183,10 +183,11 @@ export async function snoozeNagging(hours = 2, actionId?: string) {
   }
   await configureCategory();
   const fireAt = new Date(Date.now() + hours * 3600000);
+  const minutes = Math.round(hours * 60);
   await Notifications.scheduleNotificationAsync({
     content: {
       title: 'Snooze completed. Super-Karen has re-entered the chat.',
-      body: 'Two hours were granted. The food evidence remains outstanding.',
+      body: `${minutes} minutes were granted. The food evidence remains outstanding.`,
       categoryIdentifier: CATEGORY,
       data: { kind: 'nag-snooze' },
       sound: true,
@@ -198,6 +199,11 @@ export async function snoozeNagging(hours = 2, actionId?: string) {
 
 export async function markLazyDay() {
   await AsyncStorage.setItem(`lazy_day_${dateKey(new Date())}`, 'true');
+  await cancelNaggingToday();
+}
+
+export async function markFastingDay() {
+  await AsyncStorage.setItem(`fasting_day_${dateKey(new Date())}`, 'true');
   await cancelNaggingToday();
 }
 

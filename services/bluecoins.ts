@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import BluecoinsDriveReader from 'bluecoins-drive-reader';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as SQLite from 'expo-sqlite';
 import {
@@ -59,6 +60,12 @@ export interface BluecoinsSummary {
     remaining: number;
     safeToday: number;
     projected: number;
+    projectedLow: number;
+    projectedHigh: number;
+    projectionConfidence: 'low' | 'medium' | 'high';
+    projectionCycles: number;
+    historicalMean: number;
+    historicalMedian: number;
     previousMonth: number;
     cycleStart: string;
     cycleEnd: string;
@@ -128,6 +135,17 @@ const calendarCycle = (source: Date) => {
   return { start, end };
 };
 
+const average = (values: number[]) => values.length
+  ? values.reduce((sum, value) => sum + value, 0) / values.length
+  : 0;
+
+const median = (values: number[]) => {
+  if (!values.length) return 0;
+  const ordered = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(ordered.length / 2);
+  return ordered.length % 2 ? ordered[middle] : (ordered[middle - 1] + ordered[middle]) / 2;
+};
+
 const guardLevel = (percent: number): SpendingGuardResult['level'] => {
   if (percent >= 100) return 'breached';
   if (percent >= 85) return 'danger';
@@ -135,6 +153,32 @@ const guardLevel = (percent: number): SpendingGuardResult['level'] => {
   if (percent >= 50) return 'heads-up';
   return 'safe';
 };
+
+const wait = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+async function copyProviderFileToLocal(sourceUri: string, localUri: string) {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await FileSystem.deleteAsync(localUri, { idempotent: true });
+      if (sourceUri.startsWith('content://') && BluecoinsDriveReader) {
+        await BluecoinsDriveReader.copyContentUriToFileAsync(sourceUri, localUri);
+      } else {
+        await FileSystem.copyAsync({ from: sourceUri, to: localUri });
+      }
+      const copied = await FileSystem.getInfoAsync(localUri);
+      if (!copied.exists || !('size' in copied) || !copied.size) {
+        throw new Error('Google Drive returned an empty file');
+      }
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt < 3) await wait(attempt * 900);
+    }
+  }
+  const detail = lastError instanceof Error ? lastError.message : String(lastError || 'unknown provider error');
+  throw new Error(`BLUECOINS_PROVIDER_COPY_FAILED|${detail}`);
+}
 
 export async function disconnectBluecoins() {
   await AsyncStorage.removeItem(FOLDER_KEY);
@@ -163,15 +207,20 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
   const sourceDate = backupDateFromName(sourceName);
   const localUri = `${FileSystem.documentDirectory}${CACHE_NAME}`;
 
-  const cached = await FileSystem.getInfoAsync(localUri);
-  if (cached.exists) await FileSystem.deleteAsync(localUri, { idempotent: true });
-  await FileSystem.copyAsync({ from: sourceUri, to: localUri });
+  await copyProviderFileToLocal(sourceUri, localUri);
 
-  const db = await SQLite.openDatabaseAsync(
-    CACHE_NAME,
-    { useNewConnection: true },
-    FileSystem.documentDirectory || undefined,
-  );
+  let db: SQLite.SQLiteDatabase;
+  try {
+    db = await SQLite.openDatabaseAsync(
+      CACHE_NAME,
+      { useNewConnection: true },
+      FileSystem.documentDirectory || undefined,
+    );
+    await db.getFirstAsync('PRAGMA schema_version');
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error || 'unknown SQLite error');
+    throw new Error(`BLUECOINS_DATABASE_UNREADABLE|${detail}`);
+  }
 
   try {
     const dates = dateWindow(sourceDate);
@@ -390,9 +439,88 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
     const previousMonth = ((previousMonthRow?.rawSpent || 0) + (previousLiabilityRow?.rawSpent || 0)) / AMOUNT_SCALE;
     const daysElapsed = Math.floor((source.getTime() - cycle.start.getTime()) / 86400000) + 1;
     const daysInMonth = Math.floor((cycle.end.getTime() - cycle.start.getTime()) / 86400000) + 1;
-    const projected = daysElapsed ? (monthSpent / daysElapsed) * daysInMonth : monthSpent;
+    // Build a robust forecast from the five most recent completed salary
+    // cycles. Comparing the same point in each cycle prevents a one-off loan
+    // or card payment on payday from being multiplied by every day remaining.
+    const historicalCycles: { total: number; samePoint: number }[] = [];
+    for (let offset = 1; offset <= 5; offset += 1) {
+      const historicalStart = new Date(cycle.start.getFullYear(), cycle.start.getMonth() - offset, payday, 12);
+      const historicalNextStart = new Date(historicalStart.getFullYear(), historicalStart.getMonth() + 1, payday, 12);
+      const historicalEnd = new Date(historicalNextStart);
+      historicalEnd.setDate(historicalEnd.getDate() - 1);
+      const comparableEnd = new Date(historicalStart);
+      comparableEnd.setDate(comparableEnd.getDate() + Math.min(daysElapsed, daysInMonth) - 1);
+      if (comparableEnd > historicalEnd) comparableEnd.setTime(historicalEnd.getTime());
+
+      const historyStart = localIso(historicalStart);
+      const historyEnd = localIso(historicalEnd);
+      const historyComparableEnd = localIso(comparableEnd);
+      const expense = await db.getFirstAsync<{ fullRaw: number; samePointRaw: number }>(
+        `SELECT COALESCE(SUM(ABS(t.amount)), 0) AS fullRaw,
+                COALESCE(SUM(CASE WHEN substr(t.date, 1, 10) <= ? THEN ABS(t.amount) ELSE 0 END), 0) AS samePointRaw
+         FROM TRANSACTIONSTABLE t
+         WHERE t.deletedTransaction = 6 AND t.transactionTypeID = 3
+           AND t.reminderTransaction IS NULL AND substr(t.date, 1, 10) BETWEEN ? AND ?`,
+        historyComparableEnd,
+        historyStart,
+        historyEnd,
+      );
+      const debt = await db.getFirstAsync<{ fullRaw: number; samePointRaw: number }>(
+        `SELECT COALESCE(SUM(ABS(t.amount)), 0) AS fullRaw,
+                COALESCE(SUM(CASE WHEN substr(t.date, 1, 10) <= ? THEN ABS(t.amount) ELSE 0 END), 0) AS samePointRaw
+         FROM TRANSACTIONSTABLE t
+         JOIN ACCOUNTSTABLE destination ON destination.accountsTableID = t.accountPairID
+         WHERE t.deletedTransaction = 6 AND t.transactionTypeID = 5 AND t.amount < 0
+           AND destination.accountTypeID IN (9, 11) AND t.reminderTransaction IS NULL
+           AND substr(t.date, 1, 10) BETWEEN ? AND ?`,
+        historyComparableEnd,
+        historyStart,
+        historyEnd,
+      );
+      const total = ((expense?.fullRaw || 0) + (debt?.fullRaw || 0)) / AMOUNT_SCALE;
+      const samePoint = ((expense?.samePointRaw || 0) + (debt?.samePointRaw || 0)) / AMOUNT_SCALE;
+      if (total > 0) historicalCycles.push({ total, samePoint });
+    }
+
+    const historicalTotals = historicalCycles.map((item) => item.total);
+    const historicalMean = average(historicalTotals);
+    const historicalMedian = median(historicalTotals);
+    const recencyWeights = historicalCycles.map((_, index) => historicalCycles.length - index);
+    const weightedMean = historicalCycles.length
+      ? historicalCycles.reduce((sum, item, index) => sum + item.total * recencyWeights[index], 0)
+        / recencyWeights.reduce((sum, weight) => sum + weight, 0)
+      : 0;
+    const historicalBaseline = historicalCycles.length
+      ? historicalMedian * 0.5 + weightedMean * 0.3 + historicalMean * 0.2
+      : monthSpent;
+    const completionRatios = historicalCycles
+      .filter((item) => item.total > 0 && item.samePoint > 0)
+      .map((item) => Math.min(1, item.samePoint / item.total));
+    const expectedCompletion = median(completionRatios);
+    const rawPaceForecast = expectedCompletion > 0 ? monthSpent / expectedCompletion : historicalBaseline;
+    const historicalCeiling = historicalTotals.length
+      ? Math.max(...historicalTotals) * 1.25
+      : rawPaceForecast;
+    const historicalFloor = historicalMedian > 0 ? historicalMedian * 0.6 : monthSpent;
+    const paceForecast = Math.max(historicalFloor, Math.min(historicalCeiling, rawPaceForecast));
+    const cycleProgress = Math.min(1, daysElapsed / Math.max(1, daysInMonth));
+    // The first few days commonly contain salary-day commitments. Let history
+    // lead until enough variable-spending days exist, then blend live pace in.
+    const currentWeight = historicalCycles.length >= 3
+      ? daysElapsed < 5 ? 0 : Math.min(0.7, ((daysElapsed - 4) / Math.max(1, daysInMonth - 4)) * 0.7)
+      : 1;
+    const projected = Math.max(monthSpent,
+      historicalBaseline * (1 - currentWeight) + paceForecast * currentWeight);
+    const deviations = historicalTotals.map((value) => Math.abs(value - historicalMedian));
+    const robustSpread = Math.max(median(deviations) * 1.4826, historicalMean * 0.08);
+    const uncertainty = robustSpread * (1.15 - cycleProgress * 0.45);
+    const projectedLow = Math.max(monthSpent, projected - uncertainty);
+    const projectedHigh = Math.max(projected, projected + uncertainty);
+    const projectionConfidence: 'low' | 'medium' | 'high' = historicalCycles.length < 3 || daysElapsed < 5
+      ? 'low'
+      : daysElapsed < 14 ? 'medium' : 'high';
     const savedBudget = Number(await AsyncStorage.getItem(MONTHLY_BUDGET_KEY));
-    const suggestedBudgetBase = previousMonth > 0 ? previousMonth : projected;
+    const suggestedBudgetBase = historicalMedian > 0 ? historicalMedian : previousMonth > 0 ? previousMonth : projected;
     const suggestedBudget = Math.max(100, Math.ceil(suggestedBudgetBase / 100) * 100);
     const budget = savedBudget > 0 ? savedBudget : suggestedBudget;
     const remaining = budget - monthSpent;
@@ -451,12 +579,14 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
       const joins = `LEFT JOIN ACCOUNTSTABLE a ON a.accountsTableID = t.accountID
         LEFT JOIN CHILDCATEGORYTABLE cc ON cc.categoryTableID = t.categoryID
         LEFT JOIN PARENTCATEGORYTABLE pc ON pc.parentCategoryTableID = cc.parentCategoryID`;
-      const rows = await db.getAllAsync<{ date: string; rawAmount: number; category: string; subcategory: string; note: string }>(
+      const rows = await db.getAllAsync<{ date: string; rawAmount: number; itemName: string; category: string; subcategory: string; note: string }>(
         `SELECT substr(t.date, 1, 10) AS date, ABS(t.amount) AS rawAmount,
+                COALESCE(NULLIF(TRIM(i.itemName), ''), 'Unnamed transaction') AS itemName,
                 COALESCE(pc.parentCategoryName, cc.childCategoryName, 'Uncategorised') AS category,
                 COALESCE(cc.childCategoryName, pc.parentCategoryName, 'Uncategorised') AS subcategory,
                 COALESCE(t.notes, '') AS note
          FROM TRANSACTIONSTABLE t ${joins}
+         LEFT JOIN ITEMTABLE i ON i.itemTableID = t.itemID
          WHERE t.deletedTransaction = 6 AND t.transactionTypeID = 3
            AND t.reminderTransaction IS NULL AND substr(t.date, 1, 10) BETWEEN ? AND ?
            AND ${filter}
@@ -486,6 +616,7 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
         transactions: rows.slice(0, 8).map((row) => ({
           date: row.date,
           amount: row.rawAmount / AMOUNT_SCALE,
+          itemName: row.itemName,
           category: row.category,
           subcategory: row.subcategory,
           note: row.note,
@@ -525,6 +656,12 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
         remaining,
         safeToday: Math.max(0, remaining / daysRemaining),
         projected,
+        projectedLow,
+        projectedHigh,
+        projectionConfidence,
+        projectionCycles: historicalCycles.length,
+        historicalMean,
+        historicalMedian,
         previousMonth,
         cycleStart: monthStart,
         cycleEnd,

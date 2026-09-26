@@ -478,8 +478,8 @@ export default function SettingsScreen() {
           </View>
           <View style={styles.nagActions}>
             <Text style={styles.nagAction}>📸 Fine, log now</Text>
-            <Text style={styles.nagAction}>😴 Snooze 2h</Text>
-            <Text style={styles.nagAction}>🏳️ Lazy day</Text>
+            <Text style={styles.nagAction}>😴 Snooze 20m / 45m / 1h</Text>
+            <Text style={styles.nagAction}>🌙 Puasa sunat hari ini</Text>
           </View>
           <Text style={styles.nagHint}>Messages rotate daily and all four checkpoints remain active. Only “Lazy day” or switching Nag Mode off stops the rest.</Text>
         </View>

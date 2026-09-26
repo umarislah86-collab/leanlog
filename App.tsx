@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, TouchableOpacity, Text, View, StyleSheet, Image } from 'react-native';
+import { Animated, TouchableOpacity, Text, View, StyleSheet, Image, Modal } from 'react-native';
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,7 +17,7 @@ import AuthScreen from './screens/AuthScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import PaywallScreen from './screens/PaywallScreen';
 import { colors } from './theme';
-import { ensureNagSchedule, markLazyDay, snoozeNagging } from './services/nagging';
+import { ensureNagSchedule, markFastingDay, markLazyDay, snoozeNagging } from './services/nagging';
 
 let Notifications: any = null;
 try {
@@ -115,6 +115,7 @@ export default function App() {
   const [minTimeReady, setMinTimeReady] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [hasProfile, setHasProfile] = useState(false);
+  const [showSnoozePicker, setShowSnoozePicker] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const { status: trialStatus, recheck: recheckTrial } = useTrial(!!user && hasProfile && authReady);
 
@@ -124,7 +125,7 @@ export default function App() {
     const subscription = Notifications.addNotificationResponseReceivedListener(async (response: any) => {
       const action = response.actionIdentifier;
       const data = response.notification?.request?.content?.data;
-      if (action === 'NAG_SNOOZE') await snoozeNagging(2, response.notification?.request?.identifier);
+      if (action === 'NAG_SNOOZE') setShowSnoozePicker(true);
       if (action === 'NAG_LAZY') await markLazyDay();
       if (action === 'NAG_LOG' || (action === Notifications.DEFAULT_ACTION_IDENTIFIER && data?.kind?.startsWith('nag'))) {
         setTimeout(() => navigationRef.navigate('Log', { fabTrigger: Date.now() }), 350);
@@ -132,6 +133,16 @@ export default function App() {
     });
     return () => subscription.remove();
   }, [navigationRef]);
+
+  const chooseSnooze = async (minutes: number) => {
+    setShowSnoozePicker(false);
+    await snoozeNagging(minutes / 60);
+  };
+
+  const chooseFastingDay = async () => {
+    setShowSnoozePicker(false);
+    await markFastingDay();
+  };
 
   // Fade in on mount, start 3s timer
   useEffect(() => {
@@ -244,10 +255,43 @@ export default function App() {
             : <AuthScreen />
           }
         </NavigationContainer>
+        <Modal visible={showSnoozePicker} transparent animationType="fade" onRequestClose={() => setShowSnoozePicker(false)}>
+          <View style={snooze.overlay}>
+            <View style={snooze.sheet}>
+              <Text style={snooze.eyebrow}>SUPER-KAREN · TEMPORARY CEASEFIRE</Text>
+              <Text style={snooze.title}>How long do you need?</Text>
+              <Text style={snooze.body}>Choose wisely. I will return with documentation demands.</Text>
+              <View style={snooze.options}>
+                <TouchableOpacity style={snooze.option} onPress={() => chooseSnooze(20)}><Text style={snooze.optionValue}>20</Text><Text style={snooze.optionLabel}>MIN</Text></TouchableOpacity>
+                <TouchableOpacity style={snooze.option} onPress={() => chooseSnooze(45)}><Text style={snooze.optionValue}>45</Text><Text style={snooze.optionLabel}>MIN</Text></TouchableOpacity>
+                <TouchableOpacity style={snooze.option} onPress={() => chooseSnooze(60)}><Text style={snooze.optionValue}>1</Text><Text style={snooze.optionLabel}>HOUR</Text></TouchableOpacity>
+              </View>
+              <TouchableOpacity style={snooze.fasting} onPress={chooseFastingDay}><Text style={snooze.fastingText}>🌙 Puasa sunat hari ini</Text><Text style={snooze.fastingHint}>Stop all remaining nags until tomorrow</Text></TouchableOpacity>
+              <TouchableOpacity style={snooze.cancel} onPress={() => setShowSnoozePicker(false)}><Text style={snooze.cancelText}>Never mind</Text></TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </LanguageProvider>
     </SafeAreaProvider>
   );
 }
+
+const snooze = StyleSheet.create({
+  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(8,14,24,0.72)' },
+  sheet: { backgroundColor: '#FFFDF7', borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 30 },
+  eyebrow: { color: '#FF6542', fontSize: 9, fontWeight: '900', letterSpacing: 1.3 },
+  title: { color: '#101A2B', fontFamily: 'serif', fontSize: 28, fontWeight: '800', marginTop: 6 },
+  body: { color: '#68758A', fontSize: 12, lineHeight: 18, marginTop: 5 },
+  options: { flexDirection: 'row', gap: 9, marginTop: 18 },
+  option: { flex: 1, backgroundColor: '#17243A', borderRadius: 17, paddingVertical: 15, alignItems: 'center' },
+  optionValue: { color: '#FFF4DB', fontSize: 23, fontWeight: '900' },
+  optionLabel: { color: '#91DCBB', fontSize: 8, fontWeight: '900', letterSpacing: 1, marginTop: 2 },
+  fasting: { backgroundColor: '#E8E8FF', borderRadius: 17, padding: 14, marginTop: 10 },
+  fastingText: { color: '#33326D', fontSize: 13, fontWeight: '900' },
+  fastingHint: { color: '#66659A', fontSize: 9, marginTop: 3 },
+  cancel: { alignItems: 'center', padding: 13, marginTop: 3 },
+  cancelText: { color: '#68758A', fontSize: 11, fontWeight: '800' },
+});
 
 const splash = StyleSheet.create({
   container: {
