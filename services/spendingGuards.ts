@@ -116,17 +116,21 @@ export async function syncPinnedGuardSnapshot(results: SpendingGuardResult[], so
     await AsyncStorage.removeItem(WIDGET_GUARD_KEY);
     return null;
   }
-  const snapshot: WidgetGuardSnapshot = {
-    id: pinned.id,
-    name: pinned.name,
-    spent: pinned.spent,
-    limit: pinned.limit,
-    remaining: pinned.remaining,
-    percent: pinned.percent,
-    level: pinned.level,
+  const visible = [pinned, ...results
+    .filter((guard) => guard.enabled && guard.id !== pinned?.id)
+    .sort((a, b) => b.percent - a.percent)]
+    .slice(0, 3);
+  const snapshots: WidgetGuardSnapshot[] = visible.map((guard) => ({
+    id: guard.id,
+    name: guard.name,
+    spent: guard.spent,
+    limit: guard.limit,
+    remaining: guard.remaining,
+    percent: guard.percent,
+    level: guard.level,
     sourceDate,
-  };
-  await AsyncStorage.setItem(WIDGET_GUARD_KEY, JSON.stringify(snapshot));
+  }));
+  await AsyncStorage.setItem(WIDGET_GUARD_KEY, JSON.stringify(snapshots));
   return pinned.id;
 }
 

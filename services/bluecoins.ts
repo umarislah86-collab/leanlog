@@ -17,6 +17,7 @@ const PAYDAY_KEY = 'bluecoins_payday_v1';
 const CASH_ACCOUNTS_KEY = 'bluecoins_cash_reality_accounts_v1';
 const CASH_ACCOUNTS_INITIALISED_KEY = 'bluecoins_cash_reality_accounts_initialised_v1';
 const SAFETY_BUFFER_KEY = 'bluecoins_cash_reality_buffer_v1';
+const FIXED_COMMITMENTS_KEY = 'bluecoins_fixed_commitments_v1';
 
 export interface BluecoinsDay {
   date: string;
@@ -73,7 +74,10 @@ export interface BluecoinsSummary {
     noSpendDays: number;
     daysElapsed: number;
     daysInMonth: number;
-    topCategories: { name: string; amount: number; share: number; subcategories: { name: string; amount: number; share: number }[] }[];
+    topCategories: { name: string; amount: number; share: number; details: { subcategory: string; item: string; amount: number; share: number; transactions: number }[] }[];
+    fixedCommitments: { total: number; items: { name: string; amount: number; transactions: number }[] };
+    fixedCommitmentOptions: { key: string; label: string; category: string; selected: boolean; amount: number }[];
+    fixedCommitmentSelection: string[];
     alerts: string[];
   };
 }
@@ -103,6 +107,7 @@ const dateWindow = (endDate: string) => {
 export const getBluecoinsFolder = () => AsyncStorage.getItem(FOLDER_KEY);
 export const setBluecoinsMonthlyBudget = (budget: number) => AsyncStorage.setItem(MONTHLY_BUDGET_KEY, String(Math.max(0, budget)));
 export const setBluecoinsPayday = (day: number) => AsyncStorage.setItem(PAYDAY_KEY, String(Math.max(1, Math.min(28, Math.round(day)))));
+export const setBluecoinsFixedCommitments = (keys: string[]) => AsyncStorage.setItem(FIXED_COMMITMENTS_KEY, JSON.stringify([...new Set(keys)]));
 export async function setCashRealityAccounts(accounts: string[]) {
   await Promise.all([
     AsyncStorage.setItem(CASH_ACCOUNTS_KEY, JSON.stringify([...new Set(accounts)])),
@@ -334,7 +339,9 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
       balance: account.balanceRaw / AMOUNT_SCALE,
       selected: selectedAccounts.includes(account.name),
     }));
-    const creditCards = accountBalances.filter((account) => account.accountType === 8).map((account) => ({
+    const creditCards = accountBalances.filter((account) =>
+      account.accountType === 8 || /cimb\s*platinum|credit\s*card/i.test(account.name)
+    ).map((account) => ({
       name: account.name,
       outstanding: Math.max(0, -account.balanceRaw / AMOUNT_SCALE),
       creditLimit: account.creditLimitRaw / AMOUNT_SCALE,
@@ -390,18 +397,21 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
       monthStart,
       sourceDate,
     );
-    const monthlyCategoriesRows = await db.getAllAsync<{ category: string; subcategory: string; rawSpent: number }>(
+    const monthlyCategoriesRows = await db.getAllAsync<{ category: string; subcategory: string; item: string; rawSpent: number; tx: number }>(
       `SELECT COALESCE(pc.parentCategoryName, cc.childCategoryName, 'Uncategorised') AS category,
               COALESCE(cc.childCategoryName, pc.parentCategoryName, 'Uncategorised') AS subcategory,
-              COALESCE(SUM(ABS(t.amount)), 0) AS rawSpent
+              COALESCE(NULLIF(TRIM(i.itemName), ''), 'Unnamed entry') AS item,
+              COALESCE(SUM(ABS(t.amount)), 0) AS rawSpent,
+              COUNT(*) AS tx
        FROM TRANSACTIONSTABLE t
        LEFT JOIN CHILDCATEGORYTABLE cc ON cc.categoryTableID = t.categoryID
        LEFT JOIN PARENTCATEGORYTABLE pc ON pc.parentCategoryTableID = cc.parentCategoryID
+       LEFT JOIN ITEMTABLE i ON i.itemTableID = t.itemID
        WHERE t.deletedTransaction = 6
          AND t.transactionTypeID = 3
          AND t.reminderTransaction IS NULL
          AND substr(t.date, 1, 10) BETWEEN ? AND ?
-       GROUP BY category, subcategory
+       GROUP BY category, subcategory, item
        ORDER BY rawSpent DESC`,
       monthStart,
       sourceDate,
@@ -539,33 +549,52 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
     const daysRemaining = Math.max(1, daysInMonth - daysElapsed + 1);
     const activeDays = new Set([...monthRows.map((row) => row.day), ...liabilityRows.map((row) => row.day)]).size;
     const noSpendDays = Math.max(0, daysElapsed - activeDays);
-    const categoryMap = new Map<string, { name: string; amount: number; subcategories: { name: string; amount: number; share: number }[] }>();
+    const selectedFixedRaw = await AsyncStorage.getItem(FIXED_COMMITMENTS_KEY);
+    const selectedFixed = new Set<string>(selectedFixedRaw ? JSON.parse(selectedFixedRaw) : []);
+    const fixedKey = (subcategory: string, item: string) => `${subcategory}::${item}`;
+    const customCommitmentMap = new Map<string, { name: string; amount: number; transactions: number }>();
+    const fixedCommitmentOptions = monthlyCategoriesRows.map((row) => {
+      const key = fixedKey(row.subcategory, row.item);
+      return { key, label: `${row.subcategory} | ${row.item}`, category: row.category, selected: selectedFixed.has(key), amount: row.rawSpent / AMOUNT_SCALE };
+    }).sort((a, b) => Number(b.selected) - Number(a.selected) || b.amount - a.amount);
+    const categoryMap = new Map<string, { name: string; amount: number; details: { subcategory: string; item: string; amount: number; share: number; transactions: number }[] }>();
     monthlyCategoriesRows.forEach((item) => {
       const amount = item.rawSpent / AMOUNT_SCALE;
-      const category = categoryMap.get(item.category) || { name: item.category, amount: 0, subcategories: [] };
+      if (selectedFixed.has(fixedKey(item.subcategory, item.item))) {
+        const current = customCommitmentMap.get(item.item) || { name: item.item, amount: 0, transactions: 0 };
+        current.amount += amount;
+        current.transactions += item.tx;
+        customCommitmentMap.set(item.item, current);
+        return;
+      }
+      const category = categoryMap.get(item.category) || { name: item.category, amount: 0, details: [] };
       category.amount += amount;
-      category.subcategories.push({ name: item.subcategory, amount, share: 0 });
+      category.details.push({ subcategory: item.subcategory, item: item.item, amount, share: 0, transactions: item.tx });
       categoryMap.set(item.category, category);
     });
-    liabilityRows.forEach((item) => {
-      const amount = item.rawSpent / AMOUNT_SCALE;
-      const category = categoryMap.get('Debt commitments') || { name: 'Debt commitments', amount: 0, subcategories: [] };
-      category.amount += amount;
-      const existing = category.subcategories.find((sub) => sub.name === item.liability);
-      if (existing) existing.amount += amount;
-      else category.subcategories.push({ name: item.liability, amount, share: 0 });
-      categoryMap.set('Debt commitments', category);
-    });
+    const controllableSpent = [...categoryMap.values()].reduce((sum, category) => sum + category.amount, 0);
     const monthlyTopCategories = [...categoryMap.values()]
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5)
       .map((category) => ({
         ...category,
-        share: monthSpent > 0 ? (category.amount / monthSpent) * 100 : 0,
-        subcategories: category.subcategories
+        share: controllableSpent > 0 ? (category.amount / controllableSpent) * 100 : 0,
+        details: category.details
           .sort((a, b) => b.amount - a.amount)
-          .map((sub) => ({ ...sub, share: category.amount > 0 ? (sub.amount / category.amount) * 100 : 0 })),
+          .slice(0, 12)
+          .map((detail) => ({ ...detail, share: category.amount > 0 ? (detail.amount / category.amount) * 100 : 0 })),
       }));
+    const fixedCommitmentMap = new Map<string, { name: string; amount: number; transactions: number }>();
+    liabilityRows.forEach((row) => {
+      const current = fixedCommitmentMap.get(row.liability) || { name: row.liability, amount: 0, transactions: 0 };
+      current.amount += row.rawSpent / AMOUNT_SCALE;
+      current.transactions += row.tx;
+      fixedCommitmentMap.set(row.liability, current);
+    });
+    const fixedCommitments = {
+      total: liabilitySpent + [...customCommitmentMap.values()].reduce((sum, item) => sum + item.amount, 0),
+      items: [...fixedCommitmentMap.values(), ...customCommitmentMap.values()].sort((a, b) => b.amount - a.amount),
+    };
     const alerts: string[] = [];
     if (cashReality.trueSpendable < 0) alerts.push(`Cash illusion alert: selected banks are RM ${Math.abs(cashReality.trueSpendable).toFixed(0)} short after reserving unpaid card debt${cashReality.safetyBuffer > 0 ? ' and your safety buffer' : ''}.`);
     else if (cashReality.cardOutstanding > 0) alerts.push(`After reserving RM ${cashReality.cardOutstanding.toFixed(0)} for unpaid cards, your true spendable cash is RM ${cashReality.trueSpendable.toFixed(0)}.`);
@@ -682,6 +711,9 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
         daysElapsed,
         daysInMonth,
         topCategories: monthlyTopCategories,
+        fixedCommitments,
+        fixedCommitmentOptions,
+        fixedCommitmentSelection: [...selectedFixed],
         alerts,
       },
     };

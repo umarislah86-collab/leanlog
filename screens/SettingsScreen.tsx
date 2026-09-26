@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { auth, signOut, fsUpsert, fsSetSettings, fsFetchAll, fsFetchSettings } from '../firebase';
+import { auth, signOut, fsUpsert, fsSetSettings, fsFetchAll, fsFetchSettings, fsUploadAppState, fsFetchAppState } from '../firebase';
 
 let Notifications: any = null;
 try { Notifications = require('expo-notifications'); } catch {}
@@ -38,6 +38,18 @@ const timeStrToDate = (timeStr: string): Date => {
 };
 
 const REMINDER_KEY = 'reminders';
+
+// Back up durable LeanLog state, while excluding device permissions, caches,
+// notification IDs and Firebase's own persisted authentication session.
+const shouldCloudBackupKey = (key: string) => {
+  const lower = key.toLowerCase();
+  if (lower.includes('firebase') || lower.startsWith('@firebase')) return false;
+  if (lower.includes('cache') || lower.includes('widget') || lower.includes('notification_state')) return false;
+  if (['bluecoins_folder_uri_v1', 'last_uid', 'nag_mode_schedule_v1', 'nag_mode_last_snooze_action_v1',
+    'bluecoins_spending_guard_alerts_v1', 'bluecoins_cash_reality_alert_v1',
+    'bluecoins_background_status_v1', 'health_workout_sync_status_v1'].includes(key)) return false;
+  return true;
+};
 
 interface Reminder {
   id: string;
@@ -258,13 +270,17 @@ export default function SettingsScreen() {
     setSyncing(true);
     setSyncMsg(t('uploading'));
     try {
-      const [food, acts, weights, goal, profile] = await Promise.all([
+      const [food, acts, weights, goal, profile, allKeys] = await Promise.all([
         AsyncStorage.getItem('calorie_entries'),
         AsyncStorage.getItem('activity_entries'),
         AsyncStorage.getItem('weight_entries'),
         AsyncStorage.getItem('calorie_goal'),
         AsyncStorage.getItem('user_profile'),
+        AsyncStorage.getAllKeys(),
       ]);
+      const backupKeys = allKeys.filter(shouldCloudBackupKey);
+      const backupPairs = await AsyncStorage.multiGet(backupKeys);
+      const fullState = Object.fromEntries(backupPairs.filter((pair): pair is [string, string] => pair[1] !== null));
       const ops: Promise<void>[] = [];
       if (food) JSON.parse(food).forEach((e: any) => ops.push(fsUpsert('foodEntries', e.id, e)));
       if (acts) JSON.parse(acts).forEach((e: any) => ops.push(fsUpsert('activityEntries', e.id, e)));
@@ -272,6 +288,7 @@ export default function SettingsScreen() {
       if (goal) ops.push(fsSetSettings({ goal: Number(goal) }));
       if (profile) ops.push(fsSetSettings({ profile: JSON.parse(profile) as UserProfile }));
       await Promise.all(ops);
+      await fsUploadAppState(fullState);
       setSyncMsg(t('uploadSuccess'));
     } catch {
       setSyncMsg(t('uploadFail'));
@@ -284,22 +301,27 @@ export default function SettingsScreen() {
     setSyncing(true);
     setSyncMsg(t('restoring'));
     try {
-      const [food, acts, weights, settings] = await Promise.all([
+      const [food, acts, weights, settings, fullState] = await Promise.all([
         fsFetchAll<any>('foodEntries'),
         fsFetchAll<any>('activityEntries'),
         fsFetchAll<any>('weightEntries'),
         fsFetchSettings(),
+        fsFetchAppState(),
       ]);
-      if (!food.length && !acts.length && !weights.length) {
+      if (!fullState && !food.length && !acts.length && !weights.length) {
         setSyncMsg(t('noCloudData'));
         setSyncing(false);
         return;
       }
-      if (food.length) await AsyncStorage.setItem('calorie_entries', JSON.stringify(food));
-      if (acts.length) await AsyncStorage.setItem('activity_entries', JSON.stringify(acts));
-      if (weights.length) await AsyncStorage.setItem('weight_entries', JSON.stringify(weights));
-      if (settings?.goal) await AsyncStorage.setItem('calorie_goal', String(settings.goal));
-      if (settings?.profile) await AsyncStorage.setItem('user_profile', JSON.stringify(settings.profile));
+      if (fullState) {
+        await AsyncStorage.multiSet(Object.entries(fullState));
+      } else {
+        if (food.length) await AsyncStorage.setItem('calorie_entries', JSON.stringify(food));
+        if (acts.length) await AsyncStorage.setItem('activity_entries', JSON.stringify(acts));
+        if (weights.length) await AsyncStorage.setItem('weight_entries', JSON.stringify(weights));
+        if (settings?.goal) await AsyncStorage.setItem('calorie_goal', String(settings.goal));
+        if (settings?.profile) await AsyncStorage.setItem('user_profile', JSON.stringify(settings.profile));
+      }
       setSyncMsg(t('restoreSuccess'));
     } catch {
       setSyncMsg(t('restoreFail'));

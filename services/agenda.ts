@@ -4,6 +4,7 @@ export interface AgendaEvent {
   id: string;
   title: string;
   startDate: string;
+  endDate: string;
   allDay: boolean;
 }
 
@@ -34,6 +35,7 @@ export async function readTodayAgenda(): Promise<AgendaEvent[]> {
       id: event.id,
       title: event.title || 'Untitled event',
       startDate: new Date(event.startDate).toISOString(),
+      endDate: new Date(event.endDate).toISOString(),
       allDay: !!event.allDay,
     }));
 }

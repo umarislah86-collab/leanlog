@@ -5,7 +5,7 @@ import { NavigationContainer, useNavigationContainerRef } from '@react-navigatio
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { onAuthChange, fsFetchAll, fsFetchSettings, type User } from './firebase';
+import { onAuthChange, fsFetchAll, fsFetchSettings, fsFetchAppState, type User } from './firebase';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { useTrial } from './hooks/useTrial';
 import HomeScreen from './screens/HomeScreen';
@@ -177,17 +177,22 @@ export default function App() {
     const clearLocalData = () => Promise.all(DATA_KEYS.map((k) => AsyncStorage.removeItem(k)));
 
     const autoRestoreFromCloud = async () => {
-      const [fsFood, fsActs, fsWeights, fsSettings] = await Promise.all([
+      const [fsFood, fsActs, fsWeights, fsSettings, fullState] = await Promise.all([
         fsFetchAll<any>('foodEntries'),
         fsFetchAll<any>('activityEntries'),
         fsFetchAll<any>('weightEntries'),
         fsFetchSettings(),
+        fsFetchAppState(),
       ]);
-      if (fsFood.length) await AsyncStorage.setItem('calorie_entries', JSON.stringify(fsFood));
-      if (fsActs.length) await AsyncStorage.setItem('activity_entries', JSON.stringify(fsActs));
-      if (fsWeights.length) await AsyncStorage.setItem('weight_entries', JSON.stringify(fsWeights));
-      if (fsSettings?.goal) await AsyncStorage.setItem('calorie_goal', String(fsSettings.goal));
-      if (fsSettings?.profile) await AsyncStorage.setItem('user_profile', JSON.stringify(fsSettings.profile));
+      if (fullState) {
+        await AsyncStorage.multiSet(Object.entries(fullState));
+      } else {
+        if (fsFood.length) await AsyncStorage.setItem('calorie_entries', JSON.stringify(fsFood));
+        if (fsActs.length) await AsyncStorage.setItem('activity_entries', JSON.stringify(fsActs));
+        if (fsWeights.length) await AsyncStorage.setItem('weight_entries', JSON.stringify(fsWeights));
+        if (fsSettings?.goal) await AsyncStorage.setItem('calorie_goal', String(fsSettings.goal));
+        if (fsSettings?.profile) await AsyncStorage.setItem('user_profile', JSON.stringify(fsSettings.profile));
+      }
     };
 
     const unsub = onAuthChange(async (u) => {

@@ -29,6 +29,7 @@ import {
   setCashRealitySafetyBuffer,
   setBluecoinsMonthlyBudget,
   setBluecoinsPayday,
+  setBluecoinsFixedCommitments,
 } from '../services/bluecoins';
 import { connectHealth, HealthSnapshot, healthIsConnected, readHealthSnapshot, readRecentHealthWorkouts } from '../services/health';
 import { AgendaEvent, calendarIsConnected, connectCalendar, readTodayAgenda } from '../services/agenda';
@@ -91,6 +92,8 @@ export default function HomeScreen({ navigation }: any) {
   const [paydayInput, setPaydayInput] = useState('25');
   const [safetyBufferInput, setSafetyBufferInput] = useState('0');
   const [expandedBudgetCategory, setExpandedBudgetCategory] = useState<string | null>(null);
+  const [showFixedCommitments, setShowFixedCommitments] = useState(false);
+  const [showFixedManager, setShowFixedManager] = useState(false);
   const [selectedGuardId, setSelectedGuardId] = useState<string | null>(null);
   const [pinnedGuardId, setPinnedGuardId] = useState<string | null>(null);
   const [showGuardEditor, setShowGuardEditor] = useState(false);
@@ -112,6 +115,7 @@ export default function HomeScreen({ navigation }: any) {
   const [calendarConnected, setCalendarConnected] = useState(false);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [agenda, setAgenda] = useState<AgendaEvent[]>([]);
+  const [clockNow, setClockNow] = useState(Date.now());
   const [weekly, setWeekly] = useState<WeeklyReview | null>(null);
   const [streaks, setStreaks] = useState<PersonalStreaks | null>(null);
   const [notes, setNotes] = useState<QuickNote[]>([]);
@@ -292,7 +296,8 @@ export default function HomeScreen({ navigation }: any) {
     loadHabits();
     refreshLeanLogWidget();
     const bluecoinsWatcher = setInterval(() => loadBluecoins(true), 60_000);
-    return () => clearInterval(bluecoinsWatcher);
+    const clockTicker = setInterval(() => setClockNow(Date.now()), 60_000);
+    return () => { clearInterval(bluecoinsWatcher); clearInterval(clockTicker); };
   }, [loadLeanLog, loadBluecoins, loadHealth, loadAgenda, loadInsights, loadHabits]));
 
   const refresh = async () => {
@@ -465,6 +470,14 @@ export default function HomeScreen({ navigation }: any) {
     await loadBluecoins(false);
   };
 
+  const toggleFixedCommitment = async (key: string) => {
+    if (!bluecoins) return;
+    const selected = bluecoins.monthly.fixedCommitmentSelection;
+    const next = selected.includes(key) ? selected.filter((item) => item !== key) : [...selected, key];
+    await setBluecoinsFixedCommitments(next);
+    await loadBluecoins(false);
+  };
+
   const guardTargets = bluecoins ? (
     guardScope === 'account' ? bluecoins.guardOptions.accounts
       : guardScope === 'category' ? bluecoins.guardOptions.categories
@@ -606,24 +619,25 @@ export default function HomeScreen({ navigation }: any) {
         <View style={styles.habitsCard}>
           <View style={styles.cardHeadingRow}>
             <TouchableOpacity style={{ flex: 1 }} onPress={() => setShowHabitReport(true)}><Text style={styles.habitsEyebrow}>TINY HABITS · VIEW REPORT</Text><Text style={styles.habitsTitle}>Small wins, counted.</Text></TouchableOpacity>
-            <TouchableOpacity onPress={() => openHabitCreator()}><Text style={styles.habitsMeta}>＋ ADD · {tinyHabits.length}</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => openHabitCreator()}><Text style={styles.habitsMeta}>＋ ADD · {tinyHabits.filter((habit) => habit.activeDays.includes(new Date().getDay())).length} TODAY · {tinyHabits.length} TOTAL</Text></TouchableOpacity>
           </View>
           <View style={styles.habitsGrid}>
-            {tinyHabits.filter((habit) => habit.activeDays.includes(new Date().getDay())).map((habit) => {
+            {tinyHabits.map((habit) => {
               const status = habitCheckins[habitDateKey()]?.[habit.id];
               const streak = habitStreak(habit, habitCheckins);
+              const activeToday = habit.activeDays.includes(new Date().getDay());
               return (
                 <TouchableOpacity
                   key={habit.id}
-                  style={[styles.habitTile, status === 'done' && { backgroundColor: habit.color }, status === 'skip' && styles.habitTileSkipped]}
-                  onPress={() => checkHabit(habit)}
-                  onLongPress={() => skipHabit(habit)}
+                  style={[styles.habitTile, !activeToday && styles.habitTileRest, status === 'done' && { backgroundColor: habit.color }, status === 'skip' && styles.habitTileSkipped]}
+                  onPress={() => activeToday && checkHabit(habit)}
+                  onLongPress={() => activeToday && skipHabit(habit)}
                   delayLongPress={450}
                   activeOpacity={0.75}
                 >
                   <Text style={styles.habitEmoji}>{status === 'done' ? '✓' : status === 'skip' ? '—' : habit.emoji}</Text>
                   <Text style={styles.habitName}>{habit.name}</Text>
-                  <Text style={styles.habitStreak}>{streak ? `🔥 ${streak} day` : status === 'skip' ? 'honest skip' : 'start today'}</Text>
+                  <Text style={styles.habitStreak}>{!activeToday ? 'rest day · still saved' : streak ? `🔥 ${streak} day` : status === 'skip' ? 'honest skip' : 'start today'}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -674,12 +688,13 @@ export default function HomeScreen({ navigation }: any) {
             <Text style={styles.smallCardTitle}>AGENDA</Text>
             {calendarLoading ? <ActivityIndicator color={colors.cornflower} style={{ marginTop: 34 }} /> : agenda.length ? (
               <View style={styles.agendaList}>
-                {agenda.map((event) => (
-                  <View key={event.id} style={styles.agendaItem}>
-                    <Text style={styles.agendaTime}>{event.allDay ? 'ALL DAY' : new Intl.DateTimeFormat('en-MY', { hour: '2-digit', minute: '2-digit' }).format(new Date(event.startDate))}</Text>
-                    <Text style={styles.agendaTitle} numberOfLines={2}>{event.title}</Text>
+                {agenda.map((event) => {
+                  const elapsed = !event.allDay && new Date(event.endDate).getTime() < clockNow;
+                  return <View key={event.id} style={[styles.agendaItem, elapsed && styles.agendaItemElapsed]}>
+                    <Text style={[styles.agendaTime, elapsed && styles.agendaTextElapsed]}>{event.allDay ? 'ALL DAY' : new Intl.DateTimeFormat('en-MY', { hour: '2-digit', minute: '2-digit' }).format(new Date(event.startDate))}</Text>
+                    <Text style={[styles.agendaTitle, elapsed && styles.agendaTextElapsed]} numberOfLines={2}>{event.title}</Text>
                   </View>
-                ))}
+                })}
               </View>
             ) : (
               <>
@@ -893,7 +908,7 @@ export default function HomeScreen({ navigation }: any) {
                   <Text style={styles.realityPanelFormula}>{money(bluecoins.cashReality.liquidBalance)} selected cash − {money(bluecoins.cashReality.cardOutstanding)} unpaid cards{bluecoins.cashReality.safetyBuffer > 0 ? ` − ${money(bluecoins.cashReality.safetyBuffer)} buffer` : ''}</Text>
                   {bluecoins.cashReality.creditCards.map((card) => (
                     <View key={card.name} style={styles.realityCardDebtRow}>
-                      <View style={{ flex: 1 }}><Text style={styles.realityDebtName}>💳 {card.name}</Text><Text style={styles.realityDebtMeta}>Cutoff day {card.cutOffDay || '—'} · due day {card.dueDay || '—'}</Text></View>
+                      <View style={{ flex: 1 }}><Text style={styles.realityDebtName}>💳 {card.name}</Text><Text style={styles.realityDebtMeta}>Live account balance · payments already reflected</Text></View>
                       <Text style={styles.realityDebtAmount}>{money(card.outstanding)} owed</Text>
                     </View>
                   ))}
@@ -930,17 +945,36 @@ export default function HomeScreen({ navigation }: any) {
                     </TouchableOpacity>
                     {expandedBudgetCategory === category.name && (
                       <View style={styles.subcategoryPanel}>
-                        {category.subcategories.map((subcategory, subIndex) => (
-                          <View key={`${category.name}-${subcategory.name}`} style={styles.subcategoryRow}>
+                        {category.details.map((detail, subIndex) => (
+                          <View key={`${category.name}-${detail.subcategory}-${detail.item}-${subIndex}`} style={styles.subcategoryRow}>
                             <View style={[styles.subcategoryDot, { backgroundColor: [colors.coral, colors.cornflower, colors.mustard, colors.mint][subIndex % 4] }]} />
-                            <View style={{ flex: 1 }}><Text style={styles.subcategoryName}>{subcategory.name}</Text><Text style={styles.subcategoryShare}>{subcategory.share.toFixed(0)}% of {category.name}</Text></View>
-                            <Text style={styles.subcategoryAmount}>{money(subcategory.amount)}</Text>
+                            <View style={{ flex: 1 }}><Text style={styles.subcategoryName}>{detail.subcategory} <Text style={styles.subcategoryDivider}>|</Text> {detail.item}</Text><Text style={styles.subcategoryShare}>{detail.share.toFixed(0)}% · {detail.transactions} {detail.transactions === 1 ? 'entry' : 'entries'}</Text></View>
+                            <Text style={styles.subcategoryAmount}>{money(detail.amount)}</Text>
                           </View>
                         ))}
                       </View>
                     )}
                   </View>
                 ))}
+
+                {bluecoins.monthly.fixedCommitments.total > 0 && (
+                  <View style={styles.commitmentCard}>
+                    <TouchableOpacity style={styles.commitmentHeader} onPress={() => setShowFixedCommitments((value) => !value)} activeOpacity={0.75}>
+                      <View style={{ flex: 1 }}><Text style={styles.commitmentEyebrow}>FIXED COMMITMENTS · INCLUDED IN TOTAL</Text><Text style={styles.commitmentTitle}>Bills, subscriptions & loans</Text></View>
+                      <Text style={styles.commitmentAmount}>{money(bluecoins.monthly.fixedCommitments.total)}</Text>
+                      <Ionicons name={showFixedCommitments ? 'chevron-up' : 'chevron-down'} size={16} color={colors.muted} />
+                    </TouchableOpacity>
+                    {showFixedCommitments && bluecoins.monthly.fixedCommitments.items.map((item) => (
+                      <View key={item.name} style={styles.commitmentItem}><Text style={styles.commitmentItemName}>{item.name}</Text><Text style={styles.commitmentItemAmount}>{money(item.amount)}</Text></View>
+                    ))}
+                    {showFixedCommitments && (
+                      <TouchableOpacity style={styles.commitmentManage} onPress={() => setShowFixedManager(true)}>
+                        <Ionicons name="options-outline" size={14} color={colors.coral} />
+                        <Text style={styles.commitmentManageText}>MANAGE RECURRING ITEMS</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
 
                 <View style={styles.guardSectionHeader}>
                   <Text style={[styles.budgetSectionTitle, { marginBottom: 0 }]}>SPENDING GUARDS</Text>
@@ -972,6 +1006,28 @@ export default function HomeScreen({ navigation }: any) {
                 <TouchableOpacity style={styles.refreshBudget} onPress={() => loadBluecoins(false)}><Ionicons name="refresh" size={17} color={colors.cornflower} /><Text style={styles.refreshBudgetText}>Refresh newest .fydb backup</Text></TouchableOpacity>
               </ScrollView>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showFixedManager} transparent animationType="fade" onRequestClose={() => setShowFixedManager(false)}>
+        <View style={styles.fixedManagerOverlay}>
+          <View style={styles.fixedManagerSheet}>
+            <View style={styles.fixedManagerHeader}>
+              <View style={{ flex: 1 }}><Text style={styles.habitModalEyebrow}>FIXED COMMITMENTS</Text><Text style={styles.fixedManagerTitle}>What repeats every month?</Text></View>
+              <TouchableOpacity style={styles.budgetClose} onPress={() => setShowFixedManager(false)}><Ionicons name="close" size={22} color={colors.text} /></TouchableOpacity>
+            </View>
+            <Text style={styles.fixedManagerHint}>Selected items stay inside monthly spending, but disappear from controllable daily-expense rankings.</Text>
+            <ScrollView style={styles.fixedManagerList} showsVerticalScrollIndicator={false}>
+              {bluecoins?.monthly.fixedCommitmentOptions.map((option) => (
+                <TouchableOpacity key={option.key} style={[styles.fixedOption, option.selected && styles.fixedOptionSelected]} onPress={() => toggleFixedCommitment(option.key)} activeOpacity={0.72}>
+                  <Ionicons name={option.selected ? 'checkmark-circle' : 'ellipse-outline'} size={20} color={option.selected ? colors.coral : colors.muted} />
+                  <View style={{ flex: 1 }}><Text style={styles.fixedOptionLabel}>{option.label}</Text><Text style={styles.fixedOptionCategory}>{option.category}</Text></View>
+                  <Text style={styles.fixedOptionAmount}>{money(option.amount)}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={styles.fixedManagerDone} onPress={() => setShowFixedManager(false)}><Text style={styles.fixedManagerDoneText}>DONE</Text></TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -1161,6 +1217,7 @@ const styles = StyleSheet.create({
   habitsMeta: { color: '#718096', fontSize: 7, fontWeight: '900', letterSpacing: 0.8, textAlign: 'right' },
   habitsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
   habitTile: { width: '48.5%', minHeight: 102, backgroundColor: colors.inkSoft, borderRadius: 18, padding: 12, justifyContent: 'space-between', borderWidth: 1, borderColor: '#30405A' },
+  habitTileRest: { minHeight: 82, opacity: 0.5, borderStyle: 'dashed' },
   habitTileSkipped: { backgroundColor: '#293348', borderStyle: 'dashed', opacity: 0.72 },
   habitEmoji: { color: colors.oat, fontSize: 20, fontWeight: '900' },
   habitName: { color: colors.oat, fontSize: 12, fontWeight: '900', marginTop: 8 },
@@ -1227,6 +1284,8 @@ const styles = StyleSheet.create({
   emptyBody: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 5 },
   agendaList: { marginTop: 13, gap: 10 },
   agendaItem: { borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 8 },
+  agendaItemElapsed: { opacity: 0.48 },
+  agendaTextElapsed: { textDecorationLine: 'line-through' },
   agendaTime: { color: colors.cornflower, fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
   agendaTitle: { color: colors.text, fontSize: 13, lineHeight: 17, fontWeight: '700', marginTop: 3 },
   moneyCard: { minHeight: 260, backgroundColor: colors.mustard, borderRadius: radii.medium, padding: 17, overflow: 'hidden' },
@@ -1311,8 +1370,32 @@ const styles = StyleSheet.create({
   subcategoryRow: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 9, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#D6CCBC' },
   subcategoryDot: { width: 7, height: 7, borderRadius: 4 },
   subcategoryName: { color: colors.text, fontSize: 11, fontWeight: '800' },
+  subcategoryDivider: { color: colors.coral, fontWeight: '900' },
   subcategoryShare: { color: colors.muted, fontSize: 8, marginTop: 2 },
   subcategoryAmount: { color: colors.text, fontSize: 11, fontWeight: '900' },
+  commitmentCard: { marginTop: 10, backgroundColor: '#F1E9DA', borderRadius: 18, paddingHorizontal: 14, borderWidth: 1, borderColor: '#DDD2C0' },
+  commitmentHeader: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  commitmentEyebrow: { color: colors.muted, fontSize: 7, fontWeight: '900', letterSpacing: 1 },
+  commitmentTitle: { color: colors.text, fontSize: 11, fontWeight: '800', marginTop: 3 },
+  commitmentAmount: { color: colors.text, fontSize: 12, fontWeight: '900' },
+  commitmentItem: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 9, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#D6CCBC' },
+  commitmentItemName: { color: colors.muted, fontSize: 10, fontWeight: '700' },
+  commitmentItemAmount: { color: colors.text, fontSize: 10, fontWeight: '900' },
+  commitmentManage: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#D6CCBC' },
+  commitmentManageText: { color: colors.coral, fontSize: 8, fontWeight: '900', letterSpacing: 1 },
+  fixedManagerOverlay: { flex: 1, backgroundColor: 'rgba(4,10,20,0.72)', justifyContent: 'center', padding: 18 },
+  fixedManagerSheet: { backgroundColor: colors.paper, borderRadius: 28, padding: 18, maxHeight: '82%' },
+  fixedManagerHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  fixedManagerTitle: { color: colors.text, fontFamily: 'serif', fontSize: 24, fontWeight: '800', marginTop: 5 },
+  fixedManagerHint: { color: colors.muted, fontSize: 10, lineHeight: 15, marginTop: 9, marginBottom: 12 },
+  fixedManagerList: { flexGrow: 0 },
+  fixedOption: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, backgroundColor: '#FFFFFF', borderRadius: 15, marginBottom: 7, borderWidth: 1, borderColor: '#E1D8C8' },
+  fixedOptionSelected: { backgroundColor: '#FFF1E9', borderColor: colors.coral },
+  fixedOptionLabel: { color: colors.text, fontSize: 11, fontWeight: '800' },
+  fixedOptionCategory: { color: colors.muted, fontSize: 8, marginTop: 2 },
+  fixedOptionAmount: { color: colors.text, fontSize: 10, fontWeight: '900' },
+  fixedManagerDone: { backgroundColor: colors.ink, borderRadius: 15, paddingVertical: 13, alignItems: 'center', marginTop: 8 },
+  fixedManagerDoneText: { color: colors.oat, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
   paydayRow: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#DED5C5', borderRadius: 16, padding: 11 },
   paydayTitle: { color: colors.text, fontSize: 12, fontWeight: '900' },
   paydayHint: { color: colors.muted, fontSize: 8, lineHeight: 11, marginTop: 2 },

@@ -99,6 +99,33 @@ export const fsFetchSettings = async (): Promise<{ goal?: number; profile?: User
   }
 };
 
+export const fsUploadAppState = async (state: Record<string, string>): Promise<void> => {
+  const uid = getUID();
+  if (!uid) throw new Error('Sign in before uploading a backup.');
+  const entries = Object.entries(state);
+  await Promise.all(entries.map(([key, value]) =>
+    setDoc(userDoc(uid, 'appState', encodeURIComponent(key)), { key, value })
+  ));
+  await setDoc(userDoc(uid, 'appStateMeta', 'latest'), {
+    keys: entries.map(([key]) => key),
+    updatedAt: new Date().toISOString(),
+    version: 1,
+  });
+};
+
+export const fsFetchAppState = async (): Promise<Record<string, string> | null> => {
+  const uid = getUID();
+  if (!uid) throw new Error('Sign in before restoring a backup.');
+  const meta = await getDoc(userDoc(uid, 'appStateMeta', 'latest'));
+  if (!meta.exists()) return null;
+  const keys = (meta.data().keys || []) as string[];
+  const docs = await Promise.all(keys.map((key) => getDoc(userDoc(uid, 'appState', encodeURIComponent(key)))));
+  return docs.reduce<Record<string, string>>((result, snapshot, index) => {
+    if (snapshot.exists() && typeof snapshot.data().value === 'string') result[keys[index]] = snapshot.data().value;
+    return result;
+  }, {});
+};
+
 export const fsMirrorPhotoUpsert = async (monthKey: string, data: object): Promise<void> => {
   const uid = getUID();
   if (!uid) return;

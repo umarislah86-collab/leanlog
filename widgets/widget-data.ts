@@ -21,7 +21,8 @@ export async function getWidgetData(): Promise<LeanLogWidgetProps> {
   const burned = activities.filter((entry) => entry.date === today).reduce((sum, entry) => sum + entry.caloriesBurned, 0);
   const health = healthRaw ? JSON.parse(healthRaw) : { steps: 0 };
   const agenda = agendaRaw ? JSON.parse(agendaRaw) : [];
-  const pinnedGuard: WidgetGuardSnapshot | null = guardRaw ? JSON.parse(guardRaw) : null;
+  const parsedGuards: WidgetGuardSnapshot | WidgetGuardSnapshot[] | null = guardRaw ? JSON.parse(guardRaw) : null;
+  const guards = Array.isArray(parsedGuards) ? parsedGuards.slice(0, 3) : parsedGuards ? [parsedGuards] : [];
   const cashReality = cashRealityRaw ? JSON.parse(cashRealityRaw) : null;
   return {
     eaten,
@@ -30,7 +31,7 @@ export async function getWidgetData(): Promise<LeanLogWidgetProps> {
     goal: Number(goalRaw) || 2000,
     steps: Number(health.steps) || 0,
     nextEvent: agenda[0]?.title || '',
-    pinnedGuard,
+    guards,
     cashReality,
     updated: new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' }),
   };
