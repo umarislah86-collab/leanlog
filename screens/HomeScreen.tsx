@@ -56,6 +56,9 @@ type HealthSyncStatus = { syncedAt: string; detected: number; imported: number; 
 const bluecoinsReadError = (error: any) => {
   const message = String(error?.message || error || 'Unknown error');
   if (message === 'NO_BLUECOINS_BACKUP') return 'No .fydb file was found in that folder.';
+  if (message.startsWith('BLUECOINS_PROVIDER_LIST_FAILED|')) {
+    return `Android could not list the selected Google Drive folder.\n\nTechnical detail: ${message.split('|').slice(1).join('|')}`;
+  }
   if (message.startsWith('BLUECOINS_PROVIDER_COPY_FAILED|')) {
     return `Google Drive exposed the .fydb file, but Android could not download its contents yet. Keep Drive online and try Sync again.\n\nTechnical detail: ${message.split('|').slice(1).join('|')}`;
   }

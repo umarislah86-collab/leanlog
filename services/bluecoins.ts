@@ -195,15 +195,27 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
   const directoryUri = folderUri || await getBluecoinsFolder();
   if (!directoryUri) throw new Error('BLUECOINS_FOLDER_NOT_CONNECTED');
 
-  const entries = await FileSystem.StorageAccessFramework.readDirectoryAsync(directoryUri);
-  const backups = entries
-    .filter((uri) => fileNameFromUri(uri).toLowerCase().endsWith('.fydb'))
-    .sort((a, b) => fileNameFromUri(b).localeCompare(fileNameFromUri(a)));
+  let backups: Array<{ uri: string; name: string; lastModified: number }>;
+  try {
+    if (directoryUri.startsWith('content://') && BluecoinsDriveReader) {
+      backups = (await BluecoinsDriveReader.listFydbFilesAsync(directoryUri))
+        .map((file) => ({ uri: file.uri, name: file.name, lastModified: file.lastModified }));
+    } else {
+      const entries = await FileSystem.StorageAccessFramework.readDirectoryAsync(directoryUri);
+      backups = entries
+        .filter((uri) => fileNameFromUri(uri).toLowerCase().endsWith('.fydb'))
+        .map((uri) => ({ uri, name: fileNameFromUri(uri), lastModified: 0 }));
+    }
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error || 'unknown provider error');
+    throw new Error(`BLUECOINS_PROVIDER_LIST_FAILED|${detail}`);
+  }
+  backups.sort((a, b) => b.lastModified - a.lastModified || b.name.localeCompare(a.name));
 
   if (!backups.length) throw new Error('NO_BLUECOINS_BACKUP');
 
-  const sourceUri = backups[0];
-  const sourceName = fileNameFromUri(sourceUri);
+  const sourceUri = backups[0].uri;
+  const sourceName = backups[0].name;
   const sourceDate = backupDateFromName(sourceName);
   const localUri = `${FileSystem.documentDirectory}${CACHE_NAME}`;
 
