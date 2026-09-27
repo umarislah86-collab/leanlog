@@ -261,7 +261,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <LanguageProvider>
-        <NavigationContainer ref={navigationRef} linking={{ prefixes: ['leanlog://'], config: { screens: { RedCoins: { path: 'redcoins/:mode?' } } } }}>
+        <NavigationContainer ref={navigationRef} linking={{ prefixes: ['leanlog://'], config: { screens: { Home: 'home', RedCoins: { path: 'redcoins/:mode?' } } } }}>
           {user
             ? hasProfile
               ? trialStatus === 'expired'
