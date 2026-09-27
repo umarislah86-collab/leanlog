@@ -80,6 +80,11 @@ export interface BluecoinsSummary {
     fixedCommitmentSelection: string[];
     alerts: string[];
   };
+  redcoins: {
+    accounts: { name: string; type: 'Bank' | 'Cash' | 'Credit card' | 'Liability' | 'Investment'; balance: number; limit: number }[];
+    categories: { name: string; subcategories: string[] }[];
+    entries: { id: string; type: 'expense' | 'income' | 'transfer'; item: string; amount: number; date: string; account: string; toAccount?: string; category: string; subcategory: string; note: string; status: 'cleared' | 'pending'; origin: 'bluecoins' }[];
+  };
 }
 
 const fileNameFromUri = (uri: string) => {
@@ -323,6 +328,31 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
        WHERE a.accountsTableID > 0
        GROUP BY a.accountsTableID
        ORDER BY a.accountName`,
+    );
+    const ledgerRows = await db.getAllAsync<{
+      id: number; transactionType: number; rawAmount: number; date: string; item: string; account: string;
+      toAccount: string; category: string; subcategory: string; note: string; status: number;
+    }>(
+      `SELECT t.transactionsTableID AS id, t.transactionTypeID AS transactionType,
+              ABS(t.amount) AS rawAmount, t.date AS date,
+              COALESCE(NULLIF(TRIM(i.itemName), ''), 'Unnamed transaction') AS item,
+              COALESCE(a.accountName, '(No Account)') AS account,
+              COALESCE(pair.accountName, '') AS toAccount,
+              COALESCE(pc.parentCategoryName, cc.childCategoryName, 'Uncategorised') AS category,
+              COALESCE(cc.childCategoryName, pc.parentCategoryName, 'Uncategorised') AS subcategory,
+              COALESCE(t.notes, '') AS note, COALESCE(t.status, 1) AS status
+       FROM TRANSACTIONSTABLE t
+       LEFT JOIN ITEMTABLE i ON i.itemTableID = t.itemID
+       LEFT JOIN ACCOUNTSTABLE a ON a.accountsTableID = t.accountID
+       LEFT JOIN ACCOUNTSTABLE pair ON pair.accountsTableID = t.accountPairID
+       LEFT JOIN CHILDCATEGORYTABLE cc ON cc.categoryTableID = t.categoryID
+       LEFT JOIN PARENTCATEGORYTABLE pc ON pc.parentCategoryTableID = cc.parentCategoryID
+       WHERE t.deletedTransaction = 6 AND t.reminderTransaction IS NULL
+         AND t.transactionTypeID IN (3, 4, 5)
+         AND (t.transactionTypeID != 5 OR t.accountReference = 1)
+         AND t.date <= ?
+       ORDER BY t.date DESC`,
+      `${localIso(new Date())} 23:59:59`,
     );
     const cashCandidates = accountBalances.filter((account) => [3, 4].includes(account.accountType));
     const accountsInitialised = (await AsyncStorage.getItem(CASH_ACCOUNTS_INITIALISED_KEY)) === 'true';
@@ -699,6 +729,42 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
     };
     const spendingGuards = await Promise.all(guardConfigs.map(evaluateGuard));
 
+    const redcoinsAccountType = (account: typeof accountBalances[number]) => {
+      if (account.accountType === 8 || /credit|platinum/i.test(account.name)) return 'Credit card' as const;
+      if (/persona|prima|loan|mortgage/i.test(account.name)) return 'Liability' as const;
+      if (/epf|tabung haji|investment/i.test(account.name)) return 'Investment' as const;
+      if (/wallet|cash/i.test(account.name)) return 'Cash' as const;
+      return 'Bank' as const;
+    };
+    const redcoins = {
+      accounts: accountBalances.map((account) => ({
+        name: account.name,
+        type: redcoinsAccountType(account),
+        balance: account.balanceRaw / AMOUNT_SCALE,
+        limit: account.creditLimitRaw / AMOUNT_SCALE,
+      })),
+      categories: [...categoryOptions.reduce((map, row) => {
+        const values = map.get(row.category) || [];
+        if (!values.includes(row.subcategory)) values.push(row.subcategory);
+        map.set(row.category, values);
+        return map;
+      }, new Map<string, string[]>())].map(([name, subcategories]) => ({ name, subcategories })),
+      entries: ledgerRows.map((row) => ({
+        id: `bluecoins-${row.id}`,
+        type: row.transactionType === 5 ? 'transfer' as const : row.transactionType === 4 ? 'income' as const : 'expense' as const,
+        item: row.item,
+        amount: row.rawAmount / AMOUNT_SCALE,
+        date: row.date.replace(' ', 'T'),
+        account: row.account,
+        toAccount: row.transactionType === 5 ? row.toAccount : undefined,
+        category: row.transactionType === 5 ? '(Transfer)' : row.category,
+        subcategory: row.transactionType === 5 ? '(Transfer)' : row.subcategory,
+        note: row.note,
+        status: row.status === 1 ? 'cleared' as const : 'pending' as const,
+        origin: 'bluecoins' as const,
+      })),
+    };
+
     return {
       sourceName,
       sourceDate,
@@ -745,6 +811,7 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
         fixedCommitmentSelection: [...selectedFixed],
         alerts,
       },
+      redcoins,
     };
   } finally {
     await db.closeAsync();

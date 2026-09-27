@@ -13,10 +13,14 @@ export interface RedCoinsEntry {
   id: string; type: RedCoinsType; item: string; amount: number; date: string; account: string; toAccount?: string;
   category: string; subcategory: string; note?: string; labels?: string[]; status?: 'cleared' | 'pending';
   repeat?: 'none' | 'weekly' | 'monthly' | 'installment'; installments?: number; split?: string; attachment?: string;
+  origin?: 'bluecoins' | 'redcoins';
+  exportedAt?: string;
 }
+export interface RedCoinsExportBatch { id: string; createdAt: string; entryIds: string[]; confirmedAt?: string }
 export interface RedCoinsState {
   entries: RedCoinsEntry[]; accounts: RedCoinsAccount[]; categories: RedCoinsCategory[]; trash: RedCoinsEntry[];
   payday: number; monthlyBudget: number; safetyBuffer: number; importedSource?: string; createdAt: string;
+  exportBatches: RedCoinsExportBatch[];
 }
 
 const id = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -24,15 +28,12 @@ const accountType = (name: string): RedCoinsAccountType => /platinum|credit/i.te
 
 export function freshRedCoinsState(summary?: BluecoinsSummary | null): RedCoinsState {
   const accountMap = new Map<string, RedCoinsAccount>();
-  summary?.cashReality.cashAccounts.forEach((a) => accountMap.set(a.name, { id: id(), name: a.name, type: accountType(a.name), balance: a.balance }));
-  summary?.cashReality.creditCards.forEach((a) => accountMap.set(a.name, { id: id(), name: a.name, type: 'Credit card', balance: -a.outstanding, limit: a.creditLimit }));
-  summary?.guardOptions.accounts.forEach((name) => { if (!accountMap.has(name)) accountMap.set(name, { id: id(), name, type: accountType(name), balance: 0 }); });
-  const categories = (summary?.guardOptions.categories || ['Food & Dining', 'Transport', 'Utilities', 'Entertainment', 'Household', 'People']).map((name, index) => ({
-    id: id(), name, icon: ['🍴', '⛽', '⌁', '▶', '⌂', '♥'][index % 6],
-    subcategories: summary?.guardOptions.subcategories.filter((sub) => sub !== name).slice(index * 5, index * 5 + 5) || ['General'],
+  summary?.redcoins.accounts.forEach((a) => accountMap.set(a.name, { id: id(), ...a }));
+  const categories = (summary?.redcoins.categories || []).map(({ name, subcategories }, index) => ({
+    id: id(), name, icon: ['▰', '●', '⛽', '🍴', '⌂', '♥', '✈', '⌁'][index % 8], subcategories,
   }));
   return {
-    entries: [], accounts: [...accountMap.values()], categories, trash: [], payday: summary?.monthly.payday || 25,
+    entries: summary?.redcoins.entries || [], accounts: [...accountMap.values()], categories, trash: [], exportBatches: [], payday: summary?.monthly.payday || 25,
     monthlyBudget: summary?.monthly.budget || 2000, safetyBuffer: summary?.cashReality.safetyBuffer || 0,
     importedSource: summary?.sourceName, createdAt: new Date().toISOString(),
   };
@@ -40,12 +41,94 @@ export function freshRedCoinsState(summary?: BluecoinsSummary | null): RedCoinsS
 
 export async function loadRedCoins(summary?: BluecoinsSummary | null) {
   const raw = await AsyncStorage.getItem(STATE_KEY);
-  if (raw) return JSON.parse(raw) as RedCoinsState;
+  if (raw) {
+    const saved = JSON.parse(raw) as RedCoinsState;
+    if (summary?.redcoins) {
+      const own = saved.entries.filter((entry) => entry.origin !== 'bluecoins');
+      const customAccounts = saved.accounts.filter((account) => !summary.redcoins.accounts.some((source) => source.name === account.name));
+      const customCategories = saved.categories.filter((category) => !summary.redcoins.categories.some((source) => source.name === category.name));
+      const refreshed = freshRedCoinsState(summary);
+      refreshed.entries = [...own, ...refreshed.entries].sort((a, b) => b.date.localeCompare(a.date));
+      refreshed.accounts.push(...customAccounts);
+      refreshed.categories.push(...customCategories);
+      refreshed.trash = saved.trash || [];
+      refreshed.exportBatches = saved.exportBatches || [];
+      refreshed.payday = saved.payday || refreshed.payday;
+      refreshed.monthlyBudget = saved.monthlyBudget || refreshed.monthlyBudget;
+      refreshed.safetyBuffer = saved.safetyBuffer ?? refreshed.safetyBuffer;
+      await saveRedCoins(refreshed);
+      return refreshed;
+    }
+    return saved;
+  }
   const state = freshRedCoinsState(summary);
   await saveRedCoins(state);
   return state;
 }
 export const saveRedCoins = (state: RedCoinsState) => AsyncStorage.setItem(STATE_KEY, JSON.stringify(state));
+
+const entrySignature = (entry: Pick<RedCoinsEntry, 'item' | 'amount' | 'date' | 'account'>) =>
+  `${entry.date.slice(0, 10)}|${entry.item.trim().toLowerCase()}|${entry.amount.toFixed(2)}|${entry.account.trim().toLowerCase()}`;
+
+export async function mergeRedCoinsIntoBudgetCoach(source: BluecoinsSummary): Promise<BluecoinsSummary> {
+  const raw = await AsyncStorage.getItem(STATE_KEY);
+  if (!raw) return source;
+  const state = JSON.parse(raw) as RedCoinsState;
+  const imported = new Set((source.redcoins?.entries || []).map(entrySignature));
+  const pending = state.entries.filter((entry) => entry.origin !== 'bluecoins' && !imported.has(entrySignature(entry)));
+  if (!pending.length) return source;
+  const summary = JSON.parse(JSON.stringify(source)) as BluecoinsSummary;
+  const sourceDate = new Date();
+  const lastSevenStart = new Date(sourceDate); lastSevenStart.setHours(0, 0, 0, 0); lastSevenStart.setDate(lastSevenStart.getDate() - 6);
+  const cycleStart = new Date(`${summary.monthly.cycleStart}T00:00:00`);
+  const cycleEnd = new Date(`${summary.monthly.cycleEnd}T23:59:59`);
+  const expenseRows = pending.filter((entry) => entry.type === 'expense');
+  const allExpenses = [...(summary.redcoins?.entries || []).filter((entry) => entry.type === 'expense'), ...expenseRows];
+  summary.days = Array.from({ length: 7 }, (_, offset) => { const date = new Date(lastSevenStart); date.setDate(lastSevenStart.getDate() + offset); const key = date.toISOString().slice(0, 10); const rows = allExpenses.filter((entry) => entry.date.slice(0, 10) === key); return { date: key, spent: rows.reduce((sum, entry) => sum + entry.amount, 0), transactions: rows.length }; });
+  const sevenRows = allExpenses.filter((entry) => new Date(entry.date) >= lastSevenStart && new Date(entry.date) <= sourceDate);
+  summary.total = sevenRows.reduce((sum, entry) => sum + entry.amount, 0);
+  summary.transactionCount = sevenRows.length;
+  summary.average = summary.total / 7;
+  const sevenCategories = new Map<string, number>();
+  sevenRows.forEach((entry) => sevenCategories.set(entry.category, (sevenCategories.get(entry.category) || 0) + entry.amount));
+  summary.topCategories = [...sevenCategories].map(([name, amount]) => ({ name, amount })).sort((a, b) => b.amount - a.amount).slice(0, 3);
+  summary.topCategory = summary.topCategories[0]?.name || summary.topCategory;
+  summary.topCategoryAmount = summary.topCategories[0]?.amount || 0;
+
+  const cycleRows = expenseRows.filter((entry) => { const date = new Date(entry.date); return date >= cycleStart && date <= cycleEnd; });
+  const addedCycleSpend = cycleRows.reduce((sum, entry) => sum + entry.amount, 0);
+  summary.monthly.spent += addedCycleSpend;
+  summary.monthly.remaining = summary.monthly.budget - summary.monthly.spent;
+  const remainingDays = Math.max(1, Math.ceil((cycleEnd.getTime() - sourceDate.getTime()) / 86400000));
+  summary.monthly.safeToday = Math.max(0, summary.monthly.remaining / remainingDays);
+  summary.monthly.projected += addedCycleSpend;
+  summary.monthly.projectedLow += addedCycleSpend;
+  summary.monthly.projectedHigh += addedCycleSpend;
+  const categoryMap = new Map(summary.monthly.topCategories.map((item) => [item.name, item]));
+  cycleRows.forEach((entry) => {
+    const category = categoryMap.get(entry.category) || { name: entry.category, amount: 0, share: 0, details: [] };
+    category.amount += entry.amount;
+    const detail = category.details.find((item) => item.subcategory === entry.subcategory && item.item === entry.item);
+    if (detail) { detail.amount += entry.amount; detail.transactions += 1; } else category.details.push({ subcategory: entry.subcategory, item: entry.item, amount: entry.amount, share: 0, transactions: 1 });
+    categoryMap.set(entry.category, category);
+  });
+  summary.monthly.topCategories = [...categoryMap.values()].sort((a, b) => b.amount - a.amount).map((category) => ({ ...category, share: summary.monthly.spent ? category.amount / summary.monthly.spent * 100 : 0, details: category.details.map((detail) => ({ ...detail, share: category.amount ? detail.amount / category.amount * 100 : 0 })).sort((a, b) => b.amount - a.amount) }));
+
+  const accountByName = new Map(state.accounts.map((account) => [account.name, account]));
+  summary.cashReality.cashAccounts.forEach((account) => { const latest = accountByName.get(account.name); if (latest) account.balance = latest.balance; });
+  summary.cashReality.creditCards.forEach((card) => { const latest = accountByName.get(card.name); if (latest) card.outstanding = Math.max(0, -latest.balance); });
+  summary.cashReality.liquidBalance = summary.cashReality.cashAccounts.filter((account) => account.selected).reduce((sum, account) => sum + account.balance, 0);
+  summary.cashReality.cardOutstanding = summary.cashReality.creditCards.reduce((sum, card) => sum + card.outstanding, 0);
+  summary.cashReality.trueSpendable = Math.min(summary.monthly.remaining, summary.cashReality.liquidBalance - summary.cashReality.cardOutstanding - summary.cashReality.safetyBuffer);
+  summary.cashReality.coveragePercent = summary.cashReality.cardOutstanding ? summary.cashReality.liquidBalance / summary.cashReality.cardOutstanding * 100 : 100;
+  summary.spendingGuards.forEach((guard) => {
+    const extras = cycleRows.filter((entry) => guard.scope === 'account' ? entry.account === guard.target : guard.scope === 'category' ? entry.category === guard.target : entry.subcategory === guard.target);
+    const added = extras.reduce((sum, entry) => sum + entry.amount, 0);
+    guard.spent += added; guard.remaining = guard.limit - guard.spent; guard.percent = guard.limit ? guard.spent / guard.limit * 100 : 0; guard.projected += added;
+    guard.level = guard.percent >= 100 ? 'breached' : guard.percent >= 85 ? 'danger' : guard.percent >= 70 ? 'slow-down' : guard.percent >= 50 ? 'heads-up' : 'safe';
+  });
+  return summary;
+}
 
 export function applyEntryBalance(state: RedCoinsState, entry: RedCoinsEntry, direction = 1) {
   const source = state.accounts.find((a) => a.name === entry.account);
@@ -56,15 +139,29 @@ export function applyEntryBalance(state: RedCoinsState, entry: RedCoinsEntry, di
 }
 
 const csv = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
-export async function exportRedCoinsCsv(state: RedCoinsState) {
+export async function exportRedCoinsCsv(state: RedCoinsState, mode: 'pending' | 'all' = 'pending'): Promise<RedCoinsExportBatch | null> {
   const header = ['Date', 'Time', 'Type', 'Item', 'Category', 'Subcategory', 'Account', 'Transfer Account', 'Amount', 'Currency', 'Notes', 'Labels', 'Status'];
-  const rows = state.entries.map((entry) => {
+  const selected = state.entries.filter((entry) => entry.origin !== 'bluecoins' && (mode === 'all' || !entry.exportedAt));
+  if (!selected.length) return null;
+  const rows = selected.map((entry) => {
     const date = new Date(entry.date);
     return [date.toISOString().slice(0, 10), date.toTimeString().slice(0, 5), entry.type, entry.item, entry.category, entry.subcategory, entry.account, entry.toAccount || '', entry.amount.toFixed(2), 'MYR', entry.note || '', (entry.labels || []).join('|'), entry.status || 'cleared'].map(csv).join(',');
   });
   const uri = `${FileSystem.cacheDirectory}RedCoins-to-Bluecoins-${new Date().toISOString().slice(0, 10)}.csv`;
   await FileSystem.writeAsStringAsync(uri, `\ufeff${[header.map(csv).join(','), ...rows].join('\r\n')}`);
   await Sharing.shareAsync(uri, { mimeType: 'text/csv', dialogTitle: 'Export RedCoins for Bluecoins' });
+  return { id: `export-${Date.now()}`, createdAt: new Date().toISOString(), entryIds: selected.map((entry) => entry.id) };
+}
+
+export function confirmRedCoinsExport(state: RedCoinsState, batchId: string): RedCoinsState {
+  const confirmedAt = new Date().toISOString();
+  const batch = state.exportBatches.find((item) => item.id === batchId);
+  if (!batch) return state;
+  return {
+    ...state,
+    entries: state.entries.map((entry) => batch.entryIds.includes(entry.id) ? { ...entry, exportedAt: confirmedAt } : entry),
+    exportBatches: state.exportBatches.map((item) => item.id === batchId ? { ...item, confirmedAt } : item),
+  };
 }
 
 export async function exportRedCoinsBackup(state: RedCoinsState) {

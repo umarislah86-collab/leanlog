@@ -72,12 +72,20 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
           </TouchableOpacity>
         );
       })}
-      <TouchableOpacity
-        style={{ width: 70, alignItems: 'center', marginTop: -25, marginRight: 7 }}
-        onPress={() => navigation.navigate('Log', { fabTrigger: Date.now() })}
-        activeOpacity={0.86}
-        accessibilityLabel="Add new log"
-      >
+      <View style={{ width: 70, alignItems: 'center', marginTop: -53, marginRight: 7 }}>
+        <TouchableOpacity
+          style={{ width: 42, height: 27, borderRadius: 11, backgroundColor: '#EF3F43', borderWidth: 3, borderColor: colors.oat, alignItems: 'center', justifyContent: 'center', marginBottom: 1 }}
+          onPress={() => navigation.navigate('RedCoins')}
+          activeOpacity={0.86}
+          accessibilityLabel="Open RedCoins"
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '900' }}>R¢</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Log', { fabTrigger: Date.now() })}
+          activeOpacity={0.86}
+          accessibilityLabel="Add new log"
+        >
         <View style={{
           width: 62, height: 62, borderRadius: 22,
           alignItems: 'center', justifyContent: 'center',
@@ -87,7 +95,8 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
         }}>
           <Ionicons name="add" size={34} color={colors.ink} />
         </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -252,7 +261,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <LanguageProvider>
-        <NavigationContainer ref={navigationRef}>
+        <NavigationContainer ref={navigationRef} linking={{ prefixes: ['leanlog://'], config: { screens: { RedCoins: { path: 'redcoins/:mode?' } } } }}>
           {user
             ? hasProfile
               ? trialStatus === 'expired'

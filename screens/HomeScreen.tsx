@@ -31,6 +31,7 @@ import {
   setBluecoinsPayday,
   setBluecoinsFixedCommitments,
 } from '../services/bluecoins';
+import { mergeRedCoinsIntoBudgetCoach } from '../services/redcoins';
 import { connectHealth, HealthSnapshot, healthIsConnected, readHealthSnapshot, readRecentHealthWorkouts } from '../services/health';
 import { AgendaEvent, calendarIsConnected, connectCalendar, readTodayAgenda } from '../services/agenda';
 import { loadInsightData, PersonalStreaks, QuickNote, WeeklyReview } from '../services/insights';
@@ -177,7 +178,7 @@ export default function HomeScreen({ navigation }: any) {
     if (!folder) return;
     if (!quiet) setBluecoinsLoading(true);
     try {
-      const summary = await refreshBluecoinsSummary(folder);
+      const summary = await mergeRedCoinsIntoBudgetCoach(await refreshBluecoinsSummary(folder));
       setBluecoins(summary);
       await notifySpendingGuardChanges(summary.spendingGuards);
       await notifyCashRealityRisk(summary.cashReality, summary.sourceDate);
@@ -348,7 +349,7 @@ export default function HomeScreen({ navigation }: any) {
     setBluecoinsConnected(true);
     setBluecoinsLoading(true);
     try {
-      const summary = await refreshBluecoinsSummary(uri);
+      const summary = await mergeRedCoinsIntoBudgetCoach(await refreshBluecoinsSummary(uri));
       setBluecoins(summary);
       await notifySpendingGuardChanges(summary.spendingGuards);
       await notifyCashRealityRisk(summary.cashReality, summary.sourceDate);
@@ -710,7 +711,7 @@ export default function HomeScreen({ navigation }: any) {
 
           <TouchableOpacity style={styles.moneyCard} onPress={bluecoinsConnected && bluecoins ? openBudgetCoach : () => connectBluecoins(false)} activeOpacity={0.9}>
             <View style={styles.moneyTop}>
-              <Text style={styles.moneyEyebrow}>LAST 7 DAYS</Text>
+              <Text style={styles.moneyEyebrow}>BUDGET COACH · LAST 7 DAYS</Text>
               <Ionicons name="wallet-outline" size={22} color={colors.text} />
             </View>
             {bluecoinsLoading ? (
@@ -754,7 +755,7 @@ export default function HomeScreen({ navigation }: any) {
               </>
             ) : (
               <>
-                <Text style={styles.connectMoney}>Connect{`\n`}Bluecoins</Text>
+                <Text style={styles.connectMoney}>Connect{`\n`}Budget Coach</Text>
                 <Text style={styles.moneySub}>Select AutoBackups folder once.</Text>
               </>
             )}
@@ -827,7 +828,7 @@ export default function HomeScreen({ navigation }: any) {
         {bluecoins && (
           <View style={styles.syncRow}>
             <Ionicons name="checkmark-circle" size={16} color={colors.mint} />
-            <Text style={[styles.syncText, backupAgeDays > 0 && { color: colors.coral }]}>Bluecoins · {bluecoins.sourceName} · {backupAgeDays > 0 ? `data is ${backupAgeDays}d old` : 'latest backup loaded'}</Text>
+            <Text style={[styles.syncText, backupAgeDays > 0 && { color: colors.coral }]}>Budget Coach source · {bluecoins.sourceName} · {backupAgeDays > 0 ? `data is ${backupAgeDays}d old` : 'latest backup loaded'}</Text>
           </View>
         )}
 
@@ -873,7 +874,7 @@ export default function HomeScreen({ navigation }: any) {
             <View style={styles.budgetHandle} />
             <View style={styles.budgetHeader}>
               <View>
-                <Text style={styles.budgetEyebrow}>BLUECOINS · BUDGET COACH</Text>
+                <Text style={styles.budgetEyebrow}>BUDGET COACH</Text>
                 <Text style={styles.budgetTitle}>Spend with intention.</Text>
               </View>
               <TouchableOpacity style={styles.budgetClose} onPress={() => setShowBudgetCoach(false)}><Ionicons name="close" size={22} color={colors.text} /></TouchableOpacity>

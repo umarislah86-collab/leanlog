@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as BackgroundTask from 'expo-background-task';
 import * as TaskManager from 'expo-task-manager';
 import { getBluecoinsFolder, refreshBluecoinsSummary } from './bluecoins';
+import { mergeRedCoinsIntoBudgetCoach } from './redcoins';
 import { syncPinnedGuardSnapshot } from './spendingGuards';
 import { refreshLeanLogWidget } from './widget';
 
@@ -14,7 +15,7 @@ if (!TaskManager.isTaskDefined(BLUECOINS_BACKGROUND_TASK)) {
       const folder = await getBluecoinsFolder();
       if (!folder) return BackgroundTask.BackgroundTaskResult.Success;
 
-      const summary = await refreshBluecoinsSummary(folder);
+      const summary = await mergeRedCoinsIntoBudgetCoach(await refreshBluecoinsSummary(folder));
       await syncPinnedGuardSnapshot(summary.spendingGuards, summary.sourceDate);
       await AsyncStorage.setItem(BLUECOINS_BACKGROUND_STATUS_KEY, JSON.stringify({
         ok: true,

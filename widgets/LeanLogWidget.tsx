@@ -20,7 +20,7 @@ export function LeanLogWidget({ eaten, burned, meals, goal, steps, nextEvent, gu
   const pct = Math.min(100, Math.round((eaten / Math.max(goal, 1)) * 100));
   return (
     <FlexWidget
-      clickAction="OPEN_APP"
+      clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://redcoins' }}
       style={{ height: 'match_parent', width: 'match_parent', flexDirection: 'column', backgroundColor: '#F7EEDC', borderRadius: 24, padding: 11 }}
     >
       <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -54,6 +54,11 @@ export function LeanLogWidget({ eaten, burned, meals, goal, steps, nextEvent, gu
             <TextWidget text={`${guard.percent.toFixed(0)}%`} style={{ color: guard.percent >= 100 ? '#B33421' : '#315F50', fontSize: 8, fontWeight: '700' }} />
           </FlexWidget>
         )) : <TextWidget text={nextEvent || 'Your day is clear'} maxLines={1} style={{ color: '#172033', fontSize: 9, fontWeight: '700' }} />}
+      </FlexWidget>
+      <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', marginTop: 3 }}>
+        <FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://redcoins/expense' }} style={{ flex: 1, backgroundColor: '#EF3F43', borderRadius: 8, paddingVertical: 4, alignItems: 'center', marginRight: 3 }}><TextWidget text="− EXPENSE" style={{ color: '#FFFFFF', fontSize: 7, fontWeight: '700' }} /></FlexWidget>
+        <FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://redcoins/income' }} style={{ flex: 1, backgroundColor: '#379B73', borderRadius: 8, paddingVertical: 4, alignItems: 'center', marginRight: 3 }}><TextWidget text="+ INCOME" style={{ color: '#FFFFFF', fontSize: 7, fontWeight: '700' }} /></FlexWidget>
+        <FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://redcoins/transfer' }} style={{ flex: 1, backgroundColor: '#528FF2', borderRadius: 8, paddingVertical: 4, alignItems: 'center' }}><TextWidget text="⇄ TRANSFER" style={{ color: '#FFFFFF', fontSize: 7, fontWeight: '700' }} /></FlexWidget>
       </FlexWidget>
     </FlexWidget>
   );
