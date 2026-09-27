@@ -15,12 +15,14 @@ export interface RedCoinsEntry {
   repeat?: 'none' | 'weekly' | 'monthly' | 'installment'; installments?: number; split?: string; attachment?: string;
   origin?: 'bluecoins' | 'redcoins';
   exportedAt?: string;
+  editedAt?: string;
 }
 export interface RedCoinsExportBatch { id: string; createdAt: string; entryIds: string[]; confirmedAt?: string }
 export interface RedCoinsState {
   entries: RedCoinsEntry[]; accounts: RedCoinsAccount[]; categories: RedCoinsCategory[]; trash: RedCoinsEntry[];
   payday: number; monthlyBudget: number; safetyBuffer: number; importedSource?: string; createdAt: string;
   exportBatches: RedCoinsExportBatch[];
+  subcategoryBudgets: Record<string, number>;
 }
 
 const id = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -33,7 +35,7 @@ export function freshRedCoinsState(summary?: BluecoinsSummary | null): RedCoinsS
     id: id(), name, icon: ['▰', '●', '⛽', '🍴', '⌂', '♥', '✈', '⌁'][index % 8], subcategories,
   }));
   return {
-    entries: summary?.redcoins.entries || [], accounts: [...accountMap.values()], categories, trash: [], exportBatches: [], payday: summary?.monthly.payday || 25,
+    entries: summary?.redcoins.entries || [], accounts: [...accountMap.values()], categories, trash: [], exportBatches: [], subcategoryBudgets: {}, payday: summary?.monthly.payday || 25,
     monthlyBudget: summary?.monthly.budget || 2000, safetyBuffer: summary?.cashReality.safetyBuffer || 0,
     importedSource: summary?.sourceName, createdAt: new Date().toISOString(),
   };
@@ -45,21 +47,31 @@ export async function loadRedCoins(summary?: BluecoinsSummary | null) {
     const saved = JSON.parse(raw) as RedCoinsState;
     if (summary?.redcoins) {
       const own = saved.entries.filter((entry) => entry.origin !== 'bluecoins');
+      const editedImported = saved.entries.filter((entry) => entry.origin === 'bluecoins' && entry.editedAt);
+      const editedById = new Map(editedImported.map((entry) => [entry.id, entry]));
+      const trashedImportedIds = new Set((saved.trash || []).filter((entry) => entry.origin === 'bluecoins').map((entry) => entry.id));
       const customAccounts = saved.accounts.filter((account) => !summary.redcoins.accounts.some((source) => source.name === account.name));
       const customCategories = saved.categories.filter((category) => !summary.redcoins.categories.some((source) => source.name === category.name));
       const refreshed = freshRedCoinsState(summary);
-      refreshed.entries = [...own, ...refreshed.entries].sort((a, b) => b.date.localeCompare(a.date));
+      editedImported.forEach((edited) => {
+        const original = refreshed.entries.find((entry) => entry.id === edited.id);
+        if (original) applyEntryBalance(refreshed, original, -1);
+        applyEntryBalance(refreshed, edited, 1);
+      });
+      refreshed.entries.filter((entry) => trashedImportedIds.has(entry.id)).forEach((entry) => applyEntryBalance(refreshed, entry, -1));
+      refreshed.entries = [...own, ...refreshed.entries.filter((entry) => !trashedImportedIds.has(entry.id)).map((entry) => editedById.get(entry.id) || entry), ...editedImported.filter((entry) => !refreshed.entries.some((source) => source.id === entry.id))].sort((a, b) => b.date.localeCompare(a.date));
       refreshed.accounts.push(...customAccounts);
       refreshed.categories.push(...customCategories);
       refreshed.trash = saved.trash || [];
       refreshed.exportBatches = saved.exportBatches || [];
+      refreshed.subcategoryBudgets = saved.subcategoryBudgets || {};
       refreshed.payday = saved.payday || refreshed.payday;
       refreshed.monthlyBudget = saved.monthlyBudget || refreshed.monthlyBudget;
       refreshed.safetyBuffer = saved.safetyBuffer ?? refreshed.safetyBuffer;
       await saveRedCoins(refreshed);
       return refreshed;
     }
-    return saved;
+    return { ...saved, subcategoryBudgets: saved.subcategoryBudgets || {} };
   }
   const state = freshRedCoinsState(summary);
   await saveRedCoins(state);

@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth, fsDelete, fsFetchAll, fsFetchSettings, fsUpsert } from '../firebase';
-import { ActivityEntry, FoodEntry, GymSession } from '../types';
+import { ActivityEntry, FoodEntry, GymSession, UserProfile } from '../types';
 import { colors, radii, shadow } from '../theme';
 import {
   BluecoinsSummary,
@@ -54,6 +54,10 @@ import {
 const todayKey = () => new Date().toLocaleDateString('ms-MY');
 const money = (value: number) => `RM ${value.toFixed(2)}`;
 type HealthSyncStatus = { syncedAt: string; detected: number; imported: number; latest: ActivityEntry | null };
+const activityMultipliers = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725 } as const;
+const estimateTdee = (profile: UserProfile) => Math.round((profile.gender === 'lelaki'
+  ? 10 * profile.weight + 6.25 * profile.height - 5 * profile.age + 5
+  : 10 * profile.weight + 6.25 * profile.height - 5 * profile.age - 161) * (activityMultipliers[profile.activityLevel] || 1.55));
 
 const bluecoinsReadError = (error: any) => {
   const message = String(error?.message || error || 'Unknown error');
@@ -110,6 +114,7 @@ export default function HomeScreen({ navigation }: any) {
   const [burned, setBurned] = useState(0);
   const [protein, setProtein] = useState(0);
   const [goal, setGoal] = useState(2000);
+  const [tdee, setTdee] = useState<number | null>(null);
   const [healthConnected, setHealthConnected] = useState(false);
   const [healthLoading, setHealthLoading] = useState(false);
   const [health, setHealth] = useState<HealthSnapshot | null>(null);
@@ -133,10 +138,11 @@ export default function HomeScreen({ navigation }: any) {
   const [newHabitDays, setNewHabitDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
 
   const loadLeanLog = useCallback(async () => {
-    const [foodRaw, activityRaw, goalRaw] = await Promise.all([
+    const [foodRaw, activityRaw, goalRaw, profileRaw] = await Promise.all([
       AsyncStorage.getItem('calorie_entries'),
       AsyncStorage.getItem('activity_entries'),
       AsyncStorage.getItem('calorie_goal'),
+      AsyncStorage.getItem('user_profile'),
     ]);
     let food: FoodEntry[] = foodRaw ? JSON.parse(foodRaw) : [];
     let activities: ActivityEntry[] = activityRaw ? JSON.parse(activityRaw) : [];
@@ -170,6 +176,9 @@ export default function HomeScreen({ navigation }: any) {
       0,
     )));
     setGoal(resolvedGoal);
+    if (profileRaw) {
+      try { setTdee(estimateTdee(JSON.parse(profileRaw) as UserProfile)); } catch { setTdee(null); }
+    }
   }, []);
 
   const loadBluecoins = useCallback(async (quiet = false) => {
@@ -556,6 +565,8 @@ export default function HomeScreen({ navigation }: any) {
   ]);
 
   const remaining = goal - consumed;
+  const targetDifference = Math.abs(remaining);
+  const maintenanceDifference = tdee == null ? null : tdee - consumed;
   const progress = Math.max(0, Math.min(1, consumed / Math.max(goal, 1)));
   const dateLabel = useMemo(() => new Intl.DateTimeFormat('en-MY', {
     weekday: 'short', day: '2-digit', month: 'short',
@@ -592,14 +603,14 @@ export default function HomeScreen({ navigation }: any) {
           <View style={styles.nutritionStats}>
             <Metric value={consumed.toLocaleString()} label="eaten" />
             <View style={styles.metricRule} />
-            <Metric value={remaining.toLocaleString()} label="left" />
+            <Metric value={targetDifference.toLocaleString()} label={remaining >= 0 ? 'left' : 'over target'} />
             <View style={styles.metricRule} />
             <Metric value={`${protein}g`} label="protein" />
           </View>
           <View style={styles.progressTrack}>
             <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
           </View>
-          <Text style={styles.goalText}>{goal.toLocaleString()} kcal goal · {burned} burned</Text>
+          <Text style={styles.goalText}>{goal.toLocaleString()} target{tdee ? ` · ~${tdee.toLocaleString()} maintenance` : ''} · {burned} burned</Text>
         </TouchableOpacity>
 
         <View style={styles.briefCard}>
@@ -607,7 +618,13 @@ export default function HomeScreen({ navigation }: any) {
             <Text style={styles.briefEyebrow}>DAILY BRIEFING</Text>
             <Text style={styles.briefDate}>TODAY</Text>
           </View>
-          <Text style={styles.briefTitle}>{remaining > 0 ? `${remaining.toLocaleString()} kcal to shape your day.` : 'Your calorie target is covered.'}</Text>
+          <Text style={styles.briefTitle}>{remaining >= 0
+            ? `${remaining.toLocaleString()} kcal to shape your day.`
+            : maintenanceDifference != null && maintenanceDifference >= 0
+              ? `${targetDifference.toLocaleString()} kcal above target, still ~${maintenanceDifference.toLocaleString()} below maintenance.`
+              : maintenanceDifference != null
+                ? `${Math.abs(maintenanceDifference).toLocaleString()} kcal above estimated maintenance.`
+                : `${targetDifference.toLocaleString()} kcal above today's target.`}</Text>
           <View style={styles.briefChips}>
             <View style={[styles.briefChip, { backgroundColor: '#DDF5E9' }]}><Text style={styles.briefChipText}>👟 {health?.steps.toLocaleString() || '—'} steps</Text></View>
             <View style={[styles.briefChip, { backgroundColor: '#EEF0FF' }]}><Text style={styles.briefChipText}>🌙 {health ? `${Math.floor(health.sleepMinutes / 60)}h ${health.sleepMinutes % 60}m` : '—'} sleep</Text></View>
@@ -615,7 +632,7 @@ export default function HomeScreen({ navigation }: any) {
             <View style={[styles.briefChip, { backgroundColor: '#F6E4AC' }]}><Text style={styles.briefChipText}>💳 {bluecoins ? money(bluecoins.total) : '—'} / 7d</Text></View>
             <View style={[styles.briefChip, { backgroundColor: '#FFE6DC' }]}><Text style={styles.briefChipText}>🔥 {streaks?.logging || 0}d log</Text></View>
           </View>
-          <Text style={styles.briefFocus}>{notes[0] ? `Note to self: ${notes[0].text}` : (protein < Math.round(goal * 0.25 / 4) ? 'Focus: build your next meal around protein.' : 'Focus: keep the rhythm; protein is on track.')}</Text>
+          <Text style={styles.briefFocus}>{notes[0] ? `Note to self: ${notes[0].text}` : remaining < 0 ? 'One high-target day does not change the trend. Keep the next meal simple.' : (protein < Math.round(goal * 0.25 / 4) ? 'Focus: build your next meal around protein.' : 'Focus: keep the rhythm; protein is on track.')}</Text>
         </View>
 
         <View style={styles.habitsCard}>

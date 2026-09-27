@@ -76,7 +76,13 @@ export interface BluecoinsSummary {
     daysInMonth: number;
     topCategories: { name: string; amount: number; share: number; details: { subcategory: string; item: string; amount: number; share: number; transactions: number }[] }[];
     fixedCommitments: { total: number; items: { name: string; amount: number; transactions: number }[] };
-    fixedCommitmentOptions: { key: string; label: string; category: string; selected: boolean; amount: number; lastUsed: string; lifetimeTransactions: number }[];
+    fixedCommitmentOptions: { key: string; label: string; category: string; selected: boolean; amount: number; lastAmount: number; lastUsed: string; lifetimeTransactions: number }[];
+    expectedFixedCommitments: {
+      total: number;
+      paid: number;
+      remaining: number;
+      items: { key: string; label: string; category: string; expectedAmount: number; currentAmount: number; lastUsed: string; status: 'paid' | 'due' }[];
+    };
     fixedCommitmentSelection: string[];
     alerts: string[];
   };
@@ -447,13 +453,22 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
       sourceDate,
     );
     const historicalItemRows = await db.getAllAsync<{
-      category: string; subcategory: string; item: string; lastUsed: string; lifetimeTransactions: number;
+      category: string; subcategory: string; item: string; lastUsed: string; lifetimeTransactions: number; rawLastAmount: number;
     }>(
       `SELECT COALESCE(pc.parentCategoryName, cc.childCategoryName, 'Uncategorised') AS category,
               COALESCE(cc.childCategoryName, pc.parentCategoryName, 'Uncategorised') AS subcategory,
               COALESCE(NULLIF(TRIM(i.itemName), ''), 'Unnamed entry') AS item,
               MAX(substr(t.date, 1, 10)) AS lastUsed,
-              COUNT(*) AS lifetimeTransactions
+              COUNT(*) AS lifetimeTransactions,
+              COALESCE((SELECT ABS(t2.amount)
+                FROM TRANSACTIONSTABLE t2
+                WHERE t2.deletedTransaction = 6
+                  AND t2.transactionTypeID = 3
+                  AND t2.reminderTransaction IS NULL
+                  AND t2.itemID = t.itemID
+                  AND t2.categoryID = t.categoryID
+                ORDER BY t2.date DESC
+                LIMIT 1), 0) AS rawLastAmount
        FROM TRANSACTIONSTABLE t
        LEFT JOIN CHILDCATEGORYTABLE cc ON cc.categoryTableID = t.categoryID
        LEFT JOIN PARENTCATEGORYTABLE pc ON pc.parentCategoryTableID = cc.parentCategoryID
@@ -612,6 +627,7 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
         category: row.category,
         selected: selectedFixed.has(key),
         amount: currentCycleByKey.get(key) || 0,
+        lastAmount: row.rawLastAmount / AMOUNT_SCALE,
         lastUsed: row.lastUsed,
         lifetimeTransactions: row.lifetimeTransactions,
       };
@@ -653,6 +669,21 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
     const fixedCommitments = {
       total: liabilitySpent + [...customCommitmentMap.values()].reduce((sum, item) => sum + item.amount, 0),
       items: [...fixedCommitmentMap.values(), ...customCommitmentMap.values()].sort((a, b) => b.amount - a.amount),
+    };
+    const expectedItems = fixedCommitmentOptions.filter((option) => option.selected).map((option) => ({
+      key: option.key,
+      label: option.label,
+      category: option.category,
+      expectedAmount: option.lastAmount,
+      currentAmount: option.amount,
+      lastUsed: option.lastUsed,
+      status: (option.amount > 0 ? 'paid' : 'due') as 'paid' | 'due',
+    })).sort((a, b) => Number(a.status === 'paid') - Number(b.status === 'paid') || b.expectedAmount - a.expectedAmount);
+    const expectedFixedCommitments = {
+      total: expectedItems.reduce((sum, item) => sum + item.expectedAmount, 0),
+      paid: expectedItems.reduce((sum, item) => sum + item.currentAmount, 0),
+      remaining: expectedItems.reduce((sum, item) => sum + (item.status === 'paid' ? 0 : item.expectedAmount), 0),
+      items: expectedItems,
     };
     const alerts: string[] = [];
     if (cashReality.trueSpendable < 0) alerts.push(`Cash illusion alert: selected banks are RM ${Math.abs(cashReality.trueSpendable).toFixed(0)} short after reserving unpaid card debt${cashReality.safetyBuffer > 0 ? ' and your safety buffer' : ''}.`);
@@ -808,6 +839,7 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
         topCategories: monthlyTopCategories,
         fixedCommitments,
         fixedCommitmentOptions,
+        expectedFixedCommitments,
         fixedCommitmentSelection: [...selectedFixed],
         alerts,
       },

@@ -8,6 +8,8 @@ type BluecoinsDriveReaderModule = {
     size: number;
   }>>;
   copyContentUriToFileAsync(sourceUri: string, destinationUri: string): Promise<number>;
+  isNotificationAccessEnabledAsync(): Promise<boolean>;
+  openNotificationAccessSettingsAsync(): Promise<void>;
 };
 
 export default requireOptionalNativeModule<BluecoinsDriveReaderModule>('BluecoinsDriveReader');

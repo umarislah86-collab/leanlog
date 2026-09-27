@@ -2,6 +2,9 @@ package expo.modules.bluecoinsdrivereader
 
 import android.net.Uri
 import android.provider.DocumentsContract
+import android.content.Intent
+import android.provider.Settings
+import android.text.TextUtils
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
@@ -12,6 +15,17 @@ import java.io.FileOutputStream
 class BluecoinsDriveReaderModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("BluecoinsDriveReader")
+
+    AsyncFunction("isNotificationAccessEnabledAsync") {
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      val listeners = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners") ?: ""
+      TextUtils.SimpleStringSplitter(':').apply { setString(listeners) }.any { it.startsWith(context.packageName) }
+    }
+
+    AsyncFunction("openNotificationAccessSettingsAsync") {
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
 
     AsyncFunction("listFydbFilesAsync") { treeUriValue: String ->
       val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()

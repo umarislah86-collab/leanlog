@@ -3,7 +3,7 @@
     "name": "LeanLog",
     "slug": "umarcoc93",
     "scheme": "leanlog",
-    "version": "2.8.1",
+    "version": "2.8.2",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
@@ -25,7 +25,9 @@
         "android.permission.health.READ_SLEEP",
         "android.permission.health.READ_HEART_RATE",
         "android.permission.health.READ_EXERCISE",
-        "android.permission.health.READ_ACTIVE_CALORIES_BURNED"
+        "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR"
       ]
     },
     "plugins": [
@@ -87,9 +89,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "086aadb6-658c-47ee-a472-e9d76ac3c7be"
+        "projectId": "624ee9c5-768a-4781-a2c5-1f1608c1500a"
       }
     },
-    "owner": "umiaqs-team"
+    "owner": "umarosli93"
   }
 }

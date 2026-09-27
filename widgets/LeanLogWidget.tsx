@@ -18,7 +18,8 @@ export type LeanLogWidgetProps = {
 export function LeanLogWidget({ eaten, burned, meals, goal, steps, nextEvent, guards, cashReality, updated }: LeanLogWidgetProps) {
   const left = Math.max(0, goal - eaten);
   const pct = Math.min(100, Math.round((eaten / Math.max(goal, 1)) * 100));
-  const guardRows = Array.from({ length: Math.ceil(guards.length / 2) }, (_, index) => guards.slice(index * 2, index * 2 + 2));
+  const visibleGuards = guards.slice(0, 4);
+  const guardRows = Array.from({ length: Math.ceil(visibleGuards.length / 2) }, (_, index) => visibleGuards.slice(index * 2, index * 2 + 2));
   return (
     <FlexWidget
       clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://home' }}

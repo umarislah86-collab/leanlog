@@ -9,5 +9,7 @@ npm-debug.*
 *.p12
 *.key
 *.mobileprovision
+credentials.json
+credentials/
 *.orig.*
 web-build/
