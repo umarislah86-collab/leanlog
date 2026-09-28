@@ -35,6 +35,7 @@ export interface GuardTransaction {
   category: string;
   subcategory: string;
   note: string;
+  origin?: 'bluecoins' | 'redcoins';
 }
 
 export interface SpendingGuardResult extends SpendingGuard {
@@ -119,7 +120,7 @@ export async function syncPinnedGuardSnapshot(results: SpendingGuardResult[], so
   const visible = [pinned, ...results
     .filter((guard) => guard.enabled && guard.id !== pinned?.id)
     .sort((a, b) => b.percent - a.percent)]
-    .slice(0, 3);
+    .slice(0, 4);
   const snapshots: WidgetGuardSnapshot[] = visible.map((guard) => ({
     id: guard.id,
     name: guard.name,

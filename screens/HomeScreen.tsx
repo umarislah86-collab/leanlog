@@ -1104,7 +1104,7 @@ export default function HomeScreen({ navigation }: any) {
                 <Text style={styles.budgetSectionTitle}>LATEST CHARGES</Text>
                 {selectedGuard.transactions.map((tx, index) => (
                   <View key={`${tx.date}-${tx.amount}-${index}`} style={styles.guardTransaction}>
-                    <View style={{ flex: 1 }}><Text style={styles.guardTransactionName}>{tx.itemName}</Text><Text style={styles.guardTransactionMeta}>{cycleDate(tx.date)} · {tx.category} / {tx.subcategory}{tx.note ? ` · ${tx.note}` : ''}</Text></View>
+                    <View style={{ flex: 1 }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Text style={styles.guardTransactionName}>{tx.itemName}</Text>{tx.origin === 'redcoins' && <Text style={styles.guardTransactionSource}>REDCOINS</Text>}</View><Text style={styles.guardTransactionMeta}>{cycleDate(tx.date)} · {tx.category} / {tx.subcategory}{tx.note ? ` · ${tx.note}` : ''}</Text></View>
                     <Text style={styles.guardTransactionAmount}>{money(tx.amount)}</Text>
                   </View>
                 ))}
@@ -1528,6 +1528,7 @@ const styles = StyleSheet.create({
   guardBreakdownAmount: { color: colors.text, fontSize: 11, fontWeight: '900' },
   guardTransaction: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.line },
   guardTransactionName: { color: colors.text, fontSize: 12, fontWeight: '800' },
+  guardTransactionSource: { color: '#FFFFFF', backgroundColor: '#EF3F43', borderRadius: 5, overflow: 'hidden', paddingHorizontal: 5, paddingVertical: 2, fontSize: 6, fontWeight: '900', letterSpacing: .5 },
   guardTransactionMeta: { color: colors.muted, fontSize: 8, marginTop: 3 },
   guardTransactionAmount: { color: colors.coral, fontSize: 12, fontWeight: '900' },
   guardFreshness: { color: colors.muted, fontSize: 9, lineHeight: 14, marginTop: 14, fontStyle: 'italic' },

@@ -751,6 +751,7 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
           category: row.category,
           subcategory: row.subcategory,
           note: row.note,
+          origin: 'bluecoins',
         })),
         breakdown: [...breakdownMap.entries()]
           .map(([name, amount]) => ({ name, amount, share: spent > 0 ? (amount / spent) * 100 : 0 }))

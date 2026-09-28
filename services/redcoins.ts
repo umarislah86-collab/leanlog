@@ -23,6 +23,7 @@ export interface RedCoinsState {
   payday: number; monthlyBudget: number; safetyBuffer: number; importedSource?: string; createdAt: string;
   exportBatches: RedCoinsExportBatch[];
   subcategoryBudgets: Record<string, number>;
+  entryDefaults?: Partial<Record<RedCoinsType, { account: string; toAccount?: string; category: string; subcategory: string }>>;
 }
 
 const id = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -35,7 +36,7 @@ export function freshRedCoinsState(summary?: BluecoinsSummary | null): RedCoinsS
     id: id(), name, icon: ['▰', '●', '⛽', '🍴', '⌂', '♥', '✈', '⌁'][index % 8], subcategories,
   }));
   return {
-    entries: summary?.redcoins.entries || [], accounts: [...accountMap.values()], categories, trash: [], exportBatches: [], subcategoryBudgets: {}, payday: summary?.monthly.payday || 25,
+    entries: summary?.redcoins.entries || [], accounts: [...accountMap.values()], categories, trash: [], exportBatches: [], subcategoryBudgets: {}, entryDefaults: {}, payday: summary?.monthly.payday || 25,
     monthlyBudget: summary?.monthly.budget || 2000, safetyBuffer: summary?.cashReality.safetyBuffer || 0,
     importedSource: summary?.sourceName, createdAt: new Date().toISOString(),
   };
@@ -65,13 +66,14 @@ export async function loadRedCoins(summary?: BluecoinsSummary | null) {
       refreshed.trash = saved.trash || [];
       refreshed.exportBatches = saved.exportBatches || [];
       refreshed.subcategoryBudgets = saved.subcategoryBudgets || {};
+      refreshed.entryDefaults = saved.entryDefaults || {};
       refreshed.payday = saved.payday || refreshed.payday;
       refreshed.monthlyBudget = saved.monthlyBudget || refreshed.monthlyBudget;
       refreshed.safetyBuffer = saved.safetyBuffer ?? refreshed.safetyBuffer;
       await saveRedCoins(refreshed);
       return refreshed;
     }
-    return { ...saved, subcategoryBudgets: saved.subcategoryBudgets || {} };
+    return { ...saved, subcategoryBudgets: saved.subcategoryBudgets || {}, entryDefaults: saved.entryDefaults || {} };
   }
   const state = freshRedCoinsState(summary);
   await saveRedCoins(state);
@@ -134,10 +136,15 @@ export async function mergeRedCoinsIntoBudgetCoach(source: BluecoinsSummary): Pr
   summary.cashReality.trueSpendable = Math.min(summary.monthly.remaining, summary.cashReality.liquidBalance - summary.cashReality.cardOutstanding - summary.cashReality.safetyBuffer);
   summary.cashReality.coveragePercent = summary.cashReality.cardOutstanding ? summary.cashReality.liquidBalance / summary.cashReality.cardOutstanding * 100 : 100;
   summary.spendingGuards.forEach((guard) => {
-    const extras = cycleRows.filter((entry) => guard.scope === 'account' ? entry.account === guard.target : guard.scope === 'category' ? entry.category === guard.target : entry.subcategory === guard.target);
+    const guardStart = new Date(`${guard.cycleStart}T00:00:00`); const guardEnd = new Date(`${guard.cycleEnd}T23:59:59`);
+    const extras = expenseRows.filter((entry) => { const date = new Date(entry.date); if (date < guardStart || date > guardEnd) return false; return guard.scope === 'account' ? entry.account === guard.target : guard.scope === 'category' ? entry.category === guard.target : entry.subcategory === guard.target; });
     const added = extras.reduce((sum, entry) => sum + entry.amount, 0);
     guard.spent += added; guard.remaining = guard.limit - guard.spent; guard.percent = guard.limit ? guard.spent / guard.limit * 100 : 0; guard.projected += added;
     guard.level = guard.percent >= 100 ? 'breached' : guard.percent >= 85 ? 'danger' : guard.percent >= 70 ? 'slow-down' : guard.percent >= 50 ? 'heads-up' : 'safe';
+    const breakdown = new Map(guard.breakdown.map((item) => [item.name, item.amount]));
+    extras.forEach((entry) => { const key = guard.scope === 'account' ? entry.subcategory : entry.category; breakdown.set(key, (breakdown.get(key) || 0) + entry.amount); });
+    guard.breakdown = [...breakdown].map(([name, amount]) => ({ name, amount, share: guard.spent ? amount / guard.spent * 100 : 0 })).sort((a, b) => b.amount - a.amount).slice(0, 6);
+    guard.transactions = [...guard.transactions, ...extras.map((entry) => ({ date: entry.date.slice(0, 10), amount: entry.amount, itemName: entry.item, category: entry.category, subcategory: entry.subcategory, note: entry.note || '', origin: 'redcoins' as const }))].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
   });
   return summary;
 }

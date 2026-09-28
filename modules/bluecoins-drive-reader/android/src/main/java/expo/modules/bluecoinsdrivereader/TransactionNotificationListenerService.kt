@@ -47,7 +47,9 @@ class TransactionNotificationListenerService : NotificationListenerService() {
     val now = System.currentTimeMillis()
     if (prefs.getString("last_hash", null) == fingerprint && now - prefs.getLong("last_at", 0) < DUPLICATE_WINDOW_MS) return
     prefs.edit().putString("last_hash", fingerprint).putLong("last_at", now).apply()
-    showSuggestion(merchant, amount, inferAccountHint(sbn.packageName, combined), sbn.packageName, fingerprint)
+    val accountHint = inferAccountHint(sbn.packageName, combined)
+    TransactionDetectionStore.add(this, fingerprint, merchant, amount, accountHint, sbn.packageName, now)
+    showSuggestion(merchant, amount, accountHint, sbn.packageName, fingerprint)
   }
 
   private fun extractMerchant(title: String, body: String, amountText: String): String {

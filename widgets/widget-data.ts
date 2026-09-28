@@ -22,7 +22,7 @@ export async function getWidgetData(): Promise<LeanLogWidgetProps> {
   const health = healthRaw ? JSON.parse(healthRaw) : { steps: 0 };
   const agenda = agendaRaw ? JSON.parse(agendaRaw) : [];
   const parsedGuards: WidgetGuardSnapshot | WidgetGuardSnapshot[] | null = guardRaw ? JSON.parse(guardRaw) : null;
-  const guards = Array.isArray(parsedGuards) ? parsedGuards.slice(0, 3) : parsedGuards ? [parsedGuards] : [];
+  const guards = Array.isArray(parsedGuards) ? parsedGuards.slice(0, 4) : parsedGuards ? [parsedGuards] : [];
   const cashReality = cashRealityRaw ? JSON.parse(cashRealityRaw) : null;
   return {
     eaten,

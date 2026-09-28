@@ -27,6 +27,23 @@ class BluecoinsDriveReaderModule : Module() {
       context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
+    AsyncFunction("getTransactionDetectionsAsync") {
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      TransactionDetectionStore.list(context)
+    }
+
+    AsyncFunction("dismissTransactionDetectionAsync") { id: String ->
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      TransactionDetectionStore.dismiss(context, id)
+    }
+
+    AsyncFunction("createTestTransactionDetectionAsync") {
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      val id = "test-${System.currentTimeMillis()}"
+      TransactionDetectionStore.add(context, id, "Detector test purchase", 12.50, "", "LeanLog test")
+      TransactionDetectionStore.list(context).first()
+    }
+
     AsyncFunction("listFydbFilesAsync") { treeUriValue: String ->
       val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
       val treeUri = Uri.parse(treeUriValue)
