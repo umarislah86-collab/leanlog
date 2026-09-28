@@ -3,7 +3,7 @@
     "name": "LeanLog",
     "slug": "umarcoc93",
     "scheme": "leanlog",
-    "version": "2.9.0",
+    "version": "2.9.1",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",

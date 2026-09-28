@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { auth, signOut, fsUpsert, fsSetSettings, fsFetchAll, fsFetchSettings, fsUploadAppState, fsFetchAppState } from '../firebase';
 
 let Notifications: any = null;
@@ -384,69 +385,59 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
+        <Text style={styles.headerEyebrow}>LEANLOG / CONTROL ROOM</Text>
         <Text style={styles.headerTitle}>{t('settingsTitle')}</Text>
+        <Text style={styles.headerSub}>Make the system yours, then let it stay out of the way.</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
 
-        {/* Language */}
-        <Text style={styles.sectionLabel}>{t('language')}</Text>
-        <View style={styles.langRow}>
-          <TouchableOpacity
-            style={[styles.langBtn, lang === 'bm' && styles.langBtnActive]}
-            onPress={() => setLang('bm')}
-          >
-            <Text style={[styles.langBtnText, lang === 'bm' && styles.langBtnTextActive]}>
-              🇲🇾 Bahasa Malaysia
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.langBtn, lang === 'en' && styles.langBtnActive]}
-            onPress={() => setLang('en')}
-          >
-            <Text style={[styles.langBtnText, lang === 'en' && styles.langBtnTextActive]}>
-              🇬🇧 English
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Nutrition Mode */}
-        <Text style={styles.sectionLabel}>{lang === 'en' ? 'Nutrition Framework' : 'Panduan Pemakanan'}</Text>
-        <View style={styles.langRow}>
-          <TouchableOpacity
-            style={[styles.langBtn, nutritionMode === 'sss' && styles.langBtnActive]}
-            onPress={() => changeNutritionMode('sss')}
-          >
-            <Text style={[styles.langBtnText, nutritionMode === 'sss' && styles.langBtnTextActive]}>
-              🥗 Suku Suku Separuh
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.langBtn, nutritionMode === 'standard' && styles.langBtnActive]}
-            onPress={() => changeNutritionMode('standard')}
-          >
-            <Text style={[styles.langBtnText, nutritionMode === 'standard' && styles.langBtnTextActive]}>
-              📊 {lang === 'en' ? 'Standard Macro' : 'Makro Standard'}
-            </Text>
-          </TouchableOpacity>
+        <Text style={styles.sectionLabel}>PERSONAL RHYTHM</Text>
+        <View style={styles.preferenceCard}>
+          <View style={styles.preferenceBlock}>
+            <Text style={styles.preferenceEyebrow}>{t('language')}</Text>
+            <Text style={styles.preferenceTitle}>How LeanLog speaks.</Text>
+            <View style={styles.choiceRow}>
+              <TouchableOpacity style={[styles.choiceBtn, lang === 'bm' && styles.choiceBtnActive]} onPress={() => setLang('bm')}>
+                <Text style={[styles.choiceCode, lang === 'bm' && styles.choiceCodeActive]}>BM</Text><Text style={[styles.choiceLabel, lang === 'bm' && styles.choiceLabelActive]}>Bahasa Malaysia</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.choiceBtn, lang === 'en' && styles.choiceBtnActive]} onPress={() => setLang('en')}>
+                <Text style={[styles.choiceCode, lang === 'en' && styles.choiceCodeActive]}>EN</Text><Text style={[styles.choiceLabel, lang === 'en' && styles.choiceLabelActive]}>English</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          <View style={styles.preferenceRule} />
+          <View style={styles.preferenceBlock}>
+            <Text style={styles.preferenceEyebrow}>{lang === 'en' ? 'NUTRITION FRAMEWORK' : 'PANDUAN PEMAKANAN'}</Text>
+            <Text style={styles.preferenceTitle}>Choose your everyday lens.</Text>
+            <View style={styles.choiceRow}>
+              <TouchableOpacity style={[styles.choiceBtn, nutritionMode === 'sss' && styles.choiceBtnActive]} onPress={() => changeNutritionMode('sss')}>
+                <Text style={[styles.choiceCode, nutritionMode === 'sss' && styles.choiceCodeActive]}>½</Text><Text style={[styles.choiceLabel, nutritionMode === 'sss' && styles.choiceLabelActive]}>Suku Suku Separuh</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.choiceBtn, nutritionMode === 'standard' && styles.choiceBtnActive]} onPress={() => changeNutritionMode('standard')}>
+                <Text style={[styles.choiceCode, nutritionMode === 'standard' && styles.choiceCodeActive]}>P/C/F</Text><Text style={[styles.choiceLabel, nutritionMode === 'standard' && styles.choiceLabelActive]}>{lang === 'en' ? 'Standard Macro' : 'Makro Standard'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
 
         {/* Cloud Sync */}
         <Text style={styles.sectionLabel}>{t('cloudSync')}</Text>
-        <View style={styles.card}>
-          <TouchableOpacity style={styles.actionRow} onPress={uploadToCloud} disabled={syncing}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.actionTitle}>{t('uploadToCloud')}</Text>
-              <Text style={styles.actionSub}>{t('uploadDesc')}</Text>
+        <View style={styles.syncCard}>
+          <View style={styles.syncHeader}><Text style={styles.syncKicker}>YOUR DATA, YOUR EXIT</Text><Text style={styles.syncTitle}>Keep a second copy.</Text><Text style={styles.syncSub}>A manual checkpoint for the days you change phone or need to roll back.</Text></View>
+          <TouchableOpacity style={styles.syncAction} onPress={uploadToCloud} disabled={syncing}>
+            <View style={styles.syncIcon}><Ionicons name="cloud-upload-outline" size={20} color="#101A2B" /></View><View style={{ flex: 1 }}>
+              <Text style={styles.syncActionTitle}>{t('uploadToCloud')}</Text>
+              <Text style={styles.syncActionSub}>{t('uploadDesc')}</Text>
             </View>
             {syncing && <ActivityIndicator size="small" color="#FF6542" />}
           </TouchableOpacity>
-          <View style={styles.divider} />
-          <TouchableOpacity style={styles.actionRow} onPress={restoreFromCloud} disabled={syncing}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.actionTitle}>{t('restoreData')}</Text>
-              <Text style={styles.actionSub}>{t('restoreDesc')}</Text>
+          <TouchableOpacity style={styles.syncAction} onPress={restoreFromCloud} disabled={syncing}>
+            <View style={[styles.syncIcon, styles.syncIconOutline]}><Ionicons name="cloud-download-outline" size={20} color="#FFF4DB" /></View><View style={{ flex: 1 }}>
+              <Text style={styles.syncActionTitle}>{t('restoreData')}</Text>
+              <Text style={styles.syncActionSub}>{t('restoreDesc')}</Text>
             </View>
+            <Ionicons name="arrow-forward" size={18} color="#7F8BA0" />
           </TouchableOpacity>
           {syncMsg !== '' && (
             <Text style={styles.syncMsg}>{syncMsg}</Text>
@@ -559,16 +550,18 @@ export default function SettingsScreen() {
         <Text style={styles.sectionLabel}>App</Text>
         <View style={styles.card}>
           <TouchableOpacity style={styles.actionRow} onPress={() => setShowChronicle(true)}>
+            <View style={styles.actionIcon}><Ionicons name="book-outline" size={19} color="#101A2B" /></View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.actionTitle}>📜 Hikayat LeanLog</Text>
+              <Text style={styles.actionTitle}>Hikayat LeanLog</Text>
               <Text style={styles.actionSub}>Baca perjalanan lengkap dari zaman sebelum v1.0</Text>
             </View>
             <Text style={styles.chronicleArrow}>›</Text>
           </TouchableOpacity>
           <View style={styles.divider} />
           <TouchableOpacity style={styles.actionRow} onPress={checkForUpdate} disabled={checkingUpdate}>
+            <View style={styles.actionIcon}><Ionicons name="refresh-outline" size={19} color="#101A2B" /></View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.actionTitle}>🔄 Semak Update</Text>
+              <Text style={styles.actionTitle}>Semak Update</Text>
               <Text style={styles.actionSub}>Semak sama ada ada versi terbaru</Text>
             </View>
             {checkingUpdate && <ActivityIndicator size="small" color="#FF6542" />}
@@ -577,8 +570,9 @@ export default function SettingsScreen() {
           <TouchableOpacity style={styles.actionRow} onPress={() => {
             Linking.openURL('mailto:umarislah86@gmail.com?subject=LeanLog%20Maklum%20Balas&body=Versi%3A%201.3.3%0A%0AMaklum%20balas%20saya%3A%0A');
           }}>
+            <View style={styles.actionIcon}><Ionicons name="chatbubble-ellipses-outline" size={19} color="#101A2B" /></View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.actionTitle}>💬 Hantar Maklum Balas</Text>
+              <Text style={styles.actionTitle}>Hantar Maklum Balas</Text>
               <Text style={styles.actionSub}>Cadangan, masalah atau sebarang pertanyaan</Text>
             </View>
           </TouchableOpacity>
@@ -590,8 +584,9 @@ export default function SettingsScreen() {
               [{ text: 'OK' }]
             );
           }}>
+            <View style={styles.actionIcon}><Ionicons name="analytics-outline" size={19} color="#101A2B" /></View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.actionTitle}>📊 Cara Makro Dikira</Text>
+              <Text style={styles.actionTitle}>Cara Makro Dikira</Text>
               <Text style={styles.actionSub}>Ketahui pengiraan Protein, Karbo & Lemak</Text>
             </View>
           </TouchableOpacity>
@@ -695,7 +690,9 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F7F0E1' },
   header: { backgroundColor: '#F7F0E1', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 },
+  headerEyebrow: { color: '#C9472C', fontSize: 9, fontWeight: '900', letterSpacing: 1.8, marginBottom: 5 },
   headerTitle: { color: '#101A2B', fontSize: 32, fontWeight: '800', fontFamily: 'serif', letterSpacing: -0.8 },
+  headerSub: { color: '#737A84', fontSize: 11, lineHeight: 16, marginTop: 4, maxWidth: 280 },
   scrollContent: { padding: 18, paddingBottom: 110 },
 
   sectionLabel: {
@@ -708,14 +705,29 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  langRow: { flexDirection: 'row', gap: 10, marginBottom: 4 },
-  langBtn: {
-    flex: 1, padding: 16, borderRadius: 18, borderWidth: 1, borderColor: '#E2D9C9',
-    backgroundColor: '#FFFDF7', alignItems: 'center',
-  },
-  langBtnActive: { borderColor: '#FF6542', backgroundColor: '#FFE6DC' },
-  langBtnText: { color: '#626A75', fontSize: 13, fontWeight: '600' },
-  langBtnTextActive: { color: '#FF6542', fontWeight: 'bold' },
+  preferenceCard: { backgroundColor: '#101A2B', borderRadius: 27, padding: 18, marginBottom: 4 },
+  preferenceBlock: { gap: 10 },
+  preferenceEyebrow: { color: '#8FD6B4', fontSize: 9, fontWeight: '900', letterSpacing: 1.5 },
+  preferenceTitle: { color: '#FFF4DB', fontFamily: 'serif', fontSize: 20, fontWeight: '800', marginTop: -4 },
+  preferenceRule: { height: 1, backgroundColor: '#33415C', marginVertical: 18 },
+  choiceRow: { flexDirection: 'row', gap: 8 },
+  choiceBtn: { flex: 1, minHeight: 58, borderRadius: 16, backgroundColor: '#1C2940', borderWidth: 1, borderColor: '#33415C', padding: 11, justifyContent: 'space-between' },
+  choiceBtnActive: { backgroundColor: '#FFF4DB', borderColor: '#FFF4DB' },
+  choiceCode: { color: '#8FD6B4', fontSize: 9, fontWeight: '900', letterSpacing: 0.9 },
+  choiceCodeActive: { color: '#C9472C' },
+  choiceLabel: { color: '#AAB5C7', fontSize: 11, fontWeight: '800', marginTop: 8 },
+  choiceLabelActive: { color: '#101A2B' },
+
+  syncCard: { backgroundColor: '#101A2B', borderRadius: 27, padding: 18, marginBottom: 4 },
+  syncHeader: { marginBottom: 15 },
+  syncKicker: { color: '#FF7659', fontSize: 9, fontWeight: '900', letterSpacing: 1.5 },
+  syncTitle: { color: '#FFF4DB', fontFamily: 'serif', fontSize: 22, fontWeight: '800', marginTop: 5 },
+  syncSub: { color: '#7F8BA0', fontSize: 10, lineHeight: 15, marginTop: 5, maxWidth: 290 },
+  syncAction: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 12, borderTopWidth: 1, borderTopColor: '#33415C' },
+  syncIcon: { width: 38, height: 38, borderRadius: 14, backgroundColor: '#8FD6B4', alignItems: 'center', justifyContent: 'center' },
+  syncIconOutline: { backgroundColor: '#1C2940', borderWidth: 1, borderColor: '#4A5870' },
+  syncActionTitle: { color: '#FFF4DB', fontSize: 13, fontWeight: '900' },
+  syncActionSub: { color: '#7F8BA0', fontSize: 10, marginTop: 3 },
 
   card: {
     backgroundColor: '#FFFDF7',
@@ -725,12 +737,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 4,
   },
-  actionRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingVertical: 18 },
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 16 },
+  actionIcon: { width: 38, height: 38, borderRadius: 14, backgroundColor: '#F0E5D1', alignItems: 'center', justifyContent: 'center' },
   actionTitle: { color: '#101A2B', fontSize: 14, fontWeight: '800' },
   actionSub: { color: '#737A84', fontSize: 12, marginTop: 3 },
   chronicleArrow: { color: '#C95370', fontFamily: 'serif', fontSize: 28, fontWeight: '800', marginLeft: 12 },
   divider: { height: 1, backgroundColor: '#E8DFD0', marginHorizontal: 16 },
-  syncMsg: { color: '#AAB3C2', fontSize: 12, paddingHorizontal: 18, paddingBottom: 12, paddingTop: 4 },
+  syncMsg: { color: '#8FD6B4', fontSize: 11, paddingTop: 8 },
 
   reminderRow: {
     flexDirection: 'row',

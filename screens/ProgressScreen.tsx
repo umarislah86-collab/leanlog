@@ -26,6 +26,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import WeightAreaChart from '../components/WeightAreaChart';
+import { Ionicons } from '@expo/vector-icons';
 
 const FOOD_KEY = 'calorie_entries';
 const ACTIVITY_KEY = 'activity_entries';
@@ -262,6 +263,7 @@ export default function ProgressScreen() {
   const [mirrorDetailWeight, setMirrorDetailWeight] = useState('');
   const [mirrorDetailWaist, setMirrorDetailWaist] = useState('');
   const [gymSessions, setGymSessions] = useState<GymSession[]>([]);
+  const [showWeightTimeline, setShowWeightTimeline] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -757,17 +759,19 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
   const bodyTimeline = [
     ...weightEntries.map((entry) => ({
       id: `weight-${entry.id}`, date: entry.date, time: parseDateKey(entry.date), icon: '⚖️',
-      title: `${entry.weight.toFixed(1)} kg`, detail: entry.note || 'Weight check-in', image: undefined as string | undefined,
+      kind: 'weight' as const, title: `${entry.weight.toFixed(1)} kg`, detail: entry.note || 'Weight check-in', image: undefined as string | undefined,
     })),
     ...mirrorPhotos.map((photo) => ({
       id: `photo-${photo.id}`, date: photo.displayDate || photo.id, time: parseMirrorDate(photo), icon: '📸',
-      title: 'Mirror check-in', detail: [photo.weight ? `${photo.weight} kg` : '', photo.waist ? `${photo.waist} cm waist` : ''].filter(Boolean).join(' · ') || 'Progress photo', image: photo.base64,
+      kind: 'photo' as const, title: 'Mirror check-in', detail: [photo.weight ? `${photo.weight} kg` : '', photo.waist ? `${photo.waist} cm waist` : ''].filter(Boolean).join(' · ') || 'Progress photo', image: photo.base64,
     })),
     ...gymSessions.map((session) => ({
       id: `gym-${session.id}`, date: session.date, time: parseDateKey(session.date), icon: '🏋️',
-      title: session.planDayLabel, detail: `${session.durationMin} min · ${session.exercises.length} exercises`, image: undefined as string | undefined,
+      kind: 'workout' as const, title: session.planDayLabel, detail: `${session.durationMin} min · ${session.exercises.length} exercises`, image: undefined as string | undefined,
     })),
-  ].sort((a, b) => b.time - a.time).slice(0, 12);
+  ].sort((a, b) => b.time - a.time);
+  const hiddenWeightCount = bodyTimeline.filter((item) => item.kind === 'weight' && !item.image).length;
+  const visibleBodyTimeline = bodyTimeline.filter((item) => showWeightTimeline || item.kind !== 'weight' || item.image).slice(0, 12);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -802,35 +806,32 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
           <Text style={styles.chartTapHint}>{t('tapToSeeList')}</Text>
         </TouchableOpacity>
 
-        {/* Mirror Photos */}
-        <View style={styles.mirrorCard}>
-          <View style={styles.mirrorHeader}>
-            <Text style={styles.mirrorTitle}>{t('mirrorMonthlyTitle')}</Text>
-            <TouchableOpacity style={styles.mirrorAddBtn} onPress={uploadMirrorPhoto} disabled={mirrorUploadLoading}>
-              <Text style={styles.mirrorAddBtnText}>{mirrorUploadLoading ? '…' : '+'}</Text>
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity style={styles.mirrorGalleryBtn} onPress={() => setShowMirrorGalleryModal(true)}>
-            <Text style={styles.mirrorGalleryBtnText}>{t('mirrorGalleryBtnLabel').replace('%d', String(mirrorPhotos.length))}</Text>
-          </TouchableOpacity>
-          {mirrorPhotos.length >= 2 && (
-            <Text style={styles.mirrorHint}>{t('mirrorAiHint')}</Text>
-          )}
-        </View>
-
         <View style={styles.timelineCard}>
           <View style={styles.timelineHeader}>
             <View>
               <Text style={styles.timelineEyebrow}>BODY TIMELINE</Text>
-              <Text style={styles.timelineTitle}>Your story, in one line.</Text>
+              <Text style={styles.timelineTitle}>Proof, not perfection.</Text>
             </View>
-            <Text style={styles.timelineCount}>{bodyTimeline.length}</Text>
+            {hiddenWeightCount > 0 && <TouchableOpacity style={[styles.timelineToggle, showWeightTimeline && styles.timelineToggleActive]} onPress={() => setShowWeightTimeline((value) => !value)}>
+              <Ionicons name={showWeightTimeline ? 'contract-outline' : 'expand-outline'} size={14} color={showWeightTimeline ? '#101A2B' : '#8FD6B4'} />
+              <Text style={[styles.timelineToggleText, showWeightTimeline && styles.timelineToggleTextActive]}>{showWeightTimeline ? 'COLLAPSE' : `+${hiddenWeightCount} WEIGHTS`}</Text>
+            </TouchableOpacity>}
           </View>
-          {bodyTimeline.length ? bodyTimeline.map((item, index) => (
+          <View style={styles.timelineMirrorBar}>
+            <TouchableOpacity style={styles.timelineMirrorGallery} onPress={() => setShowMirrorGalleryModal(true)}>
+              <Ionicons name="images-outline" size={17} color="#FFF4DB" />
+              <View><Text style={styles.timelineMirrorLabel}>MONTHLY MIRROR</Text><Text style={styles.timelineMirrorMeta}>{mirrorPhotos.length} photos in your gallery</Text></View>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.timelineMirrorAdd} onPress={uploadMirrorPhoto} disabled={mirrorUploadLoading}>
+              {mirrorUploadLoading ? <ActivityIndicator size="small" color="#101A2B" /> : <Ionicons name="camera-outline" size={19} color="#101A2B" />}
+            </TouchableOpacity>
+          </View>
+          {mirrorPhotos.length >= 2 && <Text style={styles.timelineMirrorHint}>{t('mirrorAiHint')}</Text>}
+          {visibleBodyTimeline.length ? visibleBodyTimeline.map((item, index) => (
             <View key={item.id} style={styles.timelineRow}>
               <View style={styles.timelineRail}>
                 <View style={styles.timelineDot}><Text style={styles.timelineIcon}>{item.icon}</Text></View>
-                {index < bodyTimeline.length - 1 && <View style={styles.timelineLine} />}
+                {index < visibleBodyTimeline.length - 1 && <View style={styles.timelineLine} />}
               </View>
               <View style={styles.timelineContent}>
                 <Text style={styles.timelineDate}>{displayDate(item.date)}</Text>
@@ -839,53 +840,49 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
               </View>
               {item.image && <Image source={{ uri: `data:image/jpeg;base64,${item.image}` }} style={styles.timelineImage} />}
             </View>
-          )) : <Text style={styles.timelineEmpty}>Log weight, finish a workout or add a mirror photo to begin your timeline.</Text>}
+          )) : <Text style={styles.timelineEmpty}>{hiddenWeightCount ? 'Weight check-ins are tucked away. Expand them whenever you need the full record.' : 'Finish a workout or add a mirror photo to begin your timeline.'}</Text>}
         </View>
 
-        {/* Period filter */}
-        <View style={styles.periodRow}>
-          {(['7', '30', 'all'] as Period[]).map((p) => (
-            <TouchableOpacity
-              key={p}
-              style={[styles.periodBtn, period === p && styles.periodBtnActive]}
-              onPress={() => handlePeriodChange(p)}
-            >
-              <Text style={[styles.periodBtnText, period === p && styles.periodBtnTextActive]}>
-                {p === '7' ? t('sevenDays') : p === '30' ? t('thirtyDays') : t('all')}
-              </Text>
+        {/* Progress brief */}
+        {daySummaries.length > 0 && (
+          <View style={styles.progressBrief}>
+            <View style={styles.progressBriefTop}>
+              <View>
+                <Text style={styles.progressBriefEyebrow}>PROGRESS BRIEF</Text>
+                <Text style={styles.progressBriefTitle}>Read the pattern.</Text>
+              </View>
+              <View style={styles.periodRow}>
+                {(['7', '30', 'all'] as Period[]).map((p) => (
+                  <TouchableOpacity key={p} style={[styles.periodBtn, period === p && styles.periodBtnActive]} onPress={() => handlePeriodChange(p)}>
+                    <Text style={[styles.periodBtnText, period === p && styles.periodBtnTextActive]}>
+                      {p === '7' ? '7D' : p === '30' ? '30D' : 'ALL'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            <View style={styles.summaryRow}>
+              <View style={styles.summaryMetric}>
+                <Text style={styles.summaryValue}>{avgCalories}</Text>
+                <Text style={styles.summaryLabel}>{t('avgKcalDay')}</Text>
+              </View>
+              <View style={styles.summaryDivider} />
+              <View style={styles.summaryMetric}>
+                <Text style={[styles.summaryValue, styles.summaryValueMint]}>{totalBurnedPeriod}</Text>
+                <Text style={styles.summaryLabel}>{t('kcalBurnedLabel')}</Text>
+              </View>
+              <View style={styles.summaryDivider} />
+              {(() => {
+                const s = getStatusInfo(avgCalories, goal, statusLabels);
+                return <View style={styles.summaryMetric}><Text style={[styles.summaryStatus, { color: s.color }]}>{s.label}</Text><Text style={styles.summaryLabel}>CALORIE PACE</Text></View>;
+              })()}
+            </View>
+            <TouchableOpacity style={styles.feedbackBtn} onPress={getAIFeedback}>
+              <View style={styles.feedbackIcon}><Ionicons name="sparkles-outline" size={17} color="#101A2B" /></View>
+              <View style={{ flex: 1 }}><Text style={styles.feedbackBtnText}>READ THE PATTERN</Text><Text style={styles.feedbackBtnSub}>{t('aiAnalysisSub')}</Text></View>
+              <Ionicons name="arrow-forward" size={18} color="#FFF4DB" />
             </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Summary stats */}
-        {daySummaries.length > 0 && (
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryValue}>{avgCalories}</Text>
-              <Text style={styles.summaryLabel}>{t('avgKcalDay')}</Text>
-            </View>
-            <View style={styles.summaryCard}>
-              <Text style={[styles.summaryValue, { color: '#8D9BFF' }]}>{totalBurnedPeriod}</Text>
-              <Text style={styles.summaryLabel}>{t('kcalBurnedLabel')}</Text>
-            </View>
-            {(() => {
-              const s = getStatusInfo(avgCalories, goal, statusLabels);
-              return (
-                <View style={styles.summaryCard}>
-                  <Text style={[styles.summaryValue, { color: s.color }]}>{s.icon}</Text>
-                  <Text style={[styles.summaryLabel, { color: s.color, textAlign: 'center' }]}>{s.label}</Text>
-                </View>
-              );
-            })()}
           </View>
-        )}
-
-        {/* AI Feedback button */}
-        {daySummaries.length > 0 && (
-          <TouchableOpacity style={styles.feedbackBtn} onPress={getAIFeedback}>
-            <Text style={styles.feedbackBtnText}>{t('aiAnalysis')}</Text>
-            <Text style={styles.feedbackBtnSub}>{t('aiAnalysisSub')}</Text>
-          </TouchableOpacity>
         )}
 
         {/* Export buttons */}
@@ -896,14 +893,14 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
               onPress={exportPDF}
               disabled={exportLoading}
             >
-              <Text style={styles.exportBtnText}>{exportLoading ? '...' : '⬇ PDF'}</Text>
+              <Ionicons name="document-text-outline" size={17} color="#101A2B" /><Text style={styles.exportBtnText}>{exportLoading ? '...' : 'PDF REPORT'}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.exportBtn, styles.exportCsvBtn]}
               onPress={exportCSV}
               disabled={exportLoading}
             >
-              <Text style={[styles.exportBtnText, { color: '#FF6542' }]}>{exportLoading ? '...' : '⬇ CSV'}</Text>
+              <Ionicons name="grid-outline" size={17} color="#C9472C" /><Text style={[styles.exportBtnText, { color: '#C9472C' }]}>{exportLoading ? '...' : 'CSV DATA'}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -1369,23 +1366,26 @@ const styles = StyleSheet.create({
   weightHistoryVal: { color: '#101A2B', fontSize: 14, fontWeight: '800' },
   weightMore: { color: '#657086', fontSize: 11, textAlign: 'center', padding: 8 },
 
-  periodRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
-  periodBtn: { flex: 1, paddingVertical: 11, borderRadius: 20, borderWidth: 1, borderColor: '#D8CEBE', backgroundColor: '#FFFDF7', alignItems: 'center' },
-  periodBtnActive: { backgroundColor: '#FF6542', borderColor: '#FF6542' },
-  periodBtnText: { color: '#7D8799', fontSize: 13 },
-  periodBtnTextActive: { color: '#FFFDF7', fontWeight: 'bold' },
-
-  summaryRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
-  summaryCard: { flex: 1, backgroundColor: '#FFFDF7', borderRadius: 20, padding: 17, alignItems: 'center', borderWidth: 1, borderColor: '#E2D9C9' },
-  summaryValue: { color: '#FF6542', fontSize: 20, fontWeight: 'bold' },
-  summaryLabel: { color: '#7D8799', fontSize: 10, textAlign: 'center', marginTop: 4 },
-
-  feedbackBtn: {
-    backgroundColor: '#222F45', borderRadius: 14, padding: 16, marginBottom: 16,
-    borderWidth: 1, borderColor: '#495777', alignItems: 'center',
-  },
-  feedbackBtnText: { color: '#FF6542', fontSize: 15, fontWeight: 'bold' },
-  feedbackBtnSub: { color: '#7D8799', fontSize: 11, marginTop: 4 },
+  progressBrief: { backgroundColor: '#101A2B', borderRadius: 27, padding: 18, marginBottom: 11 },
+  progressBriefTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+  progressBriefEyebrow: { color: '#8FD6B4', fontSize: 9, fontWeight: '900', letterSpacing: 1.7 },
+  progressBriefTitle: { color: '#FFF4DB', fontFamily: 'serif', fontSize: 23, fontWeight: '800', marginTop: 4 },
+  periodRow: { flexDirection: 'row', gap: 4, backgroundColor: '#1C2940', borderRadius: 13, padding: 4 },
+  periodBtn: { minWidth: 34, paddingHorizontal: 8, paddingVertical: 7, borderRadius: 9, alignItems: 'center' },
+  periodBtnActive: { backgroundColor: '#FFF4DB' },
+  periodBtnText: { color: '#7F8BA0', fontSize: 9, fontWeight: '900' },
+  periodBtnTextActive: { color: '#101A2B' },
+  summaryRow: { flexDirection: 'row', alignItems: 'stretch', marginTop: 22, marginBottom: 18 },
+  summaryMetric: { flex: 1, minHeight: 55, justifyContent: 'space-between' },
+  summaryDivider: { width: 1, backgroundColor: '#33415C', marginHorizontal: 10 },
+  summaryValue: { color: '#FF7659', fontFamily: 'serif', fontSize: 24, fontWeight: '800' },
+  summaryValueMint: { color: '#8FD6B4' },
+  summaryStatus: { fontFamily: 'serif', fontSize: 15, lineHeight: 18, fontWeight: '800' },
+  summaryLabel: { color: '#7F8BA0', fontSize: 8, fontWeight: '900', letterSpacing: 0.8, marginTop: 6 },
+  feedbackBtn: { flexDirection: 'row', alignItems: 'center', gap: 11, borderTopWidth: 1, borderTopColor: '#33415C', paddingTop: 15 },
+  feedbackIcon: { width: 33, height: 33, borderRadius: 12, backgroundColor: '#8FD6B4', alignItems: 'center', justifyContent: 'center' },
+  feedbackBtnText: { color: '#FFF4DB', fontSize: 10, letterSpacing: 1.1, fontWeight: '900' },
+  feedbackBtnSub: { color: '#7F8BA0', fontSize: 10, marginTop: 3 },
 
   emptyContainer: { alignItems: 'center', marginTop: 60 },
   emptyIcon: { fontSize: 48, marginBottom: 12 },
@@ -1482,11 +1482,6 @@ const styles = StyleSheet.create({
   chartTapHint: { color: '#33415C', fontSize: 9, textAlign: 'center', marginTop: 6 },
 
 
-  mirrorCard: { backgroundColor: '#FFFDF7', borderRadius: 24, padding: 18, marginBottom: 14, borderWidth: 1, borderColor: '#E2D9C9' },
-  mirrorHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  mirrorTitle: { color: '#101A2B', fontSize: 10, fontWeight: '900', letterSpacing: 2, textTransform: 'uppercase' },
-  mirrorAddBtn: { backgroundColor: '#26334A', width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#FF6542' },
-  mirrorAddBtnText: { color: '#FF6542', fontSize: 18, lineHeight: 22 },
   mirrorEmpty: { color: '#657086', fontSize: 12, textAlign: 'center', paddingVertical: 12 },
   mirrorGalleryBtn: { backgroundColor: '#26334A', borderRadius: 10, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#3a3a4a' },
   mirrorGalleryBtnText: { color: '#CBD2DD', fontSize: 14, fontWeight: '500' },
@@ -1495,16 +1490,25 @@ const styles = StyleSheet.create({
   mirrorModalBox: { backgroundColor: '#1C2940', borderRadius: 16, padding: 20, width: '90%', alignItems: 'center' },
   mirrorModalTitle: { color: '#FF6542', fontSize: 14, fontWeight: '600', marginBottom: 12 },
 
-  exportRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  exportBtn: { flex: 1, paddingVertical: 10, borderRadius: 20, alignItems: 'center', borderWidth: 1 },
-  exportPdfBtn: { backgroundColor: '#1a1a3a', borderColor: '#2a2a4a' },
-  exportCsvBtn: { backgroundColor: '#222F45', borderColor: '#495777' },
-  exportBtnText: { color: '#8D9BFF', fontWeight: '600', fontSize: 13 },
+  exportRow: { flexDirection: 'row', gap: 9, marginBottom: 16 },
+  exportBtn: { flex: 1, flexDirection: 'row', gap: 8, paddingVertical: 12, borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  exportPdfBtn: { backgroundColor: '#FFFDF7', borderColor: '#D8CEBE' },
+  exportCsvBtn: { backgroundColor: '#F3EAD7', borderColor: '#D8CEBE' },
+  exportBtnText: { color: '#101A2B', fontWeight: '900', fontSize: 9, letterSpacing: 1 },
   timelineCard: { backgroundColor: '#101A2B', borderRadius: 26, padding: 18, marginBottom: 18 },
   timelineHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 },
   timelineEyebrow: { color: '#8FD6B4', fontSize: 10, fontWeight: '900', letterSpacing: 1.6 },
   timelineTitle: { color: '#FFF4DB', fontFamily: 'serif', fontSize: 22, fontWeight: '800', marginTop: 5 },
-  timelineCount: { color: '#101A2B', backgroundColor: '#8FD6B4', minWidth: 32, height: 32, borderRadius: 12, textAlign: 'center', textAlignVertical: 'center', fontWeight: '900' },
+  timelineToggle: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, height: 32, borderRadius: 12, backgroundColor: '#1C2940', borderWidth: 1, borderColor: '#33415C' },
+  timelineToggleActive: { backgroundColor: '#8FD6B4', borderColor: '#8FD6B4' },
+  timelineToggleText: { color: '#8FD6B4', fontSize: 8, fontWeight: '900', letterSpacing: 0.6 },
+  timelineToggleTextActive: { color: '#101A2B' },
+  timelineMirrorBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1C2940', borderRadius: 17, padding: 9, marginBottom: 17, borderWidth: 1, borderColor: '#33415C' },
+  timelineMirrorGallery: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 4 },
+  timelineMirrorLabel: { color: '#FFF4DB', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  timelineMirrorMeta: { color: '#7F8BA0', fontSize: 9, marginTop: 3 },
+  timelineMirrorAdd: { width: 38, height: 38, borderRadius: 14, backgroundColor: '#8FD6B4', alignItems: 'center', justifyContent: 'center' },
+  timelineMirrorHint: { color: '#8FD6B4', fontSize: 9, lineHeight: 13, marginTop: -8, marginBottom: 14, paddingHorizontal: 4 },
   timelineRow: { flexDirection: 'row', minHeight: 72 },
   timelineRail: { width: 42, alignItems: 'center' },
   timelineDot: { width: 32, height: 32, borderRadius: 12, backgroundColor: '#26334A', alignItems: 'center', justifyContent: 'center', zIndex: 2 },

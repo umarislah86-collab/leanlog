@@ -24,6 +24,7 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { runLeanLogAi } from '../services/ai';
 import { fsUpsert, fsDelete, fsSetSettings, fsFetchAll, fsFetchSettings } from '../firebase';
 import { useLanguage } from '../context/LanguageContext';
@@ -952,62 +953,62 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
       {/* ── Category Picker ── */}
       <Modal visible={showCategoryPicker} transparent animationType="slide">
         <TouchableOpacity style={styles.sheetOverlay} activeOpacity={1} onPress={() => setShowCategoryPicker(false)}>
-          <View style={styles.categorySheet}>
+          <View style={styles.loggerSheet} onStartShouldSetResponder={() => true}>
             <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>{t('addRecord')}</Text>
-            {MEAL_CATEGORIES.map((cat) => (
-              <TouchableOpacity key={cat.key} style={styles.categoryRow} onPress={() => handleCategorySelect(cat.key)}>
-                <Text style={styles.categoryEmoji}>{cat.emoji}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.categoryLabel}>{cat.label}</Text>
-                  <Text style={styles.categorySubtitle}>{cat.subtitle}</Text>
-                </View>
-                <Text style={styles.categoryArrow}>›</Text>
+            <View style={styles.loggerHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.loggerEyebrow}>LEANLOG / ADD RECORD</Text>
+                <Text style={styles.loggerTitle}>What happened?</Text>
+                <Text style={styles.loggerIntro}>Choose a lane. We will keep the next step focused.</Text>
+              </View>
+              <TouchableOpacity style={styles.loggerClose} onPress={() => setShowCategoryPicker(false)}>
+                <Ionicons name="close" size={21} color="#FFF4DB" />
               </TouchableOpacity>
-            ))}
-            <View style={styles.categoryDivider} />
-            <TouchableOpacity style={styles.categoryRow} onPress={() => handleCategorySelect('aktiviti')}>
-              <Text style={styles.categoryEmoji}>🏃</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.categoryLabel}>{t('aktiviti')}</Text>
-                <Text style={styles.categorySubtitle}>{t('aktivitiSub')}</Text>
-              </View>
-              <Text style={styles.categoryArrow}>›</Text>
-            </TouchableOpacity>
-            <View style={styles.categoryDivider} />
-            <TouchableOpacity style={styles.categoryRow} onPress={() => {
-              setShowCategoryPicker(false);
-              setNewWeight('70.0'); setNewWeightDate(new Date());
-              setTimeout(() => setShowWeightModal(true), 300);
-            }}>
-              <Text style={styles.categoryEmoji}>⚖️</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.categoryLabel}>{t('logWeight')}</Text>
-                <Text style={styles.categorySubtitle}>{t('weightKg')}</Text>
-              </View>
-              <Text style={styles.categoryArrow}>›</Text>
-            </TouchableOpacity>
-            <View style={styles.categoryDivider} />
-            <TouchableOpacity style={styles.categoryRow} onPress={() => { setShowCategoryPicker(false); setTimeout(() => setShowQuickNoteModal(true), 250); }}>
-              <Text style={styles.categoryEmoji}>✍️</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.categoryLabel}>Quick Note</Text>
-                <Text style={styles.categorySubtitle}>Capture a thought, symptom or reminder</Text>
-              </View>
-              <Text style={styles.categoryArrow}>›</Text>
-            </TouchableOpacity>
-            <View style={styles.categoryDivider} />
-            <TouchableOpacity style={styles.categoryRow} onPress={() => { setShowCategoryPicker(false); setTimeout(() => setShowMealMemory(true), 250); }}>
-              <Text style={styles.categoryEmoji}>🧠</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.categoryLabel}>Meal Memory</Text>
-                <Text style={styles.categorySubtitle}>Log a frequent meal in one tap</Text>
-              </View>
-              <Text style={styles.categoryArrow}>›</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowCategoryPicker(false)}>
-              <Text style={styles.cancelBtnText}>{t('cancel')}</Text>
-            </TouchableOpacity>
+            </View>
+
+            <Text style={styles.loggerSectionLabel}>QUICK MEAL</Text>
+            <View style={styles.mealGrid}>
+              {MEAL_CATEGORIES.map((cat) => {
+                const icon = cat.key === 'sarapan' ? 'sunny-outline' : cat.key === 'tengahari' ? 'restaurant-outline' : cat.key === 'malam' ? 'moon-outline' : 'cafe-outline';
+                return <TouchableOpacity key={cat.key} style={styles.mealTile} onPress={() => handleCategorySelect(cat.key)}>
+                  <View style={styles.mealIcon}><Ionicons name={icon as any} size={20} color="#101A2B" /></View>
+                  <Text style={styles.mealTileLabel}>{cat.label}</Text>
+                  <Text style={styles.mealTileSub}>{cat.subtitle}</Text>
+                  <Ionicons name="arrow-forward" size={15} color="#C9472C" style={styles.mealTileArrow} />
+                </TouchableOpacity>;
+              })}
+            </View>
+
+            <Text style={styles.loggerSectionLabel}>BODY & NOTES</Text>
+            <View style={styles.loggerUtilityCard}>
+              <TouchableOpacity style={styles.loggerUtilityRow} onPress={() => handleCategorySelect('aktiviti')}>
+                <View style={[styles.utilityIcon, styles.utilityIconMint]}><Ionicons name="walk-outline" size={20} color="#101A2B" /></View>
+                <View style={{ flex: 1 }}><Text style={styles.utilityTitle}>{t('aktiviti')}</Text><Text style={styles.utilitySub}>{t('aktivitiSub')}</Text></View>
+                <Ionicons name="chevron-forward" size={17} color="#7F8BA0" />
+              </TouchableOpacity>
+              <View style={styles.utilityRule} />
+              <TouchableOpacity style={styles.loggerUtilityRow} onPress={() => {
+                setShowCategoryPicker(false);
+                setNewWeight('70.0'); setNewWeightDate(new Date());
+                setTimeout(() => setShowWeightModal(true), 300);
+              }}>
+                <View style={[styles.utilityIcon, styles.utilityIconCoral]}><Ionicons name="scale-outline" size={20} color="#101A2B" /></View>
+                <View style={{ flex: 1 }}><Text style={styles.utilityTitle}>{t('logWeight')}</Text><Text style={styles.utilitySub}>{t('weightKg')}</Text></View>
+                <Ionicons name="chevron-forward" size={17} color="#7F8BA0" />
+              </TouchableOpacity>
+              <View style={styles.utilityRule} />
+              <TouchableOpacity style={styles.loggerUtilityRow} onPress={() => { setShowCategoryPicker(false); setTimeout(() => setShowQuickNoteModal(true), 250); }}>
+                <View style={styles.utilityIcon}><Ionicons name="create-outline" size={20} color="#FFF4DB" /></View>
+                <View style={{ flex: 1 }}><Text style={styles.utilityTitle}>Quick Note</Text><Text style={styles.utilitySub}>A thought, symptom or reminder</Text></View>
+                <Ionicons name="chevron-forward" size={17} color="#7F8BA0" />
+              </TouchableOpacity>
+              <View style={styles.utilityRule} />
+              <TouchableOpacity style={styles.loggerUtilityRow} onPress={() => { setShowCategoryPicker(false); setTimeout(() => setShowMealMemory(true), 250); }}>
+                <View style={styles.utilityIcon}><Ionicons name="time-outline" size={20} color="#FFF4DB" /></View>
+                <View style={{ flex: 1 }}><Text style={styles.utilityTitle}>Meal Memory</Text><Text style={styles.utilitySub}>Repeat a familiar meal in one tap</Text></View>
+                <Ionicons name="chevron-forward" size={17} color="#7F8BA0" />
+              </TouchableOpacity>
+            </View>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -1065,21 +1066,21 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>{pendingCategoryLabel} — {t('chooseMethod')}</Text>
             <TouchableOpacity style={styles.categoryRow} onPress={() => handleSourceSelect('camera')}>
-              <Text style={styles.categoryEmoji}>📷</Text>
+              <View style={styles.categoryIcon}><Ionicons name="camera-outline" size={21} color="#101A2B" /></View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.categoryLabel}>{t('camera')}</Text>
                 <Text style={styles.categorySubtitle}>{t('cameraSub')}</Text>
               </View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.categoryRow} onPress={() => handleSourceSelect('gallery')}>
-              <Text style={styles.categoryEmoji}>🖼️</Text>
+              <View style={styles.categoryIcon}><Ionicons name="images-outline" size={21} color="#101A2B" /></View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.categoryLabel}>{t('gallery')}</Text>
                 <Text style={styles.categorySubtitle}>{t('gallerySub')}</Text>
               </View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.categoryRow} onPress={() => handleSourceSelect('text')}>
-              <Text style={styles.categoryEmoji}>⌨️</Text>
+              <View style={styles.categoryIcon}><Ionicons name="keypad-outline" size={21} color="#101A2B" /></View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.categoryLabel}>{t('typeText')}</Text>
                 <Text style={styles.categorySubtitle}>{t('typeTextSub')}</Text>
@@ -1099,21 +1100,21 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>{t('activitySourceTitle')}</Text>
             <TouchableOpacity style={styles.categoryRow} onPress={() => handleActivitySourceSelect('camera')}>
-              <Text style={styles.categoryEmoji}>📷</Text>
+              <View style={styles.categoryIcon}><Ionicons name="camera-outline" size={21} color="#101A2B" /></View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.categoryLabel}>{t('camera')}</Text>
                 <Text style={styles.categorySubtitle}>{t('activityViaImageSub')}</Text>
               </View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.categoryRow} onPress={() => handleActivitySourceSelect('gallery')}>
-              <Text style={styles.categoryEmoji}>🖼️</Text>
+              <View style={styles.categoryIcon}><Ionicons name="images-outline" size={21} color="#101A2B" /></View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.categoryLabel}>{t('gallery')}</Text>
                 <Text style={styles.categorySubtitle}>{t('activityViaImageSub')}</Text>
               </View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.categoryRow} onPress={() => handleActivitySourceSelect('text')}>
-              <Text style={styles.categoryEmoji}>⌨️</Text>
+              <View style={styles.categoryIcon}><Ionicons name="keypad-outline" size={21} color="#101A2B" /></View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.categoryLabel}>{t('typeText')}</Text>
                 <Text style={styles.categorySubtitle}>{t('typeTextSub')}</Text>
@@ -1635,10 +1636,32 @@ const styles = StyleSheet.create({
   activityCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E8E8FF', borderRadius: 20, marginBottom: 10, borderWidth: 1, borderColor: '#D4D3F4', paddingVertical: 10 },
   activityIconBox: { width: 68, alignItems: 'center', justifyContent: 'center' },
   sheetOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  loggerSheet: { backgroundColor: '#F7F0E1', borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 18, paddingBottom: 30 },
+  loggerHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, paddingTop: 5, paddingBottom: 18 },
+  loggerEyebrow: { color: '#C9472C', fontSize: 9, fontWeight: '900', letterSpacing: 1.7 },
+  loggerTitle: { color: '#101A2B', fontFamily: 'serif', fontSize: 28, fontWeight: '800', letterSpacing: -0.5, marginTop: 4 },
+  loggerIntro: { color: '#737A84', fontSize: 10, lineHeight: 15, marginTop: 4 },
+  loggerClose: { width: 38, height: 38, borderRadius: 14, backgroundColor: '#101A2B', alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  loggerSectionLabel: { color: '#59616D', fontSize: 8, fontWeight: '900', letterSpacing: 1.6, marginBottom: 8, marginTop: 2 },
+  mealGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 17 },
+  mealTile: { width: '48.7%', minHeight: 88, borderRadius: 18, backgroundColor: '#FFFDF7', borderWidth: 1, borderColor: '#E2D9C9', padding: 12, position: 'relative' },
+  mealIcon: { width: 32, height: 32, borderRadius: 12, backgroundColor: '#F0C95E', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  mealTileLabel: { color: '#101A2B', fontSize: 13, fontWeight: '900' },
+  mealTileSub: { color: '#737A84', fontSize: 9, marginTop: 2 },
+  mealTileArrow: { position: 'absolute', top: 13, right: 12 },
+  loggerUtilityCard: { backgroundColor: '#101A2B', borderRadius: 22, paddingHorizontal: 12, overflow: 'hidden' },
+  loggerUtilityRow: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 11 },
+  utilityIcon: { width: 36, height: 36, borderRadius: 13, backgroundColor: '#1C2940', borderWidth: 1, borderColor: '#33415C', alignItems: 'center', justifyContent: 'center' },
+  utilityIconMint: { backgroundColor: '#8FD6B4', borderColor: '#8FD6B4' },
+  utilityIconCoral: { backgroundColor: '#FF7659', borderColor: '#FF7659' },
+  utilityTitle: { color: '#FFF4DB', fontSize: 12, fontWeight: '900' },
+  utilitySub: { color: '#7F8BA0', fontSize: 9, marginTop: 3 },
+  utilityRule: { height: 1, backgroundColor: '#33415C', marginLeft: 47 },
   categorySheet: { backgroundColor: '#FFFDF7', borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingBottom: 30 },
   sheetHandle: { width: 36, height: 4, backgroundColor: '#3a3a4a', borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 8 },
   sheetTitle: { color: '#101A2B', fontSize: 12, fontWeight: '900', letterSpacing: 2, textAlign: 'center', marginBottom: 16, textTransform: 'uppercase' },
   categoryRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 14 },
+  categoryIcon: { width: 38, height: 38, borderRadius: 14, backgroundColor: '#F0E5D1', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   categoryEmoji: { fontSize: 24, width: 44 },
   categoryLabel: { color: '#101A2B', fontSize: 16, fontWeight: '800' },
   categorySubtitle: { color: '#737A84', fontSize: 12, marginTop: 2 },

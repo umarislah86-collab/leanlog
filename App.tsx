@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, TouchableOpacity, Text, View, StyleSheet, Image, Modal } from 'react-native';
+import { Animated, TouchableOpacity, Text, View, StyleSheet, Image, Modal, PanResponder } from 'react-native';
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -39,62 +39,97 @@ const TAB_ICONS: Record<string, string> = {
   Log: 'restaurant',
   Progress: 'bar-chart',
   Coach: 'leaf',
+  RedCoins: 'wallet',
   Settings: 'settings',
 };
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
+  const fabPan = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_event, gesture) => gesture.dy < -10 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+      onPanResponderRelease: (_event, gesture) => {
+        if (gesture.dy < -34)
+          navigation.navigate('RedCoins', {
+            mode: 'expense',
+            fabTrigger: Date.now(),
+          });
+      },
+    }),
+  ).current;
   return (
-    <View style={{
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.oat,
-      borderTopColor: 'rgba(16, 26, 43, 0.10)',
-      borderTopWidth: 1,
-      paddingBottom: insets.bottom || 6,
-      paddingTop: 6,
-    }}>
-      {state.routes.map((route: any, index: number) => ({ route, index })).filter(({ route }: any) => route.name !== 'RedCoins').map(({ route, index }: any) => {
-        const focused = state.index === index;
-        const color = focused ? colors.coral : '#5F6670';
-        const iconBase = TAB_ICONS[route.name] ?? 'ellipse';
-        const iconName = focused ? iconBase : `${iconBase}-outline`;
-        const label = descriptors[route.key].options.title ?? route.name;
-        return (
-          <TouchableOpacity
-            key={route.key}
-            style={{ flex: 1, alignItems: 'center', paddingVertical: 5 }}
-            onPress={() => navigation.navigate(route.name)}
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.oat,
+        borderTopColor: 'rgba(16, 26, 43, 0.10)',
+        borderTopWidth: 1,
+        paddingBottom: insets.bottom || 6,
+        paddingTop: 6,
+      }}
+    >
+      {state.routes
+        .map((route: any, index: number) => ({ route, index }))
+        .map(({ route, index }: any) => {
+          const focused = state.index === index;
+          const color = focused ? colors.coral : '#5F6670';
+          const iconBase = TAB_ICONS[route.name] ?? 'ellipse';
+          const iconName = focused ? iconBase : `${iconBase}-outline`;
+          const label = descriptors[route.key].options.title ?? route.name;
+          return (
+            <TouchableOpacity key={route.key} style={{ flex: 1, alignItems: 'center', paddingVertical: 5 }} onPress={() => navigation.navigate(route.name)}>
+              <Ionicons name={iconName as any} size={24} color={color} />
+              <Text
+                style={{
+                  color,
+                  fontSize: 10,
+                  marginTop: 2,
+                  fontWeight: focused ? '800' : '500',
+                }}
+              >
+                {label}
+              </Text>
+              <View
+                style={{
+                  width: focused ? 28 : 0,
+                  height: 3,
+                  borderRadius: 2,
+                  backgroundColor: colors.coral,
+                  marginTop: 5,
+                }}
+              />
+            </TouchableOpacity>
+          );
+        })}
+      <View
+        style={{
+          width: 70,
+          alignItems: 'center',
+          marginTop: -35,
+          marginRight: 7,
+        }}
+      >
+        <TouchableOpacity {...fabPan.panHandlers} onPress={() => navigation.navigate('Log', { fabTrigger: Date.now() })} activeOpacity={0.86} accessibilityLabel="Tap for food log, swipe up for transaction logger">
+          <View
+            style={{
+              width: 62,
+              height: 62,
+              borderRadius: 22,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: colors.mint,
+              borderWidth: 5,
+              borderColor: colors.oat,
+              shadowColor: colors.ink,
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.24,
+              shadowRadius: 9,
+              elevation: 8,
+            }}
           >
-            <Ionicons name={iconName as any} size={24} color={color} />
-            <Text style={{ color, fontSize: 10, marginTop: 2, fontWeight: focused ? '800' : '500' }}>{label}</Text>
-            <View style={{ width: focused ? 28 : 0, height: 3, borderRadius: 2, backgroundColor: colors.coral, marginTop: 5 }} />
-          </TouchableOpacity>
-        );
-      })}
-      <View style={{ width: 70, alignItems: 'center', marginTop: -53, marginRight: 7 }}>
-        <TouchableOpacity
-          style={{ width: 42, height: 27, borderRadius: 11, backgroundColor: '#EF3F43', borderWidth: 3, borderColor: colors.oat, alignItems: 'center', justifyContent: 'center', marginBottom: 1 }}
-          onPress={() => navigation.navigate('RedCoins')}
-          activeOpacity={0.86}
-          accessibilityLabel="Open RedCoins"
-        >
-          <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '900' }}>R¢</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Log', { fabTrigger: Date.now() })}
-          activeOpacity={0.86}
-          accessibilityLabel="Add new log"
-        >
-        <View style={{
-          width: 62, height: 62, borderRadius: 22,
-          alignItems: 'center', justifyContent: 'center',
-          backgroundColor: colors.mint, borderWidth: 5, borderColor: colors.oat,
-          shadowColor: colors.ink, shadowOffset: { width: 0, height: 6 },
-          shadowOpacity: 0.24, shadowRadius: 9, elevation: 8,
-        }}>
-          <Ionicons name="add" size={34} color={colors.ink} />
-        </View>
+            <Ionicons name="add" size={34} color={colors.ink} />
+          </View>
         </TouchableOpacity>
       </View>
     </View>
@@ -104,17 +139,13 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
 function MainTabs() {
   const { t } = useLanguage();
   return (
-    <Tab.Navigator
-      tabBarPosition="bottom"
-      tabBar={(props) => <CustomTabBar {...props} />}
-      screenOptions={{ swipeEnabled: true }}
-    >
+    <Tab.Navigator tabBarPosition="bottom" tabBar={(props) => <CustomTabBar {...props} />} screenOptions={{ swipeEnabled: true }}>
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Home' }} />
       <Tab.Screen name="Log" component={TodayScreen} options={{ title: 'Log' }} />
       <Tab.Screen name="Progress" component={ProgressScreen} options={{ title: t('tabProgress') }} />
       <Tab.Screen name="Coach" component={CoachScreen} options={{ title: t('tabCoach') }} />
-      <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
       <Tab.Screen name="RedCoins" component={RedCoinsScreen} options={{ title: 'RedCoins', swipeEnabled: false }} />
+      <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
     </Tab.Navigator>
   );
 }
@@ -180,21 +211,12 @@ export default function App() {
   }, [authReady, minTimeReady, trialReady]);
 
   useEffect(() => {
-    const DATA_KEYS = [
-      'calorie_entries', 'activity_entries', 'weight_entries',
-      'calorie_goal', 'user_profile',
-    ];
+    const DATA_KEYS = ['calorie_entries', 'activity_entries', 'weight_entries', 'calorie_goal', 'user_profile'];
 
     const clearLocalData = () => Promise.all(DATA_KEYS.map((k) => AsyncStorage.removeItem(k)));
 
     const autoRestoreFromCloud = async () => {
-      const [fsFood, fsActs, fsWeights, fsSettings, fullState] = await Promise.all([
-        fsFetchAll<any>('foodEntries'),
-        fsFetchAll<any>('activityEntries'),
-        fsFetchAll<any>('weightEntries'),
-        fsFetchSettings(),
-        fsFetchAppState(),
-      ]);
+      const [fsFood, fsActs, fsWeights, fsSettings, fullState] = await Promise.all([fsFetchAll<any>('foodEntries'), fsFetchAll<any>('activityEntries'), fsFetchAll<any>('weightEntries'), fsFetchSettings(), fsFetchAppState()]);
       if (fullState) {
         await AsyncStorage.multiSet(Object.entries(fullState));
       } else {
@@ -224,10 +246,7 @@ export default function App() {
         await autoRestoreFromCloud();
       } else {
         // Same user returning — only restore if local is missing
-        const [localFood, localActivities] = await Promise.all([
-          AsyncStorage.getItem('calorie_entries'),
-          AsyncStorage.getItem('activity_entries'),
-        ]);
+        const [localFood, localActivities] = await Promise.all([AsyncStorage.getItem('calorie_entries'), AsyncStorage.getItem('activity_entries')]);
         const foodMissing = !localFood || localFood === '[]';
         const activitiesMissing = !localActivities || localActivities === '[]';
         if (foodMissing || activitiesMissing) {
@@ -261,15 +280,16 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <LanguageProvider>
-        <NavigationContainer ref={navigationRef} linking={{ prefixes: ['leanlog://'], config: { screens: { Home: 'home', RedCoins: { path: 'redcoins/:mode?' } } } }}>
-          {user
-            ? hasProfile
-              ? trialStatus === 'expired'
-                ? <PaywallScreen onRecheck={recheckTrial} />
-                : <MainTabs />
-              : <OnboardingScreen onComplete={() => setHasProfile(true)} />
-            : <AuthScreen />
-          }
+        <NavigationContainer
+          ref={navigationRef}
+          linking={{
+            prefixes: ['leanlog://'],
+            config: {
+              screens: { Home: 'home', RedCoins: { path: 'redcoins/:mode?' } },
+            },
+          }}
+        >
+          {user ? hasProfile ? trialStatus === 'expired' ? <PaywallScreen onRecheck={recheckTrial} /> : <MainTabs /> : <OnboardingScreen onComplete={() => setHasProfile(true)} /> : <AuthScreen />}
         </NavigationContainer>
         <Modal visible={showSnoozePicker} transparent animationType="fade" onRequestClose={() => setShowSnoozePicker(false)}>
           <View style={snooze.overlay}>
@@ -278,12 +298,26 @@ export default function App() {
               <Text style={snooze.title}>How long do you need?</Text>
               <Text style={snooze.body}>Choose wisely. I will return with documentation demands.</Text>
               <View style={snooze.options}>
-                <TouchableOpacity style={snooze.option} onPress={() => chooseSnooze(20)}><Text style={snooze.optionValue}>20</Text><Text style={snooze.optionLabel}>MIN</Text></TouchableOpacity>
-                <TouchableOpacity style={snooze.option} onPress={() => chooseSnooze(45)}><Text style={snooze.optionValue}>45</Text><Text style={snooze.optionLabel}>MIN</Text></TouchableOpacity>
-                <TouchableOpacity style={snooze.option} onPress={() => chooseSnooze(60)}><Text style={snooze.optionValue}>1</Text><Text style={snooze.optionLabel}>HOUR</Text></TouchableOpacity>
+                <TouchableOpacity style={snooze.option} onPress={() => chooseSnooze(20)}>
+                  <Text style={snooze.optionValue}>20</Text>
+                  <Text style={snooze.optionLabel}>MIN</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={snooze.option} onPress={() => chooseSnooze(45)}>
+                  <Text style={snooze.optionValue}>45</Text>
+                  <Text style={snooze.optionLabel}>MIN</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={snooze.option} onPress={() => chooseSnooze(60)}>
+                  <Text style={snooze.optionValue}>1</Text>
+                  <Text style={snooze.optionLabel}>HOUR</Text>
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity style={snooze.fasting} onPress={chooseFastingDay}><Text style={snooze.fastingText}>🌙 Puasa sunat hari ini</Text><Text style={snooze.fastingHint}>Stop all remaining nags until tomorrow</Text></TouchableOpacity>
-              <TouchableOpacity style={snooze.cancel} onPress={() => setShowSnoozePicker(false)}><Text style={snooze.cancelText}>Never mind</Text></TouchableOpacity>
+              <TouchableOpacity style={snooze.fasting} onPress={chooseFastingDay}>
+                <Text style={snooze.fastingText}>🌙 Puasa sunat hari ini</Text>
+                <Text style={snooze.fastingHint}>Stop all remaining nags until tomorrow</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={snooze.cancel} onPress={() => setShowSnoozePicker(false)}>
+                <Text style={snooze.cancelText}>Never mind</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </Modal>
@@ -293,16 +327,55 @@ export default function App() {
 }
 
 const snooze = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(8,14,24,0.72)' },
-  sheet: { backgroundColor: '#FFFDF7', borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 30 },
-  eyebrow: { color: '#FF6542', fontSize: 9, fontWeight: '900', letterSpacing: 1.3 },
-  title: { color: '#101A2B', fontFamily: 'serif', fontSize: 28, fontWeight: '800', marginTop: 6 },
+  overlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(8,14,24,0.72)',
+  },
+  sheet: {
+    backgroundColor: '#FFFDF7',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 30,
+  },
+  eyebrow: {
+    color: '#FF6542',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.3,
+  },
+  title: {
+    color: '#101A2B',
+    fontFamily: 'serif',
+    fontSize: 28,
+    fontWeight: '800',
+    marginTop: 6,
+  },
   body: { color: '#68758A', fontSize: 12, lineHeight: 18, marginTop: 5 },
   options: { flexDirection: 'row', gap: 9, marginTop: 18 },
-  option: { flex: 1, backgroundColor: '#17243A', borderRadius: 17, paddingVertical: 15, alignItems: 'center' },
+  option: {
+    flex: 1,
+    backgroundColor: '#17243A',
+    borderRadius: 17,
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
   optionValue: { color: '#FFF4DB', fontSize: 23, fontWeight: '900' },
-  optionLabel: { color: '#91DCBB', fontSize: 8, fontWeight: '900', letterSpacing: 1, marginTop: 2 },
-  fasting: { backgroundColor: '#E8E8FF', borderRadius: 17, padding: 14, marginTop: 10 },
+  optionLabel: {
+    color: '#91DCBB',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginTop: 2,
+  },
+  fasting: {
+    backgroundColor: '#E8E8FF',
+    borderRadius: 17,
+    padding: 14,
+    marginTop: 10,
+  },
   fastingText: { color: '#33326D', fontSize: 13, fontWeight: '900' },
   fastingHint: { color: '#66659A', fontSize: 9, marginTop: 3 },
   cancel: { alignItems: 'center', padding: 13, marginTop: 3 },
