@@ -571,8 +571,8 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
     Alert.alert(
       lang === 'en' ? '🏁 Session Done!' : '🏁 Sesi Tamat!',
       lang === 'en'
-        ? `Offline estimate: ~${kcal} kcal burned.${newPrs ? `\n🏆 ${newPrs} estimated strength PR${newPrs === 1 ? '' : 's'}!` : ''}\nHealth Connect can replace calories with watch data later.\n\nLog as today's activity?`
-        : `Anggaran offline: ~${kcal} kcal dibakar.${newPrs ? `\n🏆 ${newPrs} rekod kekuatan baru!` : ''}\nHealth Connect boleh gantikan kalori dengan data jam nanti.\n\nLog sebagai aktiviti hari ini?`,
+        ? `Offline estimate: ~${kcal} kcal burned.${newPrs ? `\n🏆 ${newPrs} estimated strength PR${newPrs === 1 ? '' : 's'}!` : ''}\n\nLog as today's activity?`
+        : `Anggaran offline: ~${kcal} kcal dibakar.${newPrs ? `\n🏆 ${newPrs} rekod kekuatan baru!` : ''}\n\nLog sebagai aktiviti hari ini?`,
       [
         { text: lang === 'en' ? 'Skip' : 'Langkau', style: 'cancel', onPress: () => checkSaveModified(false) },
         { text: '✅ Log', onPress: async () => { const aId = await logActivityFromGym(kcal, durationMin); try { const raw = await AsyncStorage.getItem(GYM_SESSIONS_KEY); const all: GymSession[] = raw ? JSON.parse(raw) : []; const idx = all.findIndex(s => s.id === session.id); if (idx !== -1) { all[idx] = { ...all[idx], activityEntryId: aId }; await AsyncStorage.setItem(GYM_SESSIONS_KEY, JSON.stringify(all)); fsUpsert('gymSessions', session.id, { ...session, activityEntryId: aId }).catch(() => {}); } } catch {} checkSaveModified(true); } },

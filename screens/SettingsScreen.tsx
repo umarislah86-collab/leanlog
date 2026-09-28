@@ -49,7 +49,7 @@ const shouldCloudBackupKey = (key: string) => {
   if (lower.includes('cache') || lower.includes('widget') || lower.includes('notification_state')) return false;
   if (['bluecoins_folder_uri_v1', 'last_uid', 'nag_mode_schedule_v1', 'nag_mode_last_snooze_action_v1',
     'bluecoins_spending_guard_alerts_v1', 'bluecoins_cash_reality_alert_v1',
-    'bluecoins_background_status_v1', 'health_workout_sync_status_v1'].includes(key)) return false;
+    'bluecoins_background_status_v1'].includes(key)) return false;
   return true;
 };
 

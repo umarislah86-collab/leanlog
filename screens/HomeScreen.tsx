@@ -5,12 +5,12 @@ import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { auth, fsDelete, fsFetchAll, fsFetchSettings, fsUpsert } from '../firebase';
-import { ActivityEntry, FoodEntry, GymSession, UserProfile } from '../types';
+import { auth, fsFetchAll, fsFetchSettings } from '../firebase';
+import { ActivityEntry, FoodEntry, UserProfile } from '../types';
 import { colors, radii, shadow } from '../theme';
 import { BluecoinsSummary, chooseBluecoinsFolder, getBluecoinsFolder, refreshBluecoinsSummary, setCashRealityAccounts, setCashRealitySafetyBuffer, setBluecoinsMonthlyBudget, setBluecoinsPayday, setBluecoinsFixedCommitments } from '../services/bluecoins';
 import { mergeRedCoinsIntoBudgetCoach } from '../services/redcoins';
-import { connectHealth, HealthSnapshot, healthIsConnected, readHealthSnapshot, readRecentHealthWorkouts } from '../services/health';
+import { connectHealth, HealthSnapshot, healthIsConnected, readHealthSnapshot } from '../services/health';
 import { AgendaEvent, calendarIsConnected, connectCalendar, readTodayAgenda } from '../services/agenda';
 import { loadInsightData, PersonalStreaks, QuickNote, WeeklyReview } from '../services/insights';
 import { refreshLeanLogWidget } from '../services/widget';
@@ -20,12 +20,6 @@ import { GuardCycle, GuardScope, GuardTone, notifySpendingGuardChanges, notifyCa
 
 const todayKey = () => new Date().toLocaleDateString('ms-MY');
 const money = (value: number) => `RM ${value.toFixed(2)}`;
-type HealthSyncStatus = {
-  syncedAt: string;
-  detected: number;
-  imported: number;
-  latest: ActivityEntry | null;
-};
 const activityMultipliers = {
   sedentary: 1.2,
   light: 1.375,
@@ -93,7 +87,6 @@ export default function HomeScreen({ navigation }: any) {
   const [healthConnected, setHealthConnected] = useState(false);
   const [healthLoading, setHealthLoading] = useState(false);
   const [health, setHealth] = useState<HealthSnapshot | null>(null);
-  const [healthSync, setHealthSync] = useState<HealthSyncStatus | null>(null);
   const [calendarConnected, setCalendarConnected] = useState(false);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [agenda, setAgenda] = useState<AgendaEvent[]>([]);
@@ -173,7 +166,7 @@ export default function HomeScreen({ navigation }: any) {
     const connected = await healthIsConnected();
     setHealthConnected(connected);
     if (!connected) {
-      if (showResult) Alert.alert('Health Connect', 'Connect Health Connect first so LeanLog can read Mi Fitness workouts.');
+      if (showResult) Alert.alert('Health Connect', 'Connect Health Connect first so LeanLog can read today’s steps, sleep and heart-rate summary.');
       setHealthLoading(false);
       return;
     }
@@ -181,62 +174,10 @@ export default function HomeScreen({ navigation }: any) {
       const snapshot = await readHealthSnapshot();
       setHealth(snapshot);
       await AsyncStorage.setItem('widget_health_snapshot', JSON.stringify(snapshot));
-      const workouts = await readRecentHealthWorkouts();
-      const raw = await AsyncStorage.getItem('activity_entries');
-      const existing: ActivityEntry[] = raw ? JSON.parse(raw) : [];
-      const existingIds = new Set(existing.map((entry) => entry.id));
-      const gymRaw = await AsyncStorage.getItem('gym_sessions');
-      const gymSessions: GymSession[] = gymRaw ? JSON.parse(gymRaw) : [];
-      const mergedActivities = new Map(existing.map((entry) => [entry.id, entry]));
-      let imported = 0;
-      let mergedWithCoach = 0;
-      const matchedGymIds = new Set<string>();
-      if (workouts.length) {
-        workouts.forEach((entry) => {
-          const isGymLike = /strength|weight|gym|workout|resistance/i.test(entry.name);
-          const gym = isGymLike ? gymSessions.find((session) => !matchedGymIds.has(session.id) && session.date === entry.date && Math.abs(session.durationMin - entry.duration) <= 20) : undefined;
-          if (gym) {
-            matchedGymIds.add(gym.id);
-            const activityId = gym.activityEntryId || entry.id;
-            const linked: ActivityEntry = {
-              ...entry,
-              id: activityId,
-              name: `💪 ${gym.planDayLabel}`,
-            };
-            if (entry.id !== activityId) {
-              mergedActivities.delete(entry.id);
-              fsDelete('activityEntries', entry.id).catch(() => {});
-            }
-            mergedActivities.set(activityId, linked);
-            gym.activityEntryId = activityId;
-            gym.source = 'health-merged';
-            gym.caloriesBurned = entry.caloriesBurned;
-            mergedWithCoach += 1;
-            return;
-          }
-          if (!existingIds.has(entry.id)) imported += 1;
-          mergedActivities.set(entry.id, entry);
-        });
-        const merged = [...mergedActivities.values()];
-        await AsyncStorage.setItem('activity_entries', JSON.stringify(merged));
-        await AsyncStorage.setItem('gym_sessions', JSON.stringify(gymSessions));
-        await Promise.all(merged.filter((entry) => workouts.some((workout) => workout.id === entry.id) || entry.name.startsWith('💪')).map((entry) => fsUpsert('activityEntries', entry.id, entry)));
-        await Promise.all(gymSessions.filter((session) => session.source === 'health-merged').map((session) => fsUpsert('gymSessions', session.id, session)));
-        const today = todayKey();
-        setBurned(merged.filter((entry) => entry.date === today).reduce((sum, entry) => sum + entry.caloriesBurned, 0));
-      }
-      const status: HealthSyncStatus = {
-        syncedAt: new Date().toISOString(),
-        detected: workouts.length,
-        imported,
-        latest: workouts[0] || null,
-      };
-      setHealthSync(status);
-      await AsyncStorage.setItem('health_workout_sync_status_v1', JSON.stringify(status));
       await refreshLeanLogWidget();
-      if (showResult) Alert.alert('Health synced ✓', imported > 0 ? `${imported} new workout${imported === 1 ? '' : 's'} imported. ${workouts.length - imported} existing workout${workouts.length - imported === 1 ? '' : 's'} already up to date.` + (mergedWithCoach ? ` ${mergedWithCoach} matched with Coach session${mergedWithCoach === 1 ? '' : 's'}—no double count.` : '') : workouts.length > 0 ? `No standalone workouts to add. ${workouts.length} recent workout${workouts.length === 1 ? '' : 's'} checked.${mergedWithCoach ? ` ${mergedWithCoach} matched with Coach—no double count.` : ' Everything is up to date.'}` : 'No workouts were found in Health Connect for the last 7 days.');
+      if (showResult) Alert.alert('Health refreshed ✓', 'Steps, sleep and heart-rate summary have been refreshed. Workouts remain manual in LeanLog.');
     } catch (error: any) {
-      if (showResult) Alert.alert('Health sync failed', error?.message || 'LeanLog could not read workouts from Health Connect.');
+      if (showResult) Alert.alert('Health refresh failed', error?.message || 'LeanLog could not read the current health summary.');
     } finally {
       if (showResult) setHealthLoading(false);
     }
@@ -663,47 +604,9 @@ export default function HomeScreen({ navigation }: any) {
           <View style={styles.healthRule} />
           <HealthMetric icon="heart-outline" value={health?.averageBpm ? String(health.averageBpm) : '—'} label="bpm" color={colors.coral} />
         </View>
-        {healthConnected && (
-          <View style={styles.healthSyncCard}>
-            <View style={styles.healthSyncHeader}>
-              <View style={styles.healthSyncStatusDot} />
-              <Text style={styles.healthSyncEyebrow}>HEALTH CONNECT · {health?.sourceLabel || 'CONNECTED'}</Text>
-              <Text style={styles.healthSyncTime}>
-                {healthSync
-                  ? new Intl.DateTimeFormat('en-MY', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    }).format(new Date(healthSync.syncedAt))
-                  : '—'}
-              </Text>
-            </View>
-            {healthSync?.latest ? (
-              <View style={styles.healthWorkoutRow}>
-                <View style={styles.healthWorkoutIcon}>
-                  <Ionicons name="barbell-outline" size={19} color={colors.cornflower} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.healthWorkoutName}>{healthSync.latest.name}</Text>
-                  <Text style={styles.healthWorkoutMeta}>
-                    {healthSync.latest.date} · {healthSync.latest.duration} min · {healthSync.latest.caloriesBurned} kcal
-                  </Text>
-                </View>
-                <View style={styles.healthImportedBadge}>
-                  <Text style={styles.healthImportedText}>{healthSync.imported ? `+${healthSync.imported} NEW` : 'UP TO DATE'}</Text>
-                </View>
-              </View>
-            ) : (
-              <Text style={styles.healthNoWorkout}>No workout detected in the last 7 days.</Text>
-            )}
-            <Text style={styles.healthDetected}>
-              {healthSync?.detected || 0} recent workout
-              {healthSync?.detected === 1 ? '' : 's'} found · imported activities appear in Log
-            </Text>
-          </View>
-        )}
         <TouchableOpacity style={styles.connectHealth} onPress={healthConnected ? manualHealthSync : handleConnectHealth} disabled={healthLoading}>
           {healthLoading ? <ActivityIndicator size="small" color={colors.mint} /> : <Ionicons name={healthConnected ? 'refresh-circle-outline' : 'add-circle-outline'} size={17} color={colors.mint} />}
-          <Text style={styles.connectHealthText}>{healthConnected ? 'Sync workouts now' : 'Connect Mi Fitness via Health Connect'}</Text>
+          <Text style={styles.connectHealthText}>{healthConnected ? 'Refresh health signals' : 'Connect steps, sleep & heart rate'}</Text>
         </TouchableOpacity>
 
         <View style={styles.sectionRow}>
@@ -1941,55 +1844,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   connectHealthText: { color: colors.mint, fontSize: 12, fontWeight: '700' },
-  healthSyncCard: {
-    backgroundColor: '#17243A',
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: '#2B3C58',
-    padding: 12,
-    marginTop: 9,
-  },
-  healthSyncHeader: { flexDirection: 'row', alignItems: 'center' },
-  healthSyncStatusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: colors.mint,
-    marginRight: 6,
-  },
-  healthSyncEyebrow: {
-    flex: 1,
-    color: '#94A1B4',
-    fontSize: 7,
-    fontWeight: '900',
-    letterSpacing: 0.8,
-  },
-  healthSyncTime: { color: colors.mint, fontSize: 8, fontWeight: '800' },
-  healthWorkoutRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    marginTop: 10,
-  },
-  healthWorkoutIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 13,
-    backgroundColor: '#242E50',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  healthWorkoutName: { color: colors.white, fontSize: 12, fontWeight: '900' },
-  healthWorkoutMeta: { color: '#8996A9', fontSize: 8, marginTop: 3 },
-  healthImportedBadge: {
-    backgroundColor: 'rgba(147,220,184,0.15)',
-    borderRadius: 9,
-    paddingHorizontal: 7,
-    paddingVertical: 5,
-  },
-  healthImportedText: { color: colors.mint, fontSize: 7, fontWeight: '900' },
-  healthNoWorkout: { color: '#9AA7BA', fontSize: 10, paddingVertical: 12 },
-  healthDetected: { color: '#718096', fontSize: 8, marginTop: 8 },
   sectionRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
