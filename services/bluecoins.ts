@@ -325,7 +325,7 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
       name: string; accountType: number; balanceRaw: number; creditLimitRaw: number; cutOffDay: number; dueDay: number;
     }>(
       `SELECT a.accountName AS name, a.accountTypeID AS accountType,
-              COALESCE(SUM(CASE WHEN t.deletedTransaction = 6 AND t.reminderTransaction IS NULL THEN t.amount ELSE 0 END), 0) AS balanceRaw,
+              COALESCE(SUM(CASE WHEN t.deletedTransaction = 6 AND t.reminderTransaction IS NULL AND substr(t.date, 1, 10) <= ? THEN t.amount ELSE 0 END), 0) AS balanceRaw,
               COALESCE(a.creditLimit, 0) AS creditLimitRaw,
               COALESCE(a.cutOffDa, 0) AS cutOffDay,
               COALESCE(a.creditCardDueDate, 0) AS dueDay
@@ -333,7 +333,8 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
        LEFT JOIN TRANSACTIONSTABLE t ON t.accountID = a.accountsTableID
        WHERE a.accountsTableID > 0
        GROUP BY a.accountsTableID
-       ORDER BY a.accountName`,
+      ORDER BY a.accountName`,
+      sourceDate,
     );
     const ledgerRows = await db.getAllAsync<{
       id: number; transactionType: number; rawAmount: number; date: string; item: string; account: string;
@@ -356,9 +357,7 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
        WHERE t.deletedTransaction = 6 AND t.reminderTransaction IS NULL
          AND t.transactionTypeID IN (3, 4, 5)
          AND (t.transactionTypeID != 5 OR t.accountReference = 1)
-         AND t.date <= ?
        ORDER BY t.date DESC`,
-      `${localIso(new Date())} 23:59:59`,
     );
     const cashCandidates = accountBalances.filter((account) => [3, 4].includes(account.accountType));
     const accountsInitialised = (await AsyncStorage.getItem(CASH_ACCOUNTS_INITIALISED_KEY)) === 'true';
@@ -431,6 +430,33 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
          AND substr(t.date, 1, 10) BETWEEN ? AND ?
        GROUP BY day, liability`,
       monthStart,
+      sourceDate,
+    );
+    const historicalLiabilityRows = await db.getAllAsync<{ liability: string; lastUsed: string; rawLastAmount: number; lifetimeTransactions: number }>(
+      `SELECT destination.accountName AS liability,
+              MAX(substr(t.date, 1, 10)) AS lastUsed,
+              COUNT(*) AS lifetimeTransactions,
+              COALESCE((SELECT ABS(t2.amount)
+                FROM TRANSACTIONSTABLE t2
+                WHERE t2.deletedTransaction = 6
+                  AND t2.transactionTypeID = 5
+                  AND t2.amount < 0
+                  AND t2.accountPairID = destination.accountsTableID
+                  AND t2.reminderTransaction IS NULL
+                  AND substr(t2.date, 1, 10) <= ?
+                ORDER BY t2.date DESC
+                LIMIT 1), 0) AS rawLastAmount
+       FROM TRANSACTIONSTABLE t
+       JOIN ACCOUNTSTABLE destination ON destination.accountsTableID = t.accountPairID
+       WHERE t.deletedTransaction = 6
+         AND t.transactionTypeID = 5
+         AND t.amount < 0
+         AND destination.accountTypeID IN (9, 11)
+         AND t.reminderTransaction IS NULL
+         AND substr(t.date, 1, 10) <= ?
+       GROUP BY destination.accountsTableID, destination.accountName
+       ORDER BY rawLastAmount DESC`,
+      sourceDate,
       sourceDate,
     );
     const monthlyCategoriesRows = await db.getAllAsync<{ category: string; subcategory: string; item: string; rawSpent: number; tx: number }>(
@@ -670,7 +696,7 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
       total: liabilitySpent + [...customCommitmentMap.values()].reduce((sum, item) => sum + item.amount, 0),
       items: [...fixedCommitmentMap.values(), ...customCommitmentMap.values()].sort((a, b) => b.amount - a.amount),
     };
-    const expectedItems = fixedCommitmentOptions.filter((option) => option.selected).map((option) => ({
+    const selectedExpectedItems = fixedCommitmentOptions.filter((option) => option.selected).map((option) => ({
       key: option.key,
       label: option.label,
       category: option.category,
@@ -678,7 +704,26 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
       currentAmount: option.amount,
       lastUsed: option.lastUsed,
       status: (option.amount > 0 ? 'paid' : 'due') as 'paid' | 'due',
-    })).sort((a, b) => Number(a.status === 'paid') - Number(b.status === 'paid') || b.expectedAmount - a.expectedAmount);
+    }));
+    const currentLiabilityByName = new Map<string, number>();
+    liabilityRows.forEach((row) => currentLiabilityByName.set(row.liability, (currentLiabilityByName.get(row.liability) || 0) + row.rawSpent / AMOUNT_SCALE));
+    const activeLiabilityNames = new Set(accountBalances
+      .filter((account) => [9, 11].includes(account.accountType) && Math.abs(account.balanceRaw) > 0.5)
+      .map((account) => account.name));
+    const loanExpectedItems = historicalLiabilityRows.filter((row) => activeLiabilityNames.has(row.liability)).map((row) => {
+      const currentAmount = currentLiabilityByName.get(row.liability) || 0;
+      return {
+        key: `liability::${row.liability}`,
+        label: `Loan | ${row.liability}`,
+        category: 'Debt commitment',
+        expectedAmount: row.rawLastAmount / AMOUNT_SCALE,
+        currentAmount,
+        lastUsed: row.lastUsed,
+        status: (currentAmount > 0 ? 'paid' : 'due') as 'paid' | 'due',
+      };
+    });
+    const expectedItems = [...loanExpectedItems, ...selectedExpectedItems]
+      .sort((a, b) => Number(a.status === 'paid') - Number(b.status === 'paid') || b.expectedAmount - a.expectedAmount);
     const expectedFixedCommitments = {
       total: expectedItems.reduce((sum, item) => sum + item.expectedAmount, 0),
       paid: expectedItems.reduce((sum, item) => sum + item.currentAmount, 0),

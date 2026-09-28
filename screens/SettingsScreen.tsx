@@ -26,6 +26,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { requestPinWidget } from 'react-native-android-widget';
 import { refreshLeanLogWidget } from '../services/widget';
 import { getNagDays, getNagTimes, isNagModeEnabled, setNagDays, setNagModeEnabled, setNagTimes } from '../services/nagging';
+import LeanLogChronicle from '../components/LeanLogChronicle';
 
 const formatPickerTime = (d: Date) =>
   `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -103,6 +104,7 @@ export default function SettingsScreen() {
   const [syncing, setSyncing] = useState(false);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [nutritionMode, setNutritionModeState] = useState<'sss' | 'standard'>('sss');
+  const [showChronicle, setShowChronicle] = useState(false);
 
   const userEmail = auth.currentUser?.email ?? '';
 
@@ -556,6 +558,14 @@ export default function SettingsScreen() {
 
         <Text style={styles.sectionLabel}>App</Text>
         <View style={styles.card}>
+          <TouchableOpacity style={styles.actionRow} onPress={() => setShowChronicle(true)}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.actionTitle}>📜 Hikayat LeanLog</Text>
+              <Text style={styles.actionSub}>Baca perjalanan lengkap dari zaman sebelum v1.0</Text>
+            </View>
+            <Text style={styles.chronicleArrow}>›</Text>
+          </TouchableOpacity>
+          <View style={styles.divider} />
           <TouchableOpacity style={styles.actionRow} onPress={checkForUpdate} disabled={checkingUpdate}>
             <View style={{ flex: 1 }}>
               <Text style={styles.actionTitle}>🔄 Semak Update</Text>
@@ -677,6 +687,7 @@ export default function SettingsScreen() {
           onChange={(_, date) => saveNagTime(date)}
         />
       )}
+      <LeanLogChronicle visible={showChronicle} onClose={() => setShowChronicle(false)} />
     </SafeAreaView>
   );
 }
@@ -717,6 +728,7 @@ const styles = StyleSheet.create({
   actionRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingVertical: 18 },
   actionTitle: { color: '#101A2B', fontSize: 14, fontWeight: '800' },
   actionSub: { color: '#737A84', fontSize: 12, marginTop: 3 },
+  chronicleArrow: { color: '#C95370', fontFamily: 'serif', fontSize: 28, fontWeight: '800', marginLeft: 12 },
   divider: { height: 1, backgroundColor: '#E8DFD0', marginHorizontal: 16 },
   syncMsg: { color: '#AAB3C2', fontSize: 12, paddingHorizontal: 18, paddingBottom: 12, paddingTop: 4 },
 

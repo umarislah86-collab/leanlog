@@ -16,6 +16,7 @@ export interface RedCoinsEntry {
   origin?: 'bluecoins' | 'redcoins';
   exportedAt?: string;
   editedAt?: string;
+  balanceEffectApplied?: boolean;
 }
 export interface RedCoinsExportBatch { id: string; createdAt: string; entryIds: string[]; confirmedAt?: string }
 export interface RedCoinsState {
@@ -28,6 +29,17 @@ export interface RedCoinsState {
 
 const id = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const accountType = (name: string): RedCoinsAccountType => /platinum|credit/i.test(name) ? 'Credit card' : /persona|prima|loan|mortgage/i.test(name) ? 'Liability' : /wallet|cash/i.test(name) ? 'Cash' : 'Bank';
+
+function reconcileScheduledBalanceEffects(state: RedCoinsState) {
+  let changed = false;
+  state.entries.filter((entry) => entry.origin !== 'bluecoins').forEach((entry) => {
+    const due = new Date(entry.date).getTime() <= Date.now();
+    if (!due && entry.balanceEffectApplied !== false) { applyEntryBalance(state, entry, -1, true); entry.balanceEffectApplied = false; changed = true; }
+    if (due && entry.balanceEffectApplied === false) { applyEntryBalance(state, entry, 1, true); entry.balanceEffectApplied = true; changed = true; }
+    if (due && entry.balanceEffectApplied == null) { entry.balanceEffectApplied = true; changed = true; }
+  });
+  return changed;
+}
 
 export function freshRedCoinsState(summary?: BluecoinsSummary | null): RedCoinsState {
   const accountMap = new Map<string, RedCoinsAccount>();
@@ -54,15 +66,29 @@ export async function loadRedCoins(summary?: BluecoinsSummary | null) {
       const customAccounts = saved.accounts.filter((account) => !summary.redcoins.accounts.some((source) => source.name === account.name));
       const customCategories = saved.categories.filter((category) => !summary.redcoins.categories.some((source) => source.name === category.name));
       const refreshed = freshRedCoinsState(summary);
+      refreshed.accounts.push(...customAccounts);
+      refreshed.categories.push(...customCategories);
       editedImported.forEach((edited) => {
         const original = refreshed.entries.find((entry) => entry.id === edited.id);
         if (original) applyEntryBalance(refreshed, original, -1);
         applyEntryBalance(refreshed, edited, 1);
       });
       refreshed.entries.filter((entry) => trashedImportedIds.has(entry.id)).forEach((entry) => applyEntryBalance(refreshed, entry, -1));
+      own.forEach((entry) => {
+        const due = new Date(entry.date).getTime() <= Date.now();
+        if (due) {
+          const source = refreshed.accounts.find((account) => account.name === entry.account);
+          const target = refreshed.accounts.find((account) => account.name === entry.toAccount);
+          if (entry.type === 'expense' && source) source.balance -= entry.amount;
+          if (entry.type === 'income' && source) source.balance += entry.amount;
+          if (entry.type === 'transfer') {
+            if (source) source.balance -= entry.amount;
+            if (target) target.balance += entry.amount;
+          }
+        }
+        entry.balanceEffectApplied = due;
+      });
       refreshed.entries = [...own, ...refreshed.entries.filter((entry) => !trashedImportedIds.has(entry.id)).map((entry) => editedById.get(entry.id) || entry), ...editedImported.filter((entry) => !refreshed.entries.some((source) => source.id === entry.id))].sort((a, b) => b.date.localeCompare(a.date));
-      refreshed.accounts.push(...customAccounts);
-      refreshed.categories.push(...customCategories);
       refreshed.trash = saved.trash || [];
       refreshed.exportBatches = saved.exportBatches || [];
       refreshed.subcategoryBudgets = saved.subcategoryBudgets || {};
@@ -73,7 +99,10 @@ export async function loadRedCoins(summary?: BluecoinsSummary | null) {
       await saveRedCoins(refreshed);
       return refreshed;
     }
-    return { ...saved, subcategoryBudgets: saved.subcategoryBudgets || {}, entryDefaults: saved.entryDefaults || {} };
+    const balanceChanged = reconcileScheduledBalanceEffects(saved);
+    const normalized = { ...saved, subcategoryBudgets: saved.subcategoryBudgets || {}, entryDefaults: saved.entryDefaults || {} };
+    if (balanceChanged) await saveRedCoins(normalized);
+    return normalized;
   }
   const state = freshRedCoinsState(summary);
   await saveRedCoins(state);
@@ -88,6 +117,7 @@ export async function mergeRedCoinsIntoBudgetCoach(source: BluecoinsSummary): Pr
   const raw = await AsyncStorage.getItem(STATE_KEY);
   if (!raw) return source;
   const state = JSON.parse(raw) as RedCoinsState;
+  if (reconcileScheduledBalanceEffects(state)) await saveRedCoins(state);
   const imported = new Set((source.redcoins?.entries || []).map(entrySignature));
   const pending = state.entries.filter((entry) => entry.origin !== 'bluecoins' && !imported.has(entrySignature(entry)));
   if (!pending.length) return source;
@@ -149,7 +179,8 @@ export async function mergeRedCoinsIntoBudgetCoach(source: BluecoinsSummary): Pr
   return summary;
 }
 
-export function applyEntryBalance(state: RedCoinsState, entry: RedCoinsEntry, direction = 1) {
+export function applyEntryBalance(state: RedCoinsState, entry: RedCoinsEntry, direction = 1, includeFuture = false) {
+  if (!includeFuture && new Date(entry.date).getTime() > Date.now()) return;
   const source = state.accounts.find((a) => a.name === entry.account);
   const target = state.accounts.find((a) => a.name === entry.toAccount);
   if (entry.type === 'expense' && source) source.balance -= entry.amount * direction;
@@ -158,13 +189,33 @@ export function applyEntryBalance(state: RedCoinsState, entry: RedCoinsEntry, di
 }
 
 const csv = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+const bluecoinsDate = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.slice(0, 10);
+  return `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}/${date.getFullYear()}`;
+};
+const bluecoinsAccountType = (state: RedCoinsState, accountName: string) => {
+  const type = state.accounts.find((account) => account.name === accountName)?.type || 'Bank';
+  return type === 'Credit card' ? 'Credit Card' : type;
+};
+const bluecoinsRow = (values: unknown[]) => values.map(csv).join(',');
 export async function exportRedCoinsCsv(state: RedCoinsState, mode: 'pending' | 'all' = 'pending'): Promise<RedCoinsExportBatch | null> {
-  const header = ['Date', 'Time', 'Type', 'Item', 'Category', 'Subcategory', 'Account', 'Transfer Account', 'Amount', 'Currency', 'Notes', 'Labels', 'Status'];
+  // Bluecoins' standard CSV importer is positional, not header-driven.
+  const header = ['Type', 'Date', 'Name', 'Amount', 'Category Parent', 'Category', 'Account Type', 'Account', 'Notes', 'Labels', 'Status', 'Split'];
   const selected = state.entries.filter((entry) => entry.origin !== 'bluecoins' && (mode === 'all' || !entry.exportedAt));
   if (!selected.length) return null;
-  const rows = selected.map((entry) => {
-    const date = new Date(entry.date);
-    return [date.toISOString().slice(0, 10), date.toTimeString().slice(0, 5), entry.type, entry.item, entry.category, entry.subcategory, entry.account, entry.toAccount || '', entry.amount.toFixed(2), 'MYR', entry.note || '', (entry.labels || []).join('|'), entry.status || 'cleared'].map(csv).join(',');
+  const rows = selected.flatMap((entry) => {
+    const type = entry.type[0].toUpperCase() + entry.type.slice(1);
+    const date = bluecoinsDate(entry.date);
+    const notes = [entry.note, `RedCoins time ${new Date(entry.date).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', hour12: false })}`].filter(Boolean).join(' · ');
+    const common = [type, date, entry.item, entry.amount.toFixed(2)];
+    if (entry.type !== 'transfer') return [bluecoinsRow([...common, entry.category, entry.subcategory, bluecoinsAccountType(state, entry.account), entry.account, notes, (entry.labels || []).join(' '), entry.status || '', ''])];
+    if (!entry.toAccount) return [];
+    // Bluecoins represents a transfer as two adjacent rows: money out, then money in.
+    return [
+      bluecoinsRow(['Transfer', date, entry.item, (-entry.amount).toFixed(2), '(Transfer)', '(Transfer)', bluecoinsAccountType(state, entry.account), entry.account, notes, (entry.labels || []).join(' '), entry.status || '', '']),
+      bluecoinsRow(['Transfer', date, entry.item, entry.amount.toFixed(2), '(Transfer)', '(Transfer)', bluecoinsAccountType(state, entry.toAccount), entry.toAccount, notes, (entry.labels || []).join(' '), entry.status || '', '']),
+    ];
   });
   const uri = `${FileSystem.cacheDirectory}RedCoins-to-Bluecoins-${new Date().toISOString().slice(0, 10)}.csv`;
   await FileSystem.writeAsStringAsync(uri, `\ufeff${[header.map(csv).join(','), ...rows].join('\r\n')}`);

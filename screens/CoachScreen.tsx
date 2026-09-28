@@ -19,7 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { fsUpsert } from '../firebase';
 import { runLeanLogAi } from '../services/ai';
 import { useLanguage } from '../context/LanguageContext';
-import type { GymGoal, FitnessLevel, WorkoutPlan, WorkoutDay, GymSession, UserProfile, ActivityEntry } from '../types';
+import type { GymGoal, FitnessLevel, WorkoutPlan, WorkoutDay, GymSession, UserProfile, ActivityEntry, WorkoutSplit } from '../types';
 import {
   cancelRestNotification,
   clearWorkoutDraft,
@@ -62,17 +62,29 @@ const platesPerSide = (totalKg: number) => {
   return plates.length && remaining < 0.1 ? plates.join(' + ') : null;
 };
 const exercise = (name: string, weight = 0, reps = 10, restSeconds = 90) => ({ name, restSeconds, sets: Array.from({ length: 3 }, () => ({ reps, weight, done: false })) });
-const offlinePlan = (equipment: string[]): WorkoutDay[] => {
+const offlinePlan = (equipment: string[], split: WorkoutSplit, sessionsPerWeek: number, customDayOne: string[]): WorkoutDay[] => {
   const has = (id: string) => equipment.includes(id) || equipment.includes('full_gym');
   const press = has('barbell') && has('bench') ? exercise('Bench Press', 20) : has('dumbbells') ? exercise('Dumbbell Press', 5) : exercise('Push-up', 0, 10, 60);
   const row = has('cables') ? exercise('Cable Row', 10) : has('dumbbells') ? exercise('One-arm Dumbbell Row', 5) : exercise('Prone Y-T-W Raise', 0, 12, 60);
   const squat = has('barbell') ? exercise('Barbell Squat', 20, 8, 120) : has('dumbbells') ? exercise('Goblet Squat', 5, 10) : exercise('Bodyweight Squat', 0, 15, 60);
-  return [
+  const ppl: WorkoutDay[] = [
     { label: 'Push Day', exercises: [press, has('dumbbells') ? exercise('Dumbbell Shoulder Press', 5) : exercise('Pike Push-up', 0, 8), has('pec_fly') ? exercise('Pec Fly', 10, 12, 60) : exercise('Incline Push-up', 0, 12, 60), exercise('Triceps Extension', has('dumbbells') ? 5 : 0, 12, 60)] },
     { label: 'Pull Day', exercises: [row, has('pullup') ? exercise('Assisted Pull-up', 0, 6, 120) : exercise('Reverse Snow Angel', 0, 12, 60), has('dumbbells') ? exercise('Dumbbell Curl', 5, 12, 60) : exercise('Isometric Towel Curl', 0, 12, 60), exercise('Rear Delt Raise', has('dumbbells') ? 3 : 0, 12, 60)] },
     { label: 'Leg Day', exercises: [squat, has('leg_press') ? exercise('Leg Press', 20, 10, 120) : exercise('Reverse Lunge', has('dumbbells') ? 5 : 0, 10), exercise('Romanian Deadlift', has('dumbbells') || has('barbell') ? 10 : 0, 10), exercise('Standing Calf Raise', 0, 15, 60)] },
     { label: 'Full Body & Core', exercises: [exercise('Plank', 0, 1, 60), exercise('Glute Bridge', 0, 15, 60), has('treadmill') ? exercise('Treadmill Walk', 0, 15, 30) : exercise('Mountain Climber', 0, 12, 45)] },
   ];
+  const fullBody: WorkoutDay[] = [
+    { label: 'Full Body A', exercises: [squat, press, row, exercise('Plank', 0, 1, 60)] },
+    { label: 'Full Body B', exercises: [exercise('Romanian Deadlift', has('dumbbells') || has('barbell') ? 10 : 0, 10), has('dumbbells') ? exercise('Dumbbell Shoulder Press', 5) : exercise('Pike Push-up', 0, 8), has('pullup') ? exercise('Assisted Pull-up', 0, 6, 120) : row, exercise('Reverse Lunge', has('dumbbells') ? 5 : 0, 10)] },
+    { label: 'Full Body C', exercises: [squat, press, row, exercise('Glute Bridge', 0, 15, 60)] },
+  ];
+  const templates = split === 'full_body' ? fullBody : ppl;
+  const days = Array.from({ length: sessionsPerWeek }, (_, index) => {
+    const template = templates[index % templates.length];
+    return { ...template, exercises: template.exercises.map((item) => ({ ...item, sets: item.sets.map((set) => ({ ...set })) })) };
+  });
+  if (customDayOne.length) days[0] = { label: split === 'full_body' ? 'Full Body A · Custom' : 'Day 1 · Custom', exercises: customDayOne.map((name) => exercise(name)) };
+  return days;
 };
 
 interface SessionSet { reps: string; weight: string; done: boolean; warmup?: boolean; rpe?: number; }
@@ -87,6 +99,9 @@ export default function CoachScreen() {
   const [goal, setGoal] = useState<GymGoal>('muscle');
   const [level, setLevel] = useState<FitnessLevel>('beginner');
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>(['bodyweight']);
+  const [split, setSplit] = useState<WorkoutSplit>('full_body');
+  const [sessionsPerWeek, setSessionsPerWeek] = useState(3);
+  const [customDayOneText, setCustomDayOneText] = useState('');
   const [generating, setGenerating] = useState(false);
 
   // Plan
@@ -163,6 +178,9 @@ export default function CoachScreen() {
       if (s.goal) setGoal(s.goal);
       if (s.level) setLevel(s.level);
       if (s.equipment) setSelectedEquipment(s.equipment);
+      if (s.split) setSplit(s.split);
+      if (s.sessionsPerWeek) setSessionsPerWeek(s.sessionsPerWeek);
+      if (Array.isArray(s.customDayOne)) setCustomDayOneText(s.customDayOne.join('\n'));
     }
   };
 
@@ -174,15 +192,20 @@ export default function CoachScreen() {
       Alert.alert(t('inputError'), lang === 'en' ? 'Select at least 1 equipment.' : 'Pilih sekurang-kurangnya 1 peralatan.');
       return;
     }
+    const customDayOne = customDayOneText.split(/[\n,]/).map((value) => value.trim()).filter(Boolean);
     setGenerating(true);
     try {
       const profileStr = await AsyncStorage.getItem('user_profile');
       const profile: UserProfile | null = profileStr ? JSON.parse(profileStr) : null;
       const eqNames = selectedEquipment.map(id => EQUIPMENT_LIST.find(e => e.id === id)?.en ?? id).join(', ');
       const goalLabel = goal === 'kurus' ? 'fat loss' : goal === 'muscle' ? 'muscle building' : 'maintenance';
+      const splitLabel = split === 'full_body' ? 'full body every session' : 'push/pull/legs rotation';
 
       const prompt = `Generate a weekly gym workout plan for a ${level} level person, goal: ${goalLabel}.
 Available equipment: ${eqNames}.
+Training structure: ${splitLabel}.
+Sessions per week: exactly ${sessionsPerWeek}.
+${customDayOne.length ? `Day 1 is user-owned and MUST use exactly these exercises in this order: ${customDayOne.join(', ')}. Design the remaining days to complement Day 1 without needless overlap.` : 'Design every day for the selected training structure.'}
 ${profile ? `User: ${profile.gender === 'lelaki' ? 'male' : 'female'}, ${profile.weight}kg, ${profile.height}cm, ${profile.age}yo.` : ''}
 Reply with JSON only (no markdown, no explanation):
 {
@@ -195,32 +218,33 @@ Reply with JSON only (no markdown, no explanation):
     }
   ]
 }
-Rules: 3-4 workout days, 3-5 exercises per day, only exercises matching available equipment, bodyweight exercises use weight 0, restSeconds: 60 for isolation lifts, 90-120 for compound lifts.`;
+Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exercises matching available equipment, bodyweight exercises use weight 0, restSeconds: 60 for isolation lifts, 90-120 for compound lifts.`;
 
       const output = await runLeanLogAi('workout_plan', [{ type: 'text', text: prompt }]);
       const match = output.match(/\{[\s\S]*\}/);
       if (!match) throw new Error('Bad response');
       const data = JSON.parse(match[0]);
-      if (!Array.isArray(data.days) || data.days.length < 3 || data.days.some((day: any) => !day.label || !Array.isArray(day.exercises))) throw new Error('INVALID_PLAN');
+      if (!Array.isArray(data.days) || data.days.length !== sessionsPerWeek || data.days.some((day: any) => !day.label || !Array.isArray(day.exercises))) throw new Error('INVALID_PLAN');
+      if (customDayOne.length) data.days[0] = { label: split === 'full_body' ? 'Full Body A · Custom' : 'Day 1 · Custom', exercises: customDayOne.map((name) => exercise(name)) };
 
       const plan: WorkoutPlan = {
         id: Date.now().toString(),
         createdAt: new Date().toLocaleDateString('ms-MY'),
         goal, level,
-        equipment: selectedEquipment,
+        equipment: selectedEquipment, split, sessionsPerWeek, customDayOne,
         days: data.days,
       };
       await Promise.all([
         AsyncStorage.setItem(GYM_PLAN_KEY, JSON.stringify(plan)),
-        AsyncStorage.setItem(GYM_SETUP_KEY, JSON.stringify({ goal, level, equipment: selectedEquipment })),
+        AsyncStorage.setItem(GYM_SETUP_KEY, JSON.stringify({ goal, level, equipment: selectedEquipment, split, sessionsPerWeek, customDayOne })),
       ]);
       setGymPlan(plan);
       setView('plan');
     } catch {
-      const plan: WorkoutPlan = { id: Date.now().toString(), createdAt: new Date().toLocaleDateString('ms-MY'), goal, level, equipment: selectedEquipment, days: offlinePlan(selectedEquipment) };
+      const plan: WorkoutPlan = { id: Date.now().toString(), createdAt: new Date().toLocaleDateString('ms-MY'), goal, level, equipment: selectedEquipment, split, sessionsPerWeek, customDayOne, days: offlinePlan(selectedEquipment, split, sessionsPerWeek, customDayOne) };
       await Promise.all([
         AsyncStorage.setItem(GYM_PLAN_KEY, JSON.stringify(plan)),
-        AsyncStorage.setItem(GYM_SETUP_KEY, JSON.stringify({ goal, level, equipment: selectedEquipment })),
+        AsyncStorage.setItem(GYM_SETUP_KEY, JSON.stringify({ goal, level, equipment: selectedEquipment, split, sessionsPerWeek, customDayOne })),
       ]);
       setGymPlan(plan);
       setView('plan');
@@ -585,6 +609,15 @@ Rules: 3-4 workout days, 3-5 exercises per day, only exercises matching availabl
         </TouchableOpacity>
       ))}
 
+      <Text style={[styles.secLabel, { marginTop: 20 }]}>TRAINING STRUCTURE</Text>
+      {([
+        { val: 'full_body' as WorkoutSplit, label: lang === 'en' ? 'Full body every session' : 'Full body setiap sesi', emoji: '🧍' },
+        { val: 'push_pull_legs' as WorkoutSplit, label: 'Push · Pull · Legs', emoji: '↔️' },
+      ]).map((option) => <TouchableOpacity key={option.val} style={[styles.optBtn, split === option.val && styles.optBtnOn]} onPress={() => { setSplit(option.val); if (option.val === 'push_pull_legs' && sessionsPerWeek < 3) setSessionsPerWeek(3); }}><Text style={[styles.optBtnTxt, split === option.val && styles.optBtnTxtOn]}>{option.emoji}  {option.label}</Text>{split === option.val && <Text style={styles.tick}>✓</Text>}</TouchableOpacity>)}
+
+      <Text style={[styles.secLabel, { marginTop: 20 }]}>{lang === 'en' ? 'SESSIONS PER WEEK' : 'SESI SEMINGGU'}</Text>
+      <View style={styles.frequencyRow}>{(split === 'push_pull_legs' ? [3, 4, 5, 6] : [2, 3, 4, 5, 6]).map((count) => <TouchableOpacity key={count} style={[styles.frequencyButton, sessionsPerWeek === count && styles.frequencyButtonOn]} onPress={() => setSessionsPerWeek(count)}><Text style={[styles.frequencyText, sessionsPerWeek === count && styles.frequencyTextOn]}>{count}×</Text></TouchableOpacity>)}</View>
+
       <Text style={[styles.secLabel, { marginTop: 20 }]}>{t('gymEquipmentLabel')}</Text>
       {EQUIPMENT_LIST.map(eq => {
         const on = selectedEquipment.includes(eq.id);
@@ -596,6 +629,10 @@ Rules: 3-4 workout days, 3-5 exercises per day, only exercises matching availabl
           </TouchableOpacity>
         );
       })}
+
+      <Text style={[styles.secLabel, { marginTop: 20 }]}>{lang === 'en' ? 'CUSTOM DAY 1 · OPTIONAL' : 'CUSTOM DAY 1 · PILIHAN'}</Text>
+      <Text style={styles.setupHint}>{lang === 'en' ? 'One exercise per line. LeanLog keeps Day 1 exactly as yours and builds the remaining sessions around it.' : 'Satu latihan setiap baris. LeanLog kekalkan Day 1 tepat seperti pilihan anda dan bina sesi selebihnya di sekelilingnya.'}</Text>
+      <TextInput style={styles.customDayInput} value={customDayOneText} onChangeText={setCustomDayOneText} multiline placeholder={'Contoh:\nBench Press\nCable Row\nLeg Press'} placeholderTextColor="#8A93A1" textAlignVertical="top" />
 
       <TouchableOpacity style={[styles.genBtn, generating && { opacity: 0.6 }]} onPress={generatePlan} disabled={generating}>
         {generating ? <ActivityIndicator color="#FFFDF7" /> : <Text style={styles.genBtnTxt}>⚡ {t('gymGeneratePlan')}</Text>}
@@ -621,7 +658,7 @@ Rules: 3-4 workout days, 3-5 exercises per day, only exercises matching availabl
             <Text style={styles.resetBtnTxt}>↺ {t('gymReset')}</Text>
           </TouchableOpacity>
         </View>
-        <Text style={styles.planMeta}>{gymPlan.level} · {gymPlan.goal} · {gymPlan.createdAt}</Text>
+        <Text style={styles.planMeta}>{gymPlan.level} · {gymPlan.goal} · {gymPlan.split === 'push_pull_legs' ? 'PPL' : 'full body'} · {gymPlan.sessionsPerWeek || gymPlan.days.length}× weekly · {gymPlan.createdAt}</Text>
 
         {draft && (
           <View style={styles.resumeCard}>
@@ -889,6 +926,13 @@ const styles = StyleSheet.create({
   optBtnTxt: { color: '#263247', fontSize: 15, fontWeight: '700' },
   optBtnTxtOn: { color: G, fontWeight: '600' },
   tick: { color: G, fontSize: 16, fontWeight: 'bold' },
+  frequencyRow: { flexDirection: 'row', gap: 8 },
+  frequencyButton: { flex: 1, height: 48, borderRadius: 16, backgroundColor: '#FFFDF7', borderWidth: 1, borderColor: '#E2D9C9', alignItems: 'center', justifyContent: 'center' },
+  frequencyButtonOn: { backgroundColor: '#17243A', borderColor: '#17243A' },
+  frequencyText: { color: '#596173', fontWeight: '900', fontSize: 13 },
+  frequencyTextOn: { color: '#91DCBB' },
+  setupHint: { color: '#68758A', fontSize: 11, lineHeight: 17, marginTop: -3, marginBottom: 9 },
+  customDayInput: { minHeight: 118, borderRadius: 19, backgroundColor: '#FFFDF7', borderWidth: 1, borderColor: '#E2D9C9', padding: 15, color: '#101A2B', fontSize: 14, lineHeight: 22 },
 
   genBtn: { backgroundColor: G, borderRadius: 18, padding: 17, alignItems: 'center', marginTop: 24 },
   genBtnTxt: { color: '#FFFDF7', fontSize: 16, fontWeight: 'bold' },

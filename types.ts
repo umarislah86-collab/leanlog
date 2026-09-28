@@ -48,11 +48,15 @@ export interface WeightEntry {
 
 export type GymGoal = 'kurus' | 'maintain' | 'muscle';
 export type FitnessLevel = 'beginner' | 'intermediate' | 'advanced';
+export type WorkoutSplit = 'push_pull_legs' | 'full_body';
 
 export interface GymSetup {
   goal: GymGoal;
   level: FitnessLevel;
   equipment: string[];
+  split?: WorkoutSplit;
+  sessionsPerWeek?: number;
+  customDayOne?: string[];
 }
 
 export interface ExerciseSet {
@@ -80,6 +84,9 @@ export interface WorkoutPlan {
   goal: GymGoal;
   level: FitnessLevel;
   equipment: string[];
+  split?: WorkoutSplit;
+  sessionsPerWeek?: number;
+  customDayOne?: string[];
   days: WorkoutDay[];
 }
 

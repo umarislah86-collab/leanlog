@@ -39,7 +39,7 @@ const TAB_ICONS: Record<string, string> = {
   Log: 'restaurant',
   Progress: 'bar-chart',
   Coach: 'leaf',
-  Me: 'person',
+  Settings: 'settings',
 };
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
@@ -113,7 +113,7 @@ function MainTabs() {
       <Tab.Screen name="Log" component={TodayScreen} options={{ title: 'Log' }} />
       <Tab.Screen name="Progress" component={ProgressScreen} options={{ title: t('tabProgress') }} />
       <Tab.Screen name="Coach" component={CoachScreen} options={{ title: t('tabCoach') }} />
-      <Tab.Screen name="Me" component={SettingsScreen} options={{ title: 'Me' }} />
+      <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
       <Tab.Screen name="RedCoins" component={RedCoinsScreen} options={{ title: 'RedCoins', swipeEnabled: false }} />
     </Tab.Navigator>
   );
