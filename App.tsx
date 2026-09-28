@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, TouchableOpacity, Text, View, StyleSheet, Image, Modal, PanResponder } from 'react-native';
+import { Animated, TouchableOpacity, Text, View, StyleSheet, Image, Modal } from 'react-native';
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -45,18 +45,11 @@ const TAB_ICONS: Record<string, string> = {
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
-  const fabPan = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_event, gesture) => gesture.dy < -10 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
-      onPanResponderRelease: (_event, gesture) => {
-        if (gesture.dy < -34)
-          navigation.navigate('RedCoins', {
-            mode: 'expense',
-            fabTrigger: Date.now(),
-          });
-      },
-    }),
-  ).current;
+  const [quickDockOpen, setQuickDockOpen] = useState(false);
+  const launch = (route: 'Log' | 'RedCoins', params: Record<string, unknown>) => {
+    setQuickDockOpen(false);
+    setTimeout(() => navigation.navigate(route, params), 120);
+  };
   return (
     <View
       style={{
@@ -110,7 +103,13 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
           marginRight: 7,
         }}
       >
-        <TouchableOpacity {...fabPan.panHandlers} onPress={() => navigation.navigate('Log', { fabTrigger: Date.now() })} activeOpacity={0.86} accessibilityLabel="Tap for food log, swipe up for transaction logger">
+        <TouchableOpacity
+          onPress={() => setQuickDockOpen(true)}
+          onLongPress={() => launch('RedCoins', { mode: 'expense', fabTrigger: Date.now() })}
+          delayLongPress={350}
+          activeOpacity={0.86}
+          accessibilityLabel="Open quick logger"
+        >
           <View
             style={{
               width: 62,
@@ -132,6 +131,32 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
           </View>
         </TouchableOpacity>
       </View>
+      <Modal visible={quickDockOpen} transparent animationType="fade" onRequestClose={() => setQuickDockOpen(false)}>
+        <TouchableOpacity style={quickDock.overlay} activeOpacity={1} onPress={() => setQuickDockOpen(false)}>
+          <View style={[quickDock.sheet, { paddingBottom: Math.max(insets.bottom, 12) + 16 }]} onStartShouldSetResponder={() => true}>
+            <View style={quickDock.handle} />
+            <View style={quickDock.header}>
+              <View><Text style={quickDock.eyebrow}>LEANLOG / QUICK ENTRY</Text><Text style={quickDock.title}>What moved?</Text></View>
+              <TouchableOpacity style={quickDock.close} onPress={() => setQuickDockOpen(false)}><Ionicons name="close" size={20} color={colors.oat} /></TouchableOpacity>
+            </View>
+            <Text style={quickDock.sectionLabel}>MONEY</Text>
+            <View style={quickDock.moneyRow}>
+              <TouchableOpacity style={[quickDock.moneyAction, quickDock.expense]} onPress={() => launch('RedCoins', { mode: 'expense', fabTrigger: Date.now() })}><Ionicons name="arrow-up" size={20} color="#FFFDF7" /><Text style={quickDock.moneyText}>EXPENSE</Text></TouchableOpacity>
+              <TouchableOpacity style={[quickDock.moneyAction, quickDock.income]} onPress={() => launch('RedCoins', { mode: 'income', fabTrigger: Date.now() })}><Ionicons name="arrow-down" size={20} color="#101A2B" /><Text style={[quickDock.moneyText, quickDock.moneyTextDark]}>INCOME</Text></TouchableOpacity>
+              <TouchableOpacity style={[quickDock.moneyAction, quickDock.transfer]} onPress={() => launch('RedCoins', { mode: 'transfer', fabTrigger: Date.now() })}><Ionicons name="swap-horizontal" size={20} color="#FFFDF7" /><Text style={quickDock.moneyText}>TRANSFER</Text></TouchableOpacity>
+            </View>
+            <Text style={quickDock.sectionLabel}>BODY</Text>
+            <View style={quickDock.bodyCard}>
+              <TouchableOpacity style={quickDock.bodyAction} onPress={() => launch('Log', { quickAction: 'food', fabTrigger: Date.now() })}><View style={quickDock.bodyIcon}><Ionicons name="restaurant-outline" size={20} color="#101A2B" /></View><View style={{ flex: 1 }}><Text style={quickDock.bodyTitle}>Food</Text><Text style={quickDock.bodySub}>Meal, snack or drink</Text></View><Ionicons name="chevron-forward" size={17} color="#7F8BA0" /></TouchableOpacity>
+              <View style={quickDock.rule} />
+              <TouchableOpacity style={quickDock.bodyAction} onPress={() => launch('Log', { quickAction: 'activity', fabTrigger: Date.now() })}><View style={quickDock.bodyIcon}><Ionicons name="walk-outline" size={20} color="#101A2B" /></View><View style={{ flex: 1 }}><Text style={quickDock.bodyTitle}>Activity</Text><Text style={quickDock.bodySub}>Exercise or movement</Text></View><Ionicons name="chevron-forward" size={17} color="#7F8BA0" /></TouchableOpacity>
+              <View style={quickDock.rule} />
+              <TouchableOpacity style={quickDock.bodyAction} onPress={() => launch('Log', { quickAction: 'weight', fabTrigger: Date.now() })}><View style={quickDock.bodyIcon}><Ionicons name="scale-outline" size={20} color="#101A2B" /></View><View style={{ flex: 1 }}><Text style={quickDock.bodyTitle}>Weight</Text><Text style={quickDock.bodySub}>Record a check-in</Text></View><Ionicons name="chevron-forward" size={17} color="#7F8BA0" /></TouchableOpacity>
+            </View>
+            <Text style={quickDock.hint}>Long-press the + button anytime for a new expense.</Text>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -380,6 +405,31 @@ const snooze = StyleSheet.create({
   fastingHint: { color: '#66659A', fontSize: 9, marginTop: 3 },
   cancel: { alignItems: 'center', padding: 13, marginTop: 3 },
   cancelText: { color: '#68758A', fontSize: 11, fontWeight: '800' },
+});
+
+const quickDock = StyleSheet.create({
+  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(8,14,24,0.70)' },
+  sheet: { backgroundColor: colors.oat, borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 18, paddingTop: 10 },
+  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#CFC4B3', alignSelf: 'center', marginBottom: 15 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 },
+  eyebrow: { color: colors.coral, fontSize: 9, fontWeight: '900', letterSpacing: 1.7 },
+  title: { color: colors.ink, fontFamily: 'serif', fontSize: 28, fontWeight: '800', marginTop: 3 },
+  close: { width: 38, height: 38, borderRadius: 14, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
+  sectionLabel: { color: '#59616D', fontSize: 8, fontWeight: '900', letterSpacing: 1.6, marginBottom: 8 },
+  moneyRow: { flexDirection: 'row', gap: 8, marginBottom: 17 },
+  moneyAction: { flex: 1, minHeight: 71, borderRadius: 17, alignItems: 'center', justifyContent: 'center', gap: 7 },
+  expense: { backgroundColor: colors.coral },
+  income: { backgroundColor: colors.mint },
+  transfer: { backgroundColor: '#528FF2' },
+  moneyText: { color: '#FFFDF7', fontSize: 8, fontWeight: '900', letterSpacing: 0.7 },
+  moneyTextDark: { color: colors.ink },
+  bodyCard: { backgroundColor: colors.ink, borderRadius: 22, paddingHorizontal: 12, overflow: 'hidden' },
+  bodyAction: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 11 },
+  bodyIcon: { width: 36, height: 36, borderRadius: 13, backgroundColor: colors.mint, alignItems: 'center', justifyContent: 'center' },
+  bodyTitle: { color: '#FFF4DB', fontSize: 12, fontWeight: '900' },
+  bodySub: { color: '#7F8BA0', fontSize: 9, marginTop: 3 },
+  rule: { height: 1, backgroundColor: '#33415C', marginLeft: 47 },
+  hint: { color: '#737A84', fontSize: 9, textAlign: 'center', marginTop: 12 },
 });
 
 const splash = StyleSheet.create({

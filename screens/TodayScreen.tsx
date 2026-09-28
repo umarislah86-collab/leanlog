@@ -214,8 +214,19 @@ export default function TodayScreen() {
   }, []);
 
   useEffect(() => {
-    const params = route.params as { fabTrigger?: number } | undefined;
-    if (params?.fabTrigger) setShowCategoryPicker(true);
+    const params = route.params as { fabTrigger?: number; quickAction?: 'food' | 'activity' | 'weight' } | undefined;
+    if (!params?.fabTrigger) return;
+    if (params.quickAction === 'activity') {
+      setShowActivitySourcePicker(true);
+      return;
+    }
+    if (params.quickAction === 'weight') {
+      setNewWeight('70.0');
+      setNewWeightDate(new Date());
+      setShowWeightModal(true);
+      return;
+    }
+    setShowCategoryPicker(true);
   }, [(route.params as any)?.fabTrigger]);
 
   const loadData = async () => {
