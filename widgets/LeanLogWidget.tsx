@@ -9,13 +9,12 @@ export type LeanLogWidgetProps = {
   meals: number;
   goal: number;
   steps: number;
-  nextEvent: string;
   guards: WidgetGuardSnapshot[];
   cashReality: { trueSpendable: number; liquidBalance: number; cardOutstanding: number; sourceDate: string } | null;
   updated: string;
 };
 
-export function LeanLogWidget({ eaten, burned, meals, goal, steps, nextEvent, guards, cashReality, updated }: LeanLogWidgetProps) {
+export function LeanLogWidget({ eaten, burned, meals, goal, steps, guards, cashReality, updated }: LeanLogWidgetProps) {
   const left = Math.max(0, goal - eaten);
   const pct = Math.min(100, Math.round((eaten / Math.max(goal, 1)) * 100));
   const visibleGuards = guards.slice(0, 4);
@@ -47,10 +46,10 @@ export function LeanLogWidget({ eaten, burned, meals, goal, steps, nextEvent, gu
         <FlexWidget style={{ flex: Math.max(4, pct), height: 5, backgroundColor: '#FF6542', borderRadius: 3 }} />
         <FlexWidget style={{ flex: Math.max(0, 100 - Math.max(4, pct)), height: 5 }} />
       </FlexWidget>
-      <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', marginTop: 6, backgroundColor: '#EEE3CF', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 5, justifyContent: 'space-between' }}>
-        <TextWidget text={nextEvent || 'Your day is clear'} maxLines={1} style={{ color: '#172033', fontSize: 8, fontWeight: '700' }} />
-        {cashReality && <TextWidget text={`TRUE CASH ${cashReality.trueSpendable < 0 ? '-' : ''}RM ${Math.abs(cashReality.trueSpendable).toFixed(0)}`} style={{ color: cashReality.trueSpendable < 0 ? '#D4422B' : '#477363', fontSize: 7, fontWeight: '700' }} />}
-      </FlexWidget>
+      {cashReality && <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', marginTop: 6, backgroundColor: '#EEE3CF', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 5, justifyContent: 'space-between' }}>
+        <TextWidget text="TRUE SPENDABLE CASH" maxLines={1} style={{ color: '#172033', fontSize: 8, fontWeight: '700' }} />
+        <TextWidget text={`${cashReality.trueSpendable < 0 ? '-' : ''}RM ${Math.abs(cashReality.trueSpendable).toFixed(0)}`} style={{ color: cashReality.trueSpendable < 0 ? '#D4422B' : '#477363', fontSize: 8, fontWeight: '700' }} />
+      </FlexWidget>}
       <FlexWidget style={{ width: 'match_parent', flexDirection: 'column', marginTop: 5 }}>
         {guardRows.length ? guardRows.map((row, rowIndex) => <FlexWidget key={`guard-row-${rowIndex}`} style={{ width: 'match_parent', flexDirection: 'row', marginBottom: 3 }}>
           {row.map((guard, columnIndex) => <FlexWidget key={guard.id} style={{ flex: 1, flexDirection: 'column', backgroundColor: guard.percent >= 100 ? '#FFD8CF' : rowIndex === 0 && columnIndex === 0 ? '#D8EFE4' : '#E9E3D7', borderRadius: 9, paddingHorizontal: 7, paddingVertical: 4, marginRight: columnIndex === 0 && row.length > 1 ? 3 : 0 }}>

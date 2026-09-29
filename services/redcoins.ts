@@ -13,12 +13,14 @@ export interface RedCoinsAccount {
   type: RedCoinsAccountType;
   balance: number;
   limit?: number;
+  icon?: string;
 }
 export interface RedCoinsCategory {
   id: string;
   name: string;
   icon: string;
   subcategories: string[];
+  subcategoryIcons?: Record<string, string>;
 }
 export interface RedCoinsEntry {
   id: string;
@@ -49,11 +51,14 @@ export interface RedCoinsExportBatch {
   entryIds: string[];
   confirmedAt?: string;
 }
+export type RedCoinsDeletion = Pick<RedCoinsEntry, 'id' | 'type' | 'item' | 'amount' | 'date' | 'account' | 'reconciledImportId'>;
 export interface RedCoinsState {
   entries: RedCoinsEntry[];
   accounts: RedCoinsAccount[];
   categories: RedCoinsCategory[];
-  trash: RedCoinsEntry[];
+  /** Legacy v2.9.x recovery data. Migrated to compact deletion markers on load. */
+  trash?: RedCoinsEntry[];
+  deletedEntries: RedCoinsDeletion[];
   payday: number;
   monthlyBudget: number;
   safetyBuffer: number;
@@ -114,7 +119,7 @@ export function freshRedCoinsState(summary?: BluecoinsSummary | null): RedCoinsS
     entries: summary?.redcoins.entries || [],
     accounts: [...accountMap.values()],
     categories,
-    trash: [],
+    deletedEntries: [],
     exportBatches: [],
     subcategoryBudgets: {},
     entryDefaults: {},
@@ -130,14 +135,16 @@ export async function loadRedCoins(summary?: BluecoinsSummary | null) {
   const raw = await AsyncStorage.getItem(STATE_KEY);
   if (raw) {
     const saved = JSON.parse(raw) as RedCoinsState;
+    const deletions = collectDeletions(saved);
     if (summary?.redcoins) {
       const own = saved.entries.filter((entry) => entry.origin !== 'bluecoins');
       const editedImported = saved.entries.filter((entry) => entry.origin === 'bluecoins' && entry.editedAt);
       const editedById = new Map(editedImported.map((entry) => [entry.id, entry]));
-      const trashedImportedIds = new Set((saved.trash || []).flatMap((entry) => [entry.origin === 'bluecoins' ? entry.id : '', entry.reconciledImportId || '']).filter(Boolean));
+      const trashedImportedIds = new Set(deletions.flatMap((entry) => [entry.id, entry.reconciledImportId || '']).filter(Boolean));
       const customAccounts = saved.accounts.filter((account) => !summary.redcoins.accounts.some((source) => source.name === account.name));
       const customCategories = saved.categories.filter((category) => !summary.redcoins.categories.some((source) => source.name === category.name));
       const refreshed = freshRedCoinsState(summary);
+      const deletionReconciliation = reconcileOwnWithImported(deletions, refreshed.entries);
       const reconciliation = reconcileOwnWithImported(own, refreshed.entries);
       own.forEach((entry) => {
         entry.reconciledImportId = reconciliation.importedIdByOwn.get(entry.id);
@@ -149,7 +156,9 @@ export async function loadRedCoins(summary?: BluecoinsSummary | null) {
         if (original) applyEntryBalance(refreshed, original, -1);
         applyEntryBalance(refreshed, edited, 1);
       });
-      refreshed.entries.filter((entry) => trashedImportedIds.has(entry.id)).forEach((entry) => applyEntryBalance(refreshed, entry, -1));
+      refreshed.entries
+        .filter((entry, index) => trashedImportedIds.has(entry.id) || deletionReconciliation.matchedImportedIndexes.has(index))
+        .forEach((entry) => applyEntryBalance(refreshed, entry, -1));
       own.forEach((entry) => {
         const due = new Date(entry.date).getTime() <= Date.now();
         if (due && !reconciliation.matchedOwn.has(entry.id)) {
@@ -164,8 +173,8 @@ export async function loadRedCoins(summary?: BluecoinsSummary | null) {
         }
         entry.balanceEffectApplied = due;
       });
-      refreshed.entries = [...own, ...refreshed.entries.filter((entry, index) => !reconciliation.matchedImportedIndexes.has(index) && !trashedImportedIds.has(entry.id)).map((entry) => editedById.get(entry.id) || entry), ...editedImported.filter((entry) => !refreshed.entries.some((source) => source.id === entry.id))].sort((a, b) => b.date.localeCompare(a.date));
-      refreshed.trash = saved.trash || [];
+      refreshed.entries = [...own, ...refreshed.entries.filter((entry, index) => !reconciliation.matchedImportedIndexes.has(index) && !deletionReconciliation.matchedImportedIndexes.has(index) && !trashedImportedIds.has(entry.id)).map((entry) => editedById.get(entry.id) || entry), ...editedImported.filter((entry) => !refreshed.entries.some((source) => source.id === entry.id))].sort((a, b) => b.date.localeCompare(a.date));
+      refreshed.deletedEntries = deletions;
       refreshed.exportBatches = saved.exportBatches || [];
       refreshed.subcategoryBudgets = saved.subcategoryBudgets || {};
       refreshed.entryDefaults = saved.entryDefaults || {};
@@ -176,8 +185,10 @@ export async function loadRedCoins(summary?: BluecoinsSummary | null) {
       return refreshed;
     }
     const balanceChanged = reconcileScheduledBalanceEffects(saved);
+    const { trash: _legacyTrash, ...savedWithoutTrash } = saved;
     const normalized = {
-      ...saved,
+      ...savedWithoutTrash,
+      deletedEntries: deletions,
       subcategoryBudgets: saved.subcategoryBudgets || {},
       entryDefaults: saved.entryDefaults || {},
     };
@@ -188,15 +199,35 @@ export async function loadRedCoins(summary?: BluecoinsSummary | null) {
   await saveRedCoins(state);
   return state;
 }
-export const saveRedCoins = (state: RedCoinsState) => AsyncStorage.setItem(STATE_KEY, JSON.stringify(state));
+export const createRedCoinsDeletion = (entry: RedCoinsEntry): RedCoinsDeletion => ({
+  id: entry.id,
+  type: entry.type,
+  item: entry.item,
+  amount: entry.amount,
+  date: entry.date,
+  account: entry.account,
+  reconciledImportId: entry.reconciledImportId,
+});
+
+const deletionIdentity = (entry: RedCoinsDeletion) => entry.reconciledImportId || entry.id || entrySignature(entry);
+const collectDeletions = (state: RedCoinsState) => {
+  const merged = [...(state.deletedEntries || []), ...(state.trash || []).map(createRedCoinsDeletion)];
+  return [...new Map(merged.map((entry) => [deletionIdentity(entry), entry])).values()];
+};
+
+export const saveRedCoins = (state: RedCoinsState) => {
+  const { trash: _legacyTrash, ...compact } = state;
+  return AsyncStorage.setItem(STATE_KEY, JSON.stringify(compact));
+};
 
 const entrySignature = (entry: Pick<RedCoinsEntry, 'item' | 'amount' | 'date' | 'account'>) => `${entry.date.slice(0, 10)}|${entry.item.trim().toLowerCase()}|${entry.amount.toFixed(2)}|${entry.account.trim().toLowerCase()}`;
 
 const normalizedEntryText = (value: string) => value.trim().toLocaleLowerCase('en-MY').replace(/\s+/g, ' ');
 const entryDayDistance = (left: string, right: string) => Math.abs(new Date(left).getTime() - new Date(right).getTime()) / 86400000;
-const isSameRealTransaction = (left: RedCoinsEntry, right: RedCoinsEntry) => left.type === right.type && Math.abs(left.amount - right.amount) < 0.005 && normalizedEntryText(left.item) === normalizedEntryText(right.item) && normalizedEntryText(left.account) === normalizedEntryText(right.account) && entryDayDistance(left.date, right.date) <= 3;
+type ComparableEntry = Pick<RedCoinsEntry, 'id' | 'type' | 'item' | 'amount' | 'date' | 'account'>;
+const isSameRealTransaction = (left: ComparableEntry, right: ComparableEntry) => left.type === right.type && Math.abs(left.amount - right.amount) < 0.005 && normalizedEntryText(left.item) === normalizedEntryText(right.item) && normalizedEntryText(left.account) === normalizedEntryText(right.account) && entryDayDistance(left.date, right.date) <= 3;
 
-function reconcileOwnWithImported(own: RedCoinsEntry[], imported: RedCoinsEntry[]) {
+function reconcileOwnWithImported(own: ComparableEntry[], imported: ComparableEntry[]) {
   const usedImported = new Set<number>();
   const matchedOwn = new Set<string>();
   const importedIdByOwn = new Map<string, string>();
@@ -217,11 +248,23 @@ export async function mergeRedCoinsIntoBudgetCoach(source: BluecoinsSummary): Pr
   const state = JSON.parse(raw) as RedCoinsState;
   if (reconcileScheduledBalanceEffects(state)) await saveRedCoins(state);
   const sourceEntries = source.redcoins?.entries || [];
+  const trash = collectDeletions(state);
+  const trashedImportedIds = new Set(
+    trash
+      .flatMap((entry) => [entry.id, entry.reconciledImportId || ''])
+      .filter(Boolean),
+  );
+  const trashReconciliation = reconcileOwnWithImported(trash, sourceEntries);
+  const deletedSourceEntries = sourceEntries.filter(
+    (entry, index) => trashedImportedIds.has(entry.id) || trashReconciliation.matchedImportedIndexes.has(index),
+  );
+  const deletedSourceIds = new Set(deletedSourceEntries.map((entry) => entry.id));
+  const effectiveSourceEntries = sourceEntries.filter((entry) => !deletedSourceIds.has(entry.id));
   const ownEntries = state.entries.filter((entry) => entry.origin !== 'bluecoins');
-  const reconciliation = reconcileOwnWithImported(ownEntries, sourceEntries);
-  const imported = new Set(sourceEntries.map(entrySignature));
+  const reconciliation = reconcileOwnWithImported(ownEntries, effectiveSourceEntries);
+  const imported = new Set(effectiveSourceEntries.map(entrySignature));
   const pending = ownEntries.filter((entry) => !reconciliation.matchedOwn.has(entry.id) && !imported.has(entrySignature(entry)));
-  if (!pending.length) return source;
+  if (!pending.length && !deletedSourceEntries.length) return source;
   const summary = JSON.parse(JSON.stringify(source)) as BluecoinsSummary;
   const sourceDate = new Date();
   const lastSevenStart = new Date(sourceDate);
@@ -230,7 +273,18 @@ export async function mergeRedCoinsIntoBudgetCoach(source: BluecoinsSummary): Pr
   const cycleStart = new Date(`${summary.monthly.cycleStart}T00:00:00`);
   const cycleEnd = new Date(`${summary.monthly.cycleEnd}T23:59:59`);
   const expenseRows = pending.filter((entry) => entry.type === 'expense');
-  const allExpenses = [...(summary.redcoins?.entries || []).filter((entry) => entry.type === 'expense'), ...expenseRows];
+  const deletedExpenseRows = deletedSourceEntries.filter((entry) => entry.type === 'expense');
+  const expenseDeltas = [
+    ...expenseRows.map((entry) => ({ entry, direction: 1 })),
+    ...deletedExpenseRows.map((entry) => ({ entry, direction: -1 })),
+  ];
+  const allExpenses = [...effectiveSourceEntries.filter((entry) => entry.type === 'expense'), ...expenseRows];
+  if (summary.redcoins) {
+    summary.redcoins.entries = [
+      ...effectiveSourceEntries,
+      ...pending.map((entry) => ({ ...entry, note: entry.note || '', status: entry.status || 'cleared', origin: 'bluecoins' as const })),
+    ].sort((a, b) => b.date.localeCompare(a.date));
+  }
   summary.days = Array.from({ length: 7 }, (_, offset) => {
     const date = new Date(lastSevenStart);
     date.setDate(lastSevenStart.getDate() + offset);
@@ -255,11 +309,11 @@ export async function mergeRedCoinsIntoBudgetCoach(source: BluecoinsSummary): Pr
   summary.topCategory = summary.topCategories[0]?.name || summary.topCategory;
   summary.topCategoryAmount = summary.topCategories[0]?.amount || 0;
 
-  const cycleRows = expenseRows.filter((entry) => {
+  const cycleDeltas = expenseDeltas.filter(({ entry }) => {
     const date = new Date(entry.date);
     return date >= cycleStart && date <= cycleEnd;
   });
-  const addedCycleSpend = cycleRows.reduce((sum, entry) => sum + entry.amount, 0);
+  const addedCycleSpend = cycleDeltas.reduce((sum, { entry, direction }) => sum + entry.amount * direction, 0);
   summary.monthly.spent += addedCycleSpend;
   summary.monthly.remaining = summary.monthly.budget - summary.monthly.spent;
   const remainingDays = Math.max(1, Math.ceil((cycleEnd.getTime() - sourceDate.getTime()) / 86400000));
@@ -268,19 +322,19 @@ export async function mergeRedCoinsIntoBudgetCoach(source: BluecoinsSummary): Pr
   summary.monthly.projectedLow += addedCycleSpend;
   summary.monthly.projectedHigh += addedCycleSpend;
   const categoryMap = new Map(summary.monthly.topCategories.map((item) => [item.name, item]));
-  cycleRows.forEach((entry) => {
+  cycleDeltas.forEach(({ entry, direction }) => {
     const category = categoryMap.get(entry.category) || {
       name: entry.category,
       amount: 0,
       share: 0,
       details: [],
     };
-    category.amount += entry.amount;
+    category.amount += entry.amount * direction;
     const detail = category.details.find((item) => item.subcategory === entry.subcategory && item.item === entry.item);
     if (detail) {
-      detail.amount += entry.amount;
-      detail.transactions += 1;
-    } else
+      detail.amount += entry.amount * direction;
+      detail.transactions += direction;
+    } else if (direction > 0)
       category.details.push({
         subcategory: entry.subcategory,
         item: entry.item,
@@ -291,11 +345,13 @@ export async function mergeRedCoinsIntoBudgetCoach(source: BluecoinsSummary): Pr
     categoryMap.set(entry.category, category);
   });
   summary.monthly.topCategories = [...categoryMap.values()]
+    .filter((category) => category.amount > 0.005)
     .sort((a, b) => b.amount - a.amount)
     .map((category) => ({
       ...category,
       share: summary.monthly.spent ? (category.amount / summary.monthly.spent) * 100 : 0,
       details: category.details
+        .filter((detail) => detail.amount > 0.005 && detail.transactions > 0)
         .map((detail) => ({
           ...detail,
           share: category.amount ? (detail.amount / category.amount) * 100 : 0,
@@ -319,19 +375,20 @@ export async function mergeRedCoinsIntoBudgetCoach(source: BluecoinsSummary): Pr
   summary.spendingGuards.forEach((guard) => {
     const guardStart = new Date(`${guard.cycleStart}T00:00:00`);
     const guardEnd = new Date(`${guard.cycleEnd}T23:59:59`);
-    const extras = expenseRows.filter((entry) => {
+    const guardRows = allExpenses.filter((entry) => {
       const date = new Date(entry.date);
-      if (date < guardStart || date > guardEnd) return false;
+      if (date < guardStart || date > guardEnd || date > sourceDate) return false;
       return guard.scope === 'account' ? entry.account === guard.target : guard.scope === 'category' ? entry.category === guard.target : entry.subcategory === guard.target;
     });
-    const added = extras.reduce((sum, entry) => sum + entry.amount, 0);
-    guard.spent += added;
+    guard.spent = guardRows.reduce((sum, entry) => sum + entry.amount, 0);
     guard.remaining = guard.limit - guard.spent;
     guard.percent = guard.limit ? (guard.spent / guard.limit) * 100 : 0;
-    guard.projected += added;
+    const elapsedDays = Math.max(1, Math.floor((sourceDate.getTime() - guardStart.getTime()) / 86400000) + 1);
+    const cycleDays = Math.max(1, Math.floor((guardEnd.getTime() - guardStart.getTime()) / 86400000) + 1);
+    guard.projected = (guard.spent / elapsedDays) * cycleDays;
     guard.level = guard.percent >= 100 ? 'breached' : guard.percent >= 85 ? 'danger' : guard.percent >= 70 ? 'slow-down' : guard.percent >= 50 ? 'heads-up' : 'safe';
-    const breakdown = new Map(guard.breakdown.map((item) => [item.name, item.amount]));
-    extras.forEach((entry) => {
+    const breakdown = new Map<string, number>();
+    guardRows.forEach((entry) => {
       const key = guard.scope === 'account' ? entry.subcategory : entry.category;
       breakdown.set(key, (breakdown.get(key) || 0) + entry.amount);
     });
@@ -344,8 +401,7 @@ export async function mergeRedCoinsIntoBudgetCoach(source: BluecoinsSummary): Pr
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 6);
     guard.transactions = [
-      ...guard.transactions,
-      ...extras.map((entry) => ({
+      ...guardRows.map((entry) => ({
         date: entry.date.slice(0, 10),
         amount: entry.amount,
         itemName: entry.item,

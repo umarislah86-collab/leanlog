@@ -6,9 +6,10 @@ import Svg, { Circle } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BluecoinsDriveReader from 'bluecoins-drive-reader';
 import type { TransactionDetection } from 'bluecoins-drive-reader';
-import { refreshBluecoinsSummary, type BluecoinsSummary } from '../services/bluecoins';
-import { applyEntryBalance, confirmRedCoinsExport, exportRedCoinsBackup, exportRedCoinsCsv, loadRedCoins, saveRedCoins, type RedCoinsAccountType, type RedCoinsEntry, type RedCoinsState, type RedCoinsType } from '../services/redcoins';
+import { refreshBluecoinsSummary, setBluecoinsFixedCommitments, setBluecoinsMonthlyBudget, setBluecoinsPayday, setCashRealityAccounts, setCashRealitySafetyBuffer, type BluecoinsSummary } from '../services/bluecoins';
+import { applyEntryBalance, confirmRedCoinsExport, createRedCoinsDeletion, exportRedCoinsBackup, exportRedCoinsCsv, loadRedCoins, mergeRedCoinsIntoBudgetCoach, saveRedCoins, type RedCoinsAccountType, type RedCoinsEntry, type RedCoinsState, type RedCoinsType } from '../services/redcoins';
 import { deleteRedCoinsLedgerEntry, queryRedCoinsLedger, syncRedCoinsLedger, upsertRedCoinsLedgerEntry } from '../services/redcoinsLedger';
+import { saveSpendingGuards, type GuardScope, type SpendingGuard } from '../services/spendingGuards';
 
 const C = {
   ink: '#111A2A',
@@ -40,15 +41,20 @@ const entryTime = (value: string) => {
 const budgetKey = (category: string, subcategory: string) => `${category}\u0000${subcategory}`;
 type Section = 'home' | 'activity' | 'accounts' | 'plan' | 'reports';
 const LEDGER_PAGE_SIZE = 120;
+const ICON_LIBRARY = ['wallet', 'cash', 'card', 'business', 'briefcase', 'trending-up', 'home', 'restaurant', 'cart', 'basket', 'car-sport', 'bus', 'airplane', 'train', 'bicycle', 'flash', 'water', 'wifi', 'phone-portrait', 'medical', 'fitness', 'barbell', 'school', 'book', 'game-controller', 'film', 'musical-notes', 'paw', 'people', 'person', 'heart', 'gift', 'shirt', 'construct', 'hammer', 'cafe', 'beer', 'cut', 'camera', 'desktop', 'cloud', 'leaf', 'flower', 'key', 'shield-checkmark', 'receipt', 'calendar', 'location', 'ellipsis-horizontal-circle'];
 
 export default function RedCoinsScreen({ navigation, route }: any) {
   const [state, setState] = useState<RedCoinsState | null>(null);
   const [bluecoins, setBluecoins] = useState<BluecoinsSummary | null>(null);
+  const [bluecoinsBase, setBluecoinsBase] = useState<BluecoinsSummary | null>(null);
   const [section, setSection] = useState<Section>('home');
   const [entryOpen, setEntryOpen] = useState(false);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [entryDate, setEntryDate] = useState(new Date());
   const [manageOpen, setManageOpen] = useState<'account' | 'category' | 'sub' | null>(null);
+  const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [editingSubName, setEditingSubName] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterType, setFilterType] = useState<'all' | RedCoinsType>('all');
@@ -84,6 +90,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const [draftCategory, setDraftCategory] = useState('');
   const [draftSub, setDraftSub] = useState('');
   const [draftParent, setDraftParent] = useState('');
+  const [draftIcon, setDraftIcon] = useState('wallet');
   const [budgetEditor, setBudgetEditor] = useState<{
     category: string;
     subcategory: string;
@@ -93,15 +100,19 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const [notificationAccess, setNotificationAccess] = useState(false);
   const [detections, setDetections] = useState<TransactionDetection[]>([]);
   const [reviewingDetectionId, setReviewingDetectionId] = useState<string | null>(null);
+  const [fixedPickerOpen, setFixedPickerOpen] = useState(false);
+  const [guardEditorOpen, setGuardEditorOpen] = useState(false);
+  const [guardDraft, setGuardDraft] = useState<{ id?: string; name: string; scope: GuardScope; target: string; limit: string }>({ name: '', scope: 'account', target: '', limit: '' });
 
   useEffect(() => {
     (async () => {
       let summary: BluecoinsSummary | null = null;
       try {
         summary = await refreshBluecoinsSummary();
-        setBluecoins(summary);
+        setBluecoinsBase(summary);
       } catch {}
       const loaded = await loadRedCoins(summary);
+      if (summary) setBluecoins(await mergeRedCoinsIntoBudgetCoach(summary));
       setState(loaded);
       setLedgerEntries(loaded.entries.slice(0, LEDGER_PAGE_SIZE));
       setLedgerTotal(loaded.entries.length);
@@ -172,7 +183,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     const mode = route?.params?.mode;
     if (!state || !['expense', 'income', 'transfer'].includes(mode)) return;
     resetEntry(mode as RedCoinsType);
-    if (route?.params?.item) setItem(String(route.params.item));
+    if (route?.params?.item && !route?.params?.detected) setItem(String(route.params.item));
     if (route?.params?.amount) setAmount(String(route.params.amount));
     const hint = String(route?.params?.accountHint || '')
       .trim()
@@ -192,9 +203,17 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     });
   }, [route?.params?.mode, route?.params?.fingerprint, state?.createdAt]);
 
+  useEffect(() => {
+    const target = route?.params?.section as Section | undefined;
+    if (!target || !['home', 'activity', 'accounts', 'plan', 'reports'].includes(target)) return;
+    setSection(target);
+    navigation.setParams({ section: undefined });
+  }, [route?.params?.section]);
+
   const persist = async (next: RedCoinsState) => {
     setState({ ...next });
     await saveRedCoins(next);
+    if (bluecoinsBase) setBluecoins(await mergeRedCoinsIntoBudgetCoach(bluecoinsBase));
   };
   const resetEntry = (initialType: RedCoinsType = 'expense') => {
     if (!state) return;
@@ -219,6 +238,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   };
   const suggestions = useMemo(() => {
     const query = item.trim().toLowerCase();
+    if (!query) return [];
     const stats = new Map<string, { entry: RedCoinsEntry; count: number; lastIndex: number }>();
     (state?.entries || []).forEach((entry, index) => {
       const key = entry.item.trim().toLowerCase();
@@ -228,32 +248,15 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       else stats.set(key, { entry, count: 1, lastIndex: index });
     });
     const own = [...stats.values()]
-      .filter(({ entry }) => !query || entry.item.toLowerCase().includes(query))
+      .filter(({ entry }) => entry.item.toLowerCase().includes(query))
       .sort((a, b) => {
         const score = (name: string) => (name === query ? 4 : name.startsWith(query) ? 3 : name.split(/\s+/).some((word) => word.startsWith(query)) ? 2 : 1);
-        return (query ? score(b.entry.item.toLowerCase()) - score(a.entry.item.toLowerCase()) : 0) || b.count - a.count || a.lastIndex - b.lastIndex;
+        return score(b.entry.item.toLowerCase()) - score(a.entry.item.toLowerCase()) || b.count - a.count || a.lastIndex - b.lastIndex;
       })
       .slice(0, 6)
       .map(({ entry, count }) => ({ ...entry, usageCount: count }));
-    if (!query) return own;
-    const imported =
-      bluecoins?.monthly.fixedCommitmentOptions
-        .filter((x) => x.label.toLowerCase().includes(query))
-        .slice(0, 3)
-        .map((x, i) => ({
-          id: `blue-${i}`,
-          item: x.label.split(' | ').pop() || x.label,
-          amount: x.amount,
-          account: '',
-          category: x.category,
-          subcategory: x.label.split(' | ')[0] || x.category,
-          type: 'expense' as const,
-          date: '',
-          labels: [],
-          usageCount: 0,
-        })) || [];
-    return [...own, ...imported].slice(0, 6);
-  }, [item, state?.entries, bluecoins]);
+    return own;
+  }, [item, state?.entries]);
   const applyEntryType = (nextType: RedCoinsType) => {
     setType(nextType);
     const defaults = state?.entryDefaults?.[nextType];
@@ -267,10 +270,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   };
   const chooseSuggestion = (entry: any) => {
     setItem(entry.item);
-    if (entry.amount) setAmount(String(entry.amount));
-    applyEntryType(entry.type || 'expense');
     if (entry.account) setAccount(entry.account);
-    if (entry.toAccount) setToAccount(entry.toAccount);
     setCategory(entry.category);
     setSubcategory(entry.subcategory);
   };
@@ -338,11 +338,10 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     if (reviewingDetectionId) dismissDetection(reviewingDetectionId).catch(() => {});
     InteractionManager.runAfterInteractions(() => {
       setSection('activity');
-      setState(next);
       upsertRedCoinsLedgerEntry(entry)
         .then(() => setLedgerRevision((value) => value + 1))
         .catch((error) => console.warn('RedCoins ledger upsert failed', error));
-      saveRedCoins(next).catch(() => Alert.alert('Save failed', 'The transaction is still visible, but LeanLog could not write it to local storage. Please try again.'));
+      persist(next).catch(() => Alert.alert('Save failed', 'The transaction is still visible, but LeanLog could not write it to local storage. Please try again.'));
     });
   };
   const deleteEditingEntry = () => {
@@ -358,40 +357,38 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           const next = {
             ...state,
             entries: state.entries.filter((entry) => entry.id !== original.id),
-            trash: [original, ...state.trash],
+            deletedEntries: [createRedCoinsDeletion(original), ...(state.deletedEntries || [])],
             accounts: state.accounts.map((entry) => ({ ...entry })),
           };
           applyEntryBalance(next, original, -1);
           setEntryOpen(false);
           setEditingEntryId(null);
           InteractionManager.runAfterInteractions(() => {
-            setState(next);
             deleteRedCoinsLedgerEntry(original.id)
               .then(() => setLedgerRevision((value) => value + 1))
               .catch((error) => console.warn('RedCoins ledger delete failed', error));
-            saveRedCoins(next).catch(() => Alert.alert('Delete failed', 'LeanLog could not persist this change.'));
+            persist(next).catch(() => Alert.alert('Delete failed', 'LeanLog could not persist this change.'));
           });
         },
       },
     ]);
   };
   const removeEntry = (entry: RedCoinsEntry) =>
-    Alert.alert('Move to Trash?', entry.item, [
+    Alert.alert('Delete transaction permanently?', `${entry.item} · This cannot be restored.`, [
       { text: 'Cancel' },
       {
-        text: 'Move',
+        text: 'Delete',
         style: 'destructive',
         onPress: async () => {
           if (!state) return;
           const next = {
             ...state,
             entries: state.entries.filter((e) => e.id !== entry.id),
-            trash: [entry, ...state.trash],
+            deletedEntries: [createRedCoinsDeletion(entry), ...(state.deletedEntries || [])],
             accounts: state.accounts.map((a) => ({ ...a })),
           };
           applyEntryBalance(next, entry, -1);
-          setState(next);
-          await Promise.all([saveRedCoins(next), deleteRedCoinsLedgerEntry(entry.id)]);
+          await Promise.all([persist(next), deleteRedCoinsLedgerEntry(entry.id)]);
           setLedgerRevision((value) => value + 1);
         },
       },
@@ -486,7 +483,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     resetEntry();
     setReviewingDetectionId(detection.id);
     setType('expense');
-    setItem(detection.merchant);
+    setItem('');
     setAmount(String(detection.amount));
     const hint = detection.accountHint.toLowerCase();
     if (hint) {
@@ -600,6 +597,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       return Alert.alert('Budget already allocated', `${money(allocatedBudget)} is already assigned to subcategories. The cycle budget cannot be lower than that.`);
     }
     await persist({ ...state, monthlyBudget: nextValue });
+    await setBluecoinsMonthlyBudget(nextValue);
     setCycleBudgetDraft(String(nextValue));
   };
 
@@ -909,45 +907,82 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           title="Your structure, your rules."
           action="＋ Account"
           onAction={() => {
+            setEditingAccountId(null);
             setDraftName('');
+            setDraftType('Bank');
+            setDraftIcon('business');
             setDraftBalance('0');
             setManageOpen('account');
           }}
         />
-        <View style={s.accountGrid}>
-          {state.accounts.map((a) => (
-            <View key={a.id} style={[s.accountCard, a.type === 'Credit card' && s.dark]}>
-              <Text style={s.accountType}>{a.type.toUpperCase()}</Text>
-              <Text style={[s.accountName, a.type === 'Credit card' && { color: C.paper }]}>{a.name}</Text>
-              <Text style={[s.accountBalance, a.balance < 0 && { color: '#FF8069' }]}>
-                {a.balance < 0 ? '− ' : ''}
-                {money(a.balance)}
-              </Text>
+        {(['Bank', 'Cash', 'Credit card', 'Liability', 'Investment'] as RedCoinsAccountType[]).map((type) => {
+          const rows = state.accounts.filter((account) => account.type === type);
+          if (!rows.length) return null;
+          return <View key={type} style={s.accountGroup}>
+            <View style={s.accountGroupHead}>
+              <Text style={s.accountGroupTitle}>{type.toUpperCase()}</Text>
+              <Text style={s.accountGroupTotal}>{money(rows.reduce((sum, account) => sum + account.balance, 0))}</Text>
             </View>
-          ))}
-        </View>
+            {rows.map((a, index) => (
+              <TouchableOpacity key={a.id} style={[s.accountListRow, index < rows.length - 1 && s.accountListDivider]} onPress={() => openDashboardFilter('account', a.name)} activeOpacity={0.72}>
+                <FinanceAvatar name={a.name} kind={a.type} icon={a.icon} />
+                <View style={{ flex: 1 }}>
+                  <Text style={s.accountListName}>{a.name}</Text>
+                  <Text style={s.accountListMeta}>{a.type} · tap to view ledger</Text>
+                </View>
+                <Text style={[s.accountListBalance, a.balance < 0 && { color: C.coral }]}>{a.balance < 0 ? '− ' : ''}{money(a.balance)}</Text>
+                <TouchableOpacity style={s.accountEdit} onPress={() => {
+                  setEditingAccountId(a.id);
+                  setDraftName(a.name);
+                  setDraftType(a.type);
+                  setDraftBalance(String(a.balance));
+                  setDraftIcon(a.icon || inferFinanceIcon(a.name, a.type));
+                  setManageOpen('account');
+                }} hitSlop={8}><Ionicons name="create-outline" size={17} color={C.muted} /></TouchableOpacity>
+              </TouchableOpacity>
+            ))}
+          </View>;
+        })}
         <Title
           eyebrow="CATEGORIES"
           title="Built around your life."
           action="＋ Category"
           onAction={() => {
+            setEditingCategoryId(null);
             setDraftCategory('');
             setDraftSub('');
+            setDraftIcon('grid');
             setManageOpen('category');
           }}
         />
         {state.categories.map((c) => (
           <View key={c.id} style={s.categoryCard}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.categoryName}>
-                {c.icon} {c.name}
-              </Text>
-              <Text style={s.categorySubs}>{c.subcategories.join(' · ')}</Text>
+            <FinanceAvatar name={c.name} kind={c.name} icon={c.icon} />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <View style={s.categoryTitleRow}>
+                <Text style={s.categoryName}>{c.name}</Text>
+                <TouchableOpacity onPress={() => {
+                  setEditingCategoryId(c.id);
+                  setDraftCategory(c.name);
+                  setDraftSub('');
+                  setDraftIcon(c.icon || inferFinanceIcon(c.name, c.name));
+                  setManageOpen('category');
+                }} hitSlop={8}><Ionicons name="create-outline" size={16} color={C.muted} /></TouchableOpacity>
+              </View>
+              {c.subcategories.map((sub) => <TouchableOpacity key={sub} style={s.subcategoryManageRow} onPress={() => {
+                setDraftParent(c.name);
+                setEditingSubName(sub);
+                setDraftSub(sub);
+                setDraftIcon(c.subcategoryIcons?.[sub] || inferFinanceIcon(sub, c.name));
+                setManageOpen('sub');
+              }}><Text style={s.categorySubs}>{sub}</Text><Ionicons name="chevron-forward" size={14} color={C.muted} /></TouchableOpacity>)}
             </View>
             <TouchableOpacity
               onPress={() => {
                 setDraftParent(c.name);
+                setEditingSubName(null);
                 setDraftSub('');
+                setDraftIcon('grid');
                 setManageOpen('sub');
               }}
               style={s.smallButton}
@@ -998,37 +1033,6 @@ export default function RedCoinsScreen({ navigation, route }: any) {
             </View>
           ))}
           {!state.exportBatches?.length && <Empty text="No export batches yet." />}
-        </View>
-        <Title eyebrow="RECOVERY" title="Trash." />{' '}
-        <View style={s.card}>
-          {state.trash.map((entry) => (
-            <View key={entry.id} style={s.trashRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.entryName}>{entry.item}</Text>
-                <Text style={s.entryMeta}>
-                  {money(entry.amount)} · {entry.date.slice(0, 10)}
-                </Text>
-              </View>
-              <TouchableOpacity
-                style={s.restoreButton}
-                onPress={async () => {
-                  const next = {
-                    ...state,
-                    trash: state.trash.filter((e) => e.id !== entry.id),
-                    entries: [entry, ...state.entries],
-                    accounts: state.accounts.map((a) => ({ ...a })),
-                  };
-                  applyEntryBalance(next, entry, 1);
-                  setState(next);
-                  await Promise.all([saveRedCoins(next), upsertRedCoinsLedgerEntry(entry)]);
-                  setLedgerRevision((value) => value + 1);
-                }}
-              >
-                <Text style={s.restoreText}>RESTORE</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-          {!state.trash.length && <Empty text="Trash is empty." />}
         </View>
       </>
     );
@@ -1120,15 +1124,17 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         <Field
           label="PAYDAY (1—28)"
           value={String(state.payday)}
-          onChange={async (v: string) =>
-            persist({
+          onChange={async (v: string) => {
+            const payday = Math.max(1, Math.min(28, Number(v) || 25));
+            await setBluecoinsPayday(payday);
+            await persist({
               ...state,
-              payday: Math.max(1, Math.min(28, Number(v) || 25)),
+              payday,
             })
-          }
+          }}
           numeric
         />
-        <Field label="SAFETY BUFFER" value={String(state.safetyBuffer)} onChange={async (v: string) => persist({ ...state, safetyBuffer: Number(v) || 0 })} numeric />
+        <Field label="SAFETY BUFFER" value={String(state.safetyBuffer)} onChange={async (v: string) => { const value = Number(v) || 0; await setCashRealitySafetyBuffer(value); await persist({ ...state, safetyBuffer: value }); }} numeric />
       </View>
       <Title eyebrow="BUDGET BY SUBCATEGORY" title="Build the cycle from below." />
       {budgetCategories.map((group) => {
@@ -1140,7 +1146,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
             <TouchableOpacity style={s.budgetCategoryHead} onPress={() => setExpandedBudgetCategories((current) => (current.includes(group.name) ? current.filter((name) => name !== group.name) : [...current, group.name]))}>
               <View style={{ flex: 1 }}>
                 <Text style={s.budgetCategoryName}>
-                  {group.icon} {group.name}
+                  {ICON_LIBRARY.includes(group.icon) ? <Ionicons name={group.icon as any} size={14} color={C.ink} /> : group.icon} {group.name}
                 </Text>
                 <Text style={s.budgetCategoryMeta}>{money(groupSpent)} spent this cycle</Text>
               </View>
@@ -1150,6 +1156,22 @@ export default function RedCoinsScreen({ navigation, route }: any) {
               </View>
               <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={17} color={C.muted} />
             </TouchableOpacity>
+            <View style={s.categoryBudgetProgress}>
+              <View style={s.subBudgetTrack}>
+                <View
+                  style={[
+                    s.subBudgetFill,
+                    {
+                      width: `${groupBudget ? Math.min(100, (groupSpent / groupBudget) * 100) : 0}%`,
+                      backgroundColor: groupBudget > 0 && groupSpent > groupBudget ? C.coral : C.blue,
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={s.categoryBudgetProgressText}>
+                {groupBudget > 0 ? `${Math.round((groupSpent / groupBudget) * 100)}% · ${money(groupSpent)} of ${money(groupBudget)}` : 'No budget allocated'}
+              </Text>
+            </View>
             {expanded &&
               group.subcategories.map((sub) => {
                 const key = budgetKey(group.name, sub);
@@ -1196,8 +1218,27 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           <Mini label="CARD OWED" value={-cardDebt} />
           <Mini label="BUFFER" value={-state.safetyBuffer} />
         </View>
+        <Text style={s.poolHint}>Select the balances that are genuinely spendable.</Text>
+        {bluecoins?.cashReality.cashAccounts.map((candidate) => (
+          <TouchableOpacity key={candidate.name} style={s.cashSelectRow} onPress={async () => {
+            const selected = bluecoins.cashReality.cashAccounts.filter((item) => item.name === candidate.name ? !item.selected : item.selected).map((item) => item.name);
+            await setCashRealityAccounts(selected);
+            if (bluecoinsBase) setBluecoins(await mergeRedCoinsIntoBudgetCoach(bluecoinsBase));
+          }}>
+            <Ionicons name={candidate.selected ? 'checkmark-circle' : 'ellipse-outline'} size={18} color={candidate.selected ? C.ink : C.muted} />
+            <Text style={s.cashSelectName}>{candidate.name}</Text><Text style={s.cashSelectAmount}>{money(candidate.balance)}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
-      <Title eyebrow="FIXED COMMITMENTS" title="Expected before payday." />
+      <Title eyebrow="FIXED COMMITMENTS" title="Expected before payday." action={fixedPickerOpen ? 'DONE' : 'MANAGE'} onAction={() => setFixedPickerOpen((value) => !value)} />
+      {fixedPickerOpen && <View style={s.fixedPickerCard}>
+        {bluecoins?.monthly.fixedCommitmentOptions.map((option) => <TouchableOpacity key={option.key} style={s.cashSelectRow} onPress={async () => {
+          const current = bluecoins.monthly.fixedCommitmentSelection;
+          const next = option.selected ? current.filter((key) => key !== option.key) : [...current, option.key];
+          await setBluecoinsFixedCommitments(next);
+          if (bluecoinsBase) setBluecoins(await mergeRedCoinsIntoBudgetCoach(bluecoinsBase));
+        }}><Ionicons name={option.selected ? 'checkbox' : 'square-outline'} size={18} color={option.selected ? C.coral : C.muted} /><View style={{flex: 1}}><Text style={s.cashSelectName}>{option.label}</Text><Text style={s.guardMeta}>Last paid {option.lastUsed}</Text></View><Text style={s.cashSelectAmount}>{money(option.lastAmount)}</Text></TouchableOpacity>)}
+      </View>}
       <View style={s.expectedCard}>
         <View style={s.expectedHero}>
           <View>
@@ -1234,21 +1275,20 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         ))}
         {!bluecoins?.monthly.expectedFixedCommitments.items.length && <Empty text="Pick recurring items in Budget Coach to build this list." />}
       </View>
-      <Title eyebrow="SPENDING GUARDS" title="Boundaries before regret." />
-      <View style={s.ruleGrid}>
+      <Title eyebrow="SPENDING GUARDS" title="Boundaries before regret." action="＋ GUARD" onAction={() => { setGuardDraft({ name: '', scope: 'account', target: bluecoins?.guardOptions.accounts[0] || '', limit: '' }); setGuardEditorOpen(true); }} />
+      <View style={s.guardList}>
         {bluecoins?.spendingGuards.map((guard) => (
-          <View key={guard.id} style={[s.ruleCard, guard.level === 'danger' && { borderColor: C.coral }]}>
-            <Text style={s.accountType}>{guard.scope.toUpperCase()}</Text>
-            <Text style={s.ruleName}>{guard.name}</Text>
-            <Text style={s.rulePct}>{guard.percent.toFixed(0)}%</Text>
-            <Text style={s.entryMeta}>
-              {money(guard.spent)} / {money(guard.limit)}
-            </Text>
-            <View style={s.budgetTrack}>
-              <View style={[s.budgetFill, { width: `${Math.min(100, guard.percent)}%` }]} />
+          <View key={guard.id} style={s.guardRow}>
+            <View style={[s.guardDot, { backgroundColor: guard.level === 'breached' || guard.level === 'slow-down' ? C.coral : guard.level === 'heads-up' ? C.gold : C.mint }]} />
+            <View style={{ flex: 1 }}>
+              <View style={s.guardLine}><Text style={s.guardName}>{guard.name}</Text><Text style={s.guardPercent}>{guard.percent.toFixed(0)}%</Text></View>
+              <Text style={s.guardMeta}>{guard.scope.toUpperCase()} · {money(guard.spent)} / {money(guard.limit)}</Text>
+              <View style={s.budgetTrack}><View style={[s.budgetFill, { width: `${Math.min(100, guard.percent)}%` }]} /></View>
             </View>
+            <TouchableOpacity onPress={() => { setGuardDraft({ id: guard.id, name: guard.name, scope: guard.scope, target: guard.target, limit: String(guard.limit) }); setGuardEditorOpen(true); }}><Ionicons name="create-outline" size={17} color={C.muted} /></TouchableOpacity>
           </View>
         ))}
+        {!bluecoins?.spendingGuards.length && <Empty text="No spending guard configured yet." />}
       </View>
     </>
   );
@@ -1401,7 +1441,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       <ManageModal
         visible={!!manageOpen}
         mode={manageOpen}
-        close={() => setManageOpen(null)}
+        close={() => { setManageOpen(null); setEditingAccountId(null); setEditingCategoryId(null); setEditingSubName(null); }}
+        editing={!!(editingAccountId || editingCategoryId || editingSubName)}
         state={state}
         draft={{
           draftName,
@@ -1415,6 +1456,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           draftSub,
           setDraftSub,
           draftParent,
+          draftIcon,
+          setDraftIcon,
         }}
         save={async () => {
           const next = {
@@ -1427,29 +1470,64 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           };
           if (manageOpen === 'account') {
             if (!draftName.trim()) return;
-            next.accounts.push({
+            const existing = next.accounts.find((entry) => entry.id === editingAccountId);
+            if (existing) {
+              const oldName = existing.name;
+              existing.name = draftName.trim(); existing.type = draftType; existing.balance = Number(draftBalance) || 0; existing.icon = draftIcon;
+              next.entries = next.entries.map((entry) => ({ ...entry, account: entry.account === oldName ? existing.name : entry.account, toAccount: entry.toAccount === oldName ? existing.name : entry.toAccount }));
+            } else next.accounts.push({
               id: `${Date.now()}`,
               name: draftName.trim(),
               type: draftType,
               balance: Number(draftBalance) || 0,
+              icon: draftIcon,
             });
           } else if (manageOpen === 'category') {
-            if (!draftCategory.trim() || !draftSub.trim()) return;
-            next.categories.push({
+            if (!draftCategory.trim() || (!editingCategoryId && !draftSub.trim())) return;
+            const existing = next.categories.find((entry) => entry.id === editingCategoryId);
+            if (existing) {
+              const oldName = existing.name; existing.name = draftCategory.trim(); existing.icon = draftIcon;
+              next.entries = next.entries.map((entry) => ({ ...entry, category: entry.category === oldName ? existing.name : entry.category }));
+              const budgets: Record<string, number> = {};
+              Object.entries(next.subcategoryBudgets).forEach(([key, value]) => { const [cat, sub] = key.split('\u0000'); budgets[budgetKey(cat === oldName ? existing.name : cat, sub)] = value; });
+              next.subcategoryBudgets = budgets;
+            } else next.categories.push({
               id: `${Date.now()}`,
               name: draftCategory.trim(),
-              icon: '●',
+              icon: draftIcon,
               subcategories: [draftSub.trim()],
+              subcategoryIcons: { [draftSub.trim()]: draftIcon },
             });
           } else {
             const parent = next.categories.find((c) => c.name === draftParent);
             if (!parent || !draftSub.trim()) return;
-            parent.subcategories.push(draftSub.trim());
+            if (editingSubName) {
+              parent.subcategories = parent.subcategories.map((sub) => sub === editingSubName ? draftSub.trim() : sub);
+              next.entries = next.entries.map((entry) => entry.category === parent.name && entry.subcategory === editingSubName ? { ...entry, subcategory: draftSub.trim() } : entry);
+              const oldKey = budgetKey(parent.name, editingSubName); const newKey = budgetKey(parent.name, draftSub.trim());
+              if (next.subcategoryBudgets[oldKey] != null) { next.subcategoryBudgets[newKey] = next.subcategoryBudgets[oldKey]; delete next.subcategoryBudgets[oldKey]; }
+              const icons = { ...(parent.subcategoryIcons || {}) }; delete icons[editingSubName]; icons[draftSub.trim()] = draftIcon; parent.subcategoryIcons = icons;
+            } else if (!parent.subcategories.includes(draftSub.trim())) { parent.subcategories.push(draftSub.trim()); parent.subcategoryIcons = { ...(parent.subcategoryIcons || {}), [draftSub.trim()]: draftIcon }; }
           }
           await persist(next);
           setManageOpen(null);
+          setEditingAccountId(null); setEditingCategoryId(null); setEditingSubName(null);
         }}
       />
+      <GuardModal visible={guardEditorOpen} draft={guardDraft} setDraft={setGuardDraft} options={bluecoins?.guardOptions} close={() => setGuardEditorOpen(false)} remove={guardDraft.id ? async () => {
+        await saveSpendingGuards((bluecoins?.spendingGuards || []).filter((guard) => guard.id !== guardDraft.id));
+        if (bluecoinsBase) setBluecoins(await mergeRedCoinsIntoBudgetCoach(bluecoinsBase));
+        setGuardEditorOpen(false);
+      } : undefined} save={async () => {
+        const value = Math.max(0, Number(guardDraft.limit) || 0);
+        if (!guardDraft.name.trim() || !guardDraft.target || !value) return Alert.alert('Guard incomplete', 'Add a name, target and limit.');
+        const guards: SpendingGuard[] = (bluecoins?.spendingGuards || []).map(({ spent, remaining: _r, percent: _p, projected: _pr, level: _l, cycleStart: _cs, cycleEnd: _ce, transactions: _t, breakdown: _b, ...guard }) => guard);
+        const next: SpendingGuard = { id: guardDraft.id || `guard_${Date.now()}`, name: guardDraft.name.trim(), scope: guardDraft.scope, target: guardDraft.target, limit: value, cycle: 'salary', thresholds: [50, 70, 85, 100], tone: 'normal', enabled: true };
+        const index = guards.findIndex((guard) => guard.id === next.id); if (index >= 0) guards[index] = next; else guards.push(next);
+        await saveSpendingGuards(guards);
+        if (bluecoinsBase) setBluecoins(await mergeRedCoinsIntoBudgetCoach(bluecoinsBase));
+        setGuardEditorOpen(false);
+      }} />
     </SafeAreaView>
   );
 }
@@ -1621,31 +1699,22 @@ const LedgerFilterModal = memo(function LedgerFilterModal({
               <Text style={s.clearFilterText}>CLEAR ALL</Text>
             </TouchableOpacity>
           </View>
-          {draft.day ? (
-            <View style={s.activeDayFilter}>
-              <Text style={s.activeDayFilterText}>DATE · {draft.day}</Text>
-              <TouchableOpacity onPress={() => setDraft((value) => ({ ...value, day: '' }))}>
-                <Ionicons name="close-circle" size={17} color={C.coral} />
-              </TouchableOpacity>
-            </View>
-          ) : null}
-          <Text style={s.inputLabel}>TYPE</Text>
-          <View style={s.typeRow}>
-            {(['all', 'expense', 'income', 'transfer'] as const).map((value) => (
-              <Chip key={value} text={value.toUpperCase()} active={draft.type === value} onPress={() => setDraft((row) => ({ ...row, type: value }))} />
-            ))}
-          </View>
-          <Text style={s.inputLabel}>ACCOUNT</Text>
-          <ScrollView horizontal>
-            {['all', ...accounts].map((value) => (
-              <Chip key={value} text={value} active={draft.account === value} onPress={() => setDraft((row) => ({ ...row, account: value }))} />
-            ))}
-          </ScrollView>
-          <Text style={s.inputLabel}>CATEGORY</Text>
-          <ScrollView horizontal>
-            {['all', ...categories].map((value) => (
-              <Chip key={value} text={value} active={draft.category === value} onPress={() => setDraft((row) => ({ ...row, category: value }))} />
-            ))}
+          <ScrollView style={s.filterListScroll} showsVerticalScrollIndicator={false}>
+            {draft.day ? (
+              <View style={s.filterGroup}>
+                <Text style={s.inputLabel}>DATE</Text>
+                <View style={[s.filterListRow, s.filterListRowActive]}>
+                  <Ionicons name="calendar-outline" size={18} color={C.coral} />
+                  <Text style={s.filterListText}>{draft.day}</Text>
+                  <TouchableOpacity onPress={() => setDraft((value) => ({ ...value, day: '' }))} hitSlop={8}>
+                    <Ionicons name="close-circle" size={20} color={C.coral} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : null}
+            <FilterList title="TYPE" values={['all', 'expense', 'income', 'transfer']} selected={draft.type} onSelect={(value) => setDraft((row) => ({ ...row, type: value as 'all' | RedCoinsType }))} />
+            <FilterList title="ACCOUNT" values={['all', ...accounts]} selected={draft.account} onSelect={(value) => setDraft((row) => ({ ...row, account: value }))} />
+            <FilterList title="CATEGORY" values={['all', ...categories]} selected={draft.category} onSelect={(value) => setDraft((row) => ({ ...row, category: value }))} />
           </ScrollView>
           <TouchableOpacity style={s.sheetSave} onPress={() => apply(draft)}>
             <Text style={s.sheetSaveText}>APPLY FILTERS</Text>
@@ -1655,6 +1724,25 @@ const LedgerFilterModal = memo(function LedgerFilterModal({
     </Modal>
   );
 });
+
+function FilterList({ title, values, selected, onSelect }: { title: string; values: readonly string[]; selected: string; onSelect: (value: string) => void }) {
+  return (
+    <View style={s.filterGroup}>
+      <Text style={s.inputLabel}>{title}</Text>
+      <View style={s.filterListBox}>
+        {values.map((value, index) => {
+          const active = selected === value;
+          return (
+            <TouchableOpacity key={value} style={[s.filterListRow, index < values.length - 1 && s.filterListDivider, active && s.filterListRowActive]} onPress={() => onSelect(value)} activeOpacity={0.7}>
+              <Ionicons name={active ? 'radio-button-on' : 'radio-button-off'} size={19} color={active ? C.coral : C.muted} />
+              <Text style={[s.filterListText, active && s.filterListTextActive]}>{value === 'all' ? `All ${title.toLowerCase()}` : value}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
 
 function EntryModal(p: any) {
   const [picker, setPicker] = useState<'account' | 'destination' | 'category' | null>(null);
@@ -1717,9 +1805,9 @@ function EntryModal(p: any) {
             placeholder="Name"
             placeholderTextColor="#AAA393"
           />
-          {suggestionOpen && p.suggestions.length > 0 && (
+          {suggestionOpen && p.item.trim().length > 0 && p.suggestions.length > 0 && (
             <View style={s.suggestions}>
-              <Text style={s.templateLabel}>{p.item.trim() ? 'SMART MATCHES' : 'RECENT & FREQUENT'}</Text>
+              <Text style={s.templateLabel}>SMART MATCHES</Text>
               {p.suggestions.map((x: any) => (
                 <TouchableOpacity key={x.id} onPress={() => chooseTemplate(x)} style={s.suggestion}>
                   <View style={{ flex: 1 }}>
@@ -1729,7 +1817,7 @@ function EntryModal(p: any) {
                       {x.usageCount > 1 ? ` · used ${x.usageCount}×` : ''}
                     </Text>
                   </View>
-                  <Text style={s.suggestionPrice}>{money(x.amount)}</Text>
+                  <Ionicons name="arrow-forward" size={16} color={C.muted} />
                 </TouchableOpacity>
               ))}
             </View>
@@ -1760,7 +1848,7 @@ function EntryModal(p: any) {
             <TextInput ref={amountRef} style={s.amountBare} value={p.amount} onChangeText={p.setAmount} keyboardType="decimal-pad" returnKeyType="done" onSubmitEditing={p.saveEntry} selectTextOnFocus placeholder="0.00" placeholderTextColor="#AAA393" />
             <Text style={s.currency}>MYR</Text>
           </View>
-          {p.type !== 'transfer' && <PickerRow icon="grid-outline" label="CATEGORY" value={`${cats.find((c: any) => c.name === p.category)?.icon || '●'}  ${p.subcategory || p.category}`} onPress={() => openPicker('category')} />}
+          {p.type !== 'transfer' && <PickerRow icon={ICON_LIBRARY.includes(cats.find((c: any) => c.name === p.category)?.icon) ? cats.find((c: any) => c.name === p.category).icon : 'grid-outline'} label="CATEGORY" value={p.subcategory || p.category} onPress={() => openPicker('category')} />}
           <PickerRow icon="wallet-outline" label={p.type === 'transfer' ? 'FROM ACCOUNT' : 'ACCOUNT'} value={p.account || 'Choose account'} onPress={() => openPicker('account')} />
           {p.type === 'transfer' && <PickerRow icon="arrow-forward-circle-outline" label="TRANSFER TO" value={p.toAccount || 'Choose destination'} onPress={() => openPicker('destination')} />}
           <TouchableOpacity style={s.advancedButton} onPress={() => p.setAdvanced(!p.advanced)}>
@@ -1844,7 +1932,7 @@ function EntryModal(p: any) {
                           }}
                         >
                           <View style={s.categoryIcon}>
-                            <Text>{group.icon}</Text>
+                            {ICON_LIBRARY.includes(group.icon) ? <Ionicons name={group.icon as any} size={17} color={C.ink} /> : <Text>{group.icon}</Text>}
                           </View>
                           <Text style={s.categoryChoiceText}>{sub}</Text>
                         </TouchableOpacity>
@@ -1949,14 +2037,14 @@ function BudgetModal({ visible, target, value, setValue, allocated, total, curre
     </Modal>
   );
 }
-function ManageModal({ visible, mode, close, draft, save }: any) {
+function ManageModal({ visible, mode, close, draft, save, editing }: any) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={close}>
       <Pressable style={s.sheetShade} onPress={close}>
         <Pressable style={s.sheet} onPress={() => {}}>
           <View style={s.sheetGrab} />
-          <Text style={s.eyebrow}>{mode === 'account' ? 'NEW ACCOUNT' : mode === 'category' ? 'NEW CATEGORY' : 'NEW SUBCATEGORY'}</Text>
-          <Text style={s.sheetTitle}>{mode === 'account' ? 'Add your money container' : mode === 'category' ? 'Name the spending' : `Add to ${draft.draftParent}`}</Text>
+          <Text style={s.eyebrow}>{editing ? 'EDIT STRUCTURE' : mode === 'account' ? 'NEW ACCOUNT' : mode === 'category' ? 'NEW CATEGORY' : 'NEW SUBCATEGORY'}</Text>
+          <Text style={s.sheetTitle}>{editing ? 'Keep your money map accurate' : mode === 'account' ? 'Add your money container' : mode === 'category' ? 'Name the spending' : `Add to ${draft.draftParent}`}</Text>
           {mode === 'account' ? (
             <>
               <Field label="ACCOUNT NAME" value={draft.draftName} onChange={draft.setDraftName} />
@@ -1973,11 +2061,15 @@ function ManageModal({ visible, mode, close, draft, save }: any) {
           ) : mode === 'category' ? (
             <>
               <Field label="CATEGORY" value={draft.draftCategory} onChange={draft.setDraftCategory} />
-              <Field label="FIRST SUBCATEGORY" value={draft.draftSub} onChange={draft.setDraftSub} />
+              {!editing && <Field label="FIRST SUBCATEGORY" value={draft.draftSub} onChange={draft.setDraftSub} />}
             </>
           ) : (
             <Field label="SUBCATEGORY" value={draft.draftSub} onChange={draft.setDraftSub} />
           )}
+          <Text style={s.inputLabel}>ICON</Text>
+          <ScrollView style={s.iconLibraryScroll} contentContainerStyle={s.iconLibrary} nestedScrollEnabled>
+            {ICON_LIBRARY.map((icon) => <TouchableOpacity key={icon} style={[s.iconChoice, draft.draftIcon === icon && s.iconChoiceActive]} onPress={() => draft.setDraftIcon(icon)}><Ionicons name={icon as any} size={19} color={draft.draftIcon === icon ? C.white : C.ink} /></TouchableOpacity>)}
+          </ScrollView>
           <TouchableOpacity style={s.sheetSave} onPress={save}>
             <Text style={s.sheetSaveText}>SAVE</Text>
           </TouchableOpacity>
@@ -1985,6 +2077,29 @@ function ManageModal({ visible, mode, close, draft, save }: any) {
       </Pressable>
     </Modal>
   );
+}
+
+function GuardModal({ visible, draft, setDraft, options, close, save, remove }: any) {
+  const targets = draft.scope === 'account' ? options?.accounts || [] : draft.scope === 'category' ? options?.categories || [] : options?.subcategories || [];
+  return <Modal visible={visible} transparent animationType="slide" onRequestClose={close}><Pressable style={s.sheetShade} onPress={close}><Pressable style={s.sheet} onPress={() => {}}><View style={s.sheetGrab} />
+    <Text style={s.eyebrow}>{draft.id ? 'EDIT SPENDING GUARD' : 'NEW SPENDING GUARD'}</Text><Text style={s.sheetTitle}>Draw a clear boundary.</Text>
+    <Field label="NAME" value={draft.name} onChange={(name: string) => setDraft((value: any) => ({ ...value, name }))} />
+    <Text style={s.inputLabel}>WATCH</Text><View style={s.typeRow}>{(['account', 'category', 'subcategory'] as GuardScope[]).map((scope) => <TouchableOpacity key={scope} style={[s.repeatButton, draft.scope === scope && s.repeatActive]} onPress={() => setDraft((value: any) => ({ ...value, scope, target: (scope === 'account' ? options?.accounts : scope === 'category' ? options?.categories : options?.subcategories)?.[0] || '' }))}><Text style={s.repeatText}>{scope.toUpperCase()}</Text></TouchableOpacity>)}</View>
+    <Text style={s.inputLabel}>TARGET</Text><ScrollView style={{maxHeight: 150}}>{targets.map((target: string) => <TouchableOpacity key={target} style={s.cashSelectRow} onPress={() => setDraft((value: any) => ({ ...value, target }))}><Ionicons name={draft.target === target ? 'radio-button-on' : 'radio-button-off'} size={17} color={draft.target === target ? C.coral : C.muted} /><Text style={s.cashSelectName}>{target}</Text></TouchableOpacity>)}</ScrollView>
+    <Field label="LIMIT (RM)" value={draft.limit} onChange={(limit: string) => setDraft((value: any) => ({ ...value, limit }))} numeric />
+    <TouchableOpacity style={s.sheetSave} onPress={save}><Text style={s.sheetSaveText}>SAVE GUARD</Text></TouchableOpacity>
+    {remove && <TouchableOpacity style={s.guardDelete} onPress={remove}><Text style={s.guardDeleteText}>DELETE GUARD</Text></TouchableOpacity>}
+  </Pressable></Pressable></Modal>;
+}
+
+function inferFinanceIcon(name: string, kind?: string) {
+  const value = `${kind || ''} ${name}`.toLowerCase();
+  return value.includes('credit') ? 'card' : value.includes('cash') ? 'wallet' : value.includes('invest') ? 'trending-up' : value.includes('engine') || value.includes('minyak') ? 'car-sport' : value.includes('dining') || value.includes('food') ? 'restaurant' : value.includes('house') || value.includes('grocery') ? 'home' : value.includes('people') ? 'people' : value.includes('utilit') ? 'flash' : value.includes('travel') ? 'airplane' : value.includes('employer') || value.includes('salary') ? 'briefcase' : value.includes('liabil') || value.includes('loan') ? 'document-text' : 'grid';
+}
+function FinanceAvatar({ name, kind, icon }: { name: string; kind?: string; icon?: string }) {
+  const palettes = [['#F4C7B8', '#7D2D2B'], ['#BFE0D4', '#185E50'], ['#C9D8F4', '#274E91'], ['#E8D3A8', '#72531B']];
+  const index = [...name].reduce((sum, char) => sum + char.charCodeAt(0), 0) % palettes.length;
+  return <View style={[s.financeAvatar, { backgroundColor: palettes[index][0] }]}><Ionicons name={(icon || inferFinanceIcon(name, kind)) as any} size={21} color={palettes[index][1]} /></View>;
 }
 
 const s = StyleSheet.create({
@@ -2175,6 +2290,21 @@ const s = StyleSheet.create({
     fontWeight: '900',
     marginTop: 4,
   },
+  accountGroup: { backgroundColor: C.white, borderRadius: 19, borderWidth: 1, borderColor: '#E7DECE', marginBottom: 12, overflow: 'hidden' },
+  accountGroupHead: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10, backgroundColor: C.cream },
+  accountGroupTitle: { color: C.muted, fontSize: 8, fontWeight: '900', letterSpacing: 1.2 },
+  accountGroupTotal: { color: C.ink, fontSize: 10, fontWeight: '900' },
+  accountListRow: { minHeight: 67, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 13, gap: 11 },
+  accountListDivider: { borderBottomWidth: 1, borderBottomColor: '#E9E1D3' },
+  accountListName: { color: C.ink, fontSize: 12, fontWeight: '900' },
+  accountListMeta: { color: C.muted, fontSize: 8, marginTop: 3 },
+  accountListBalance: { color: '#168A65', fontSize: 11, fontWeight: '900' },
+  accountEdit: { padding: 7 },
+  financeAvatar: { width: 43, height: 47, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderBottomLeftRadius: 9, borderBottomRightRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  iconLibraryScroll: { maxHeight: 150, marginBottom: 10 },
+  iconLibrary: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  iconChoice: { width: 35, height: 35, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: C.cream },
+  iconChoiceActive: { backgroundColor: C.ink },
   categoryCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2186,6 +2316,8 @@ const s = StyleSheet.create({
     borderColor: '#E7DECE',
   },
   categoryName: { color: C.ink, fontSize: 13, fontWeight: '900' },
+  categoryTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  subcategoryManageRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 27, borderBottomWidth: 1, borderBottomColor: '#F0EADD' },
   categorySubs: { color: C.muted, fontSize: 9, lineHeight: 14, marginTop: 4 },
   smallButton: { backgroundColor: C.ink, borderRadius: 9, padding: 8 },
   smallButtonText: { color: C.white, fontSize: 8, fontWeight: '900' },
@@ -2557,6 +2689,26 @@ const s = StyleSheet.create({
     padding: 18,
     paddingBottom: 30,
   },
+  filterListScroll: { maxHeight: 500, marginBottom: 12 },
+  filterGroup: { marginBottom: 5 },
+  filterListBox: {
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#DDD4C5',
+    borderRadius: 15,
+    backgroundColor: C.white,
+  },
+  filterListRow: {
+    minHeight: 45,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+  },
+  filterListDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E5DDCF' },
+  filterListRowActive: { backgroundColor: '#FFF0EB' },
+  filterListText: { flex: 1, color: C.ink, fontSize: 10, fontWeight: '800', textTransform: 'capitalize' },
+  filterListTextActive: { color: C.coral },
   selectionTop: { flexDirection: 'row', gap: 8, marginBottom: 9 },
   selectionSearch: {
     flex: 1,
@@ -2878,20 +3030,6 @@ const s = StyleSheet.create({
     gap: 5,
   },
   cashBar: { width: 28, borderTopLeftRadius: 5, borderTopRightRadius: 5 },
-  trashRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E7DECE',
-  },
-  restoreButton: {
-    backgroundColor: '#DDF1E7',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-  restoreText: { color: '#416D5A', fontSize: 8, fontWeight: '900' },
   realityNumber: {
     color: C.ink,
     fontFamily: 'serif',
@@ -2908,6 +3046,19 @@ const s = StyleSheet.create({
     borderBottomColor: '#E7DECE',
   },
   ruleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
+  guardList: { backgroundColor: C.white, borderRadius: 18, borderWidth: 1, borderColor: '#E7DECE', overflow: 'hidden' },
+  guardRow: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: '#E9E1D3' },
+  guardDot: { width: 9, height: 9, borderRadius: 5 },
+  guardLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  guardName: { color: C.ink, fontSize: 11, fontWeight: '900' },
+  guardPercent: { color: C.ink, fontSize: 10, fontWeight: '900' },
+  guardMeta: { color: C.muted, fontSize: 8, marginTop: 2, marginBottom: 6 },
+  cashSelectRow: { minHeight: 45, flexDirection: 'row', alignItems: 'center', gap: 9, borderTopWidth: 1, borderTopColor: '#E9E1D3' },
+  cashSelectName: { flex: 1, color: C.ink, fontSize: 10, fontWeight: '800' },
+  cashSelectAmount: { color: C.ink, fontSize: 10, fontWeight: '900' },
+  fixedPickerCard: { backgroundColor: C.white, borderRadius: 18, paddingHorizontal: 14, borderWidth: 1, borderColor: '#E7DECE', marginBottom: 12 },
+  guardDelete: { alignItems: 'center', padding: 13, marginTop: 7 },
+  guardDeleteText: { color: C.coral, fontSize: 9, fontWeight: '900' },
   ruleCard: {
     width: '48%',
     backgroundColor: C.white,
@@ -2952,6 +3103,8 @@ const s = StyleSheet.create({
   budgetCategoryName: { color: C.ink, fontSize: 13, fontWeight: '900' },
   budgetCategoryMeta: { color: C.muted, fontSize: 8, marginTop: 3 },
   budgetCategoryTotal: { alignItems: 'flex-end', marginLeft: 8 },
+  categoryBudgetProgress: { paddingHorizontal: 13, paddingBottom: 11 },
+  categoryBudgetProgressText: { color: C.muted, fontSize: 7, fontWeight: '800', marginTop: 5 },
   budgetCategoryAmount: { color: C.ink, fontSize: 13, fontWeight: '900' },
   budgetCategoryLabel: {
     color: C.muted,

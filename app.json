@@ -3,7 +3,7 @@
     "name": "LeanLog",
     "slug": "umarcoc93",
     "scheme": "leanlog",
-    "version": "2.9.2",
+    "version": "2.9.3",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
@@ -54,7 +54,7 @@
             {
               "name": "LeanLogDaily",
               "label": "LeanLog Daily",
-              "description": "Calories, steps and your next event at a glance.",
+              "description": "Calories, steps, cash reality and quick logging at a glance.",
               "minWidth": "250dp",
               "minHeight": "110dp",
               "targetCellWidth": 4,

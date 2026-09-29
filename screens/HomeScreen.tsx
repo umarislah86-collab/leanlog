@@ -961,22 +961,21 @@ export default function HomeScreen({ navigation }: any) {
                   ))}
                 </View>
                 <Text style={styles.realityPickerHint}>WHICH BALANCES COUNT AS SPENDABLE CASH?</Text>
-                <View style={styles.realityAccountWrap}>
+                <View style={styles.realityAccountList}>
                   {bluecoins.cashReality.cashAccounts.map((account) => (
-                    <TouchableOpacity key={account.name} style={[styles.realityAccountChip, account.selected && styles.realityAccountChipActive]} onPress={() => toggleCashAccount(account.name)}>
-                      <Ionicons name={account.selected ? 'checkmark-circle' : 'ellipse-outline'} size={14} color={account.selected ? colors.ink : colors.muted} />
-                      <Text style={[styles.realityAccountText, account.selected && styles.realityAccountTextActive]}>
-                        {account.name} · {money(account.balance)}
-                      </Text>
+                    <TouchableOpacity key={account.name} style={[styles.realityAccountRow, account.selected && styles.realityAccountRowActive]} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins', { section: 'plan' }); }} activeOpacity={0.72}>
+                      <Ionicons name={account.selected ? 'checkmark-circle' : 'ellipse-outline'} size={20} color={account.selected ? colors.ink : colors.muted} />
+                      <Text style={[styles.realityAccountName, account.selected && styles.realityAccountNameActive]}>{account.name}</Text>
+                      <Text style={styles.realityAccountBalance}>{money(account.balance)}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
                 <Text style={styles.realityPickerHint}>SAFETY BUFFER</Text>
                 <View style={styles.budgetEditRow}>
                   <Text style={styles.currencyPrefix}>RM</Text>
-                  <TextInput style={styles.budgetInput} value={safetyBufferInput} onChangeText={setSafetyBufferInput} keyboardType="decimal-pad" />
-                  <TouchableOpacity style={styles.budgetSave} onPress={saveSafetyBuffer}>
-                    <Text style={styles.budgetSaveText}>Reserve</Text>
+                  <TextInput style={styles.budgetInput} value={safetyBufferInput} editable={false} />
+                  <TouchableOpacity style={styles.budgetSave} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins', { section: 'plan' }); }}>
+                    <Text style={styles.budgetSaveText}>Manage</Text>
                   </TouchableOpacity>
                 </View>
                 <Text style={styles.suggestedHint}>Card purchases reduce true spendable immediately. Paying the card later is settlement—not a second expense.</Text>
@@ -1060,7 +1059,7 @@ export default function HomeScreen({ navigation }: any) {
                         </View>
                       ))}
                     {showFixedCommitments && (
-                      <TouchableOpacity style={styles.commitmentManage} onPress={() => setShowFixedManager(true)}>
+                      <TouchableOpacity style={styles.commitmentManage} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins', { section: 'plan' }); }}>
                         <Ionicons name="options-outline" size={14} color={colors.coral} />
                         <Text style={styles.commitmentManageText}>MANAGE RECURRING ITEMS</Text>
                       </TouchableOpacity>
@@ -1070,14 +1069,14 @@ export default function HomeScreen({ navigation }: any) {
 
                 <View style={styles.guardSectionHeader}>
                   <Text style={[styles.budgetSectionTitle, { marginBottom: 0 }]}>SPENDING GUARDS</Text>
-                  <TouchableOpacity style={styles.guardAddButton} onPress={() => openGuardEditor()}>
-                    <Ionicons name="add" size={16} color={colors.ink} />
-                    <Text style={styles.guardAddText}>NEW GUARD</Text>
+                  <TouchableOpacity style={styles.guardAddButton} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins', { section: 'plan' }); }}>
+                    <Ionicons name="arrow-forward" size={16} color={colors.ink} />
+                    <Text style={styles.guardAddText}>MANAGE</Text>
                   </TouchableOpacity>
                 </View>
                 {bluecoins.spendingGuards.length ? (
                   bluecoins.spendingGuards.map((guard) => (
-                    <TouchableOpacity key={guard.id} style={styles.guardListRow} onPress={() => setSelectedGuardId(guard.id)} onLongPress={() => openGuardEditor(guard)} activeOpacity={0.75}>
+                    <TouchableOpacity key={guard.id} style={styles.guardListRow} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins', { section: 'plan' }); }} activeOpacity={0.75}>
                       <View
                         style={[
                           styles.guardStatusDot,
@@ -1097,7 +1096,7 @@ export default function HomeScreen({ navigation }: any) {
                           )}
                         </View>
                         <Text style={styles.guardListMeta}>
-                          {guard.scope} · {guard.cycle} · long-press to edit
+                          {guard.scope} · {guard.cycle}
                         </Text>
                       </View>
                       <View style={{ alignItems: 'flex-end' }}>
@@ -1119,18 +1118,18 @@ export default function HomeScreen({ navigation }: any) {
                     <Text style={styles.paydayHint}>Cycle runs payday → day before next payday</Text>
                   </View>
                   <Text style={styles.paydayPrefix}>DAY</Text>
-                  <TextInput style={styles.paydayInput} value={paydayInput} onChangeText={setPaydayInput} keyboardType="number-pad" maxLength={2} />
-                  <TouchableOpacity style={styles.paydaySave} onPress={savePayday}>
-                    <Text style={styles.paydaySaveText}>Apply</Text>
+                  <TextInput style={styles.paydayInput} value={paydayInput} editable={false} />
+                  <TouchableOpacity style={styles.paydaySave} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins', { section: 'plan' }); }}>
+                    <Text style={styles.paydaySaveText}>Manage</Text>
                   </TouchableOpacity>
                 </View>
 
                 <Text style={styles.budgetSectionTitle}>MONTHLY BUDGET</Text>
                 <View style={styles.budgetEditRow}>
                   <Text style={styles.currencyPrefix}>RM</Text>
-                  <TextInput style={styles.budgetInput} value={budgetInput} onChangeText={setBudgetInput} keyboardType="decimal-pad" />
-                  <TouchableOpacity style={styles.budgetSave} onPress={saveMonthlyBudget}>
-                    <Text style={styles.budgetSaveText}>Save</Text>
+                  <TextInput style={styles.budgetInput} value={budgetInput} editable={false} />
+                  <TouchableOpacity style={styles.budgetSave} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins', { section: 'plan' }); }}>
+                    <Text style={styles.budgetSaveText}>Manage</Text>
                   </TouchableOpacity>
                 </View>
                 {bluecoins.monthly.budgetIsSuggested && <Text style={styles.suggestedHint}>This is a suggested budget based on available spending history. Set your own anytime.</Text>}
@@ -2683,24 +2682,26 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 7,
   },
-  realityAccountWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  realityAccountChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
+  realityAccountList: {
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#D7CDBC',
-    borderRadius: 12,
-    paddingHorizontal: 9,
-    paddingVertical: 8,
+    borderRadius: 16,
     backgroundColor: '#FFFFFF',
   },
-  realityAccountChipActive: {
-    backgroundColor: colors.mint,
-    borderColor: colors.mint,
+  realityAccountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    minHeight: 48,
+    paddingHorizontal: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#DED5C6',
   },
-  realityAccountText: { color: colors.muted, fontSize: 9, fontWeight: '800' },
-  realityAccountTextActive: { color: colors.ink },
+  realityAccountRowActive: { backgroundColor: '#E2F4EB' },
+  realityAccountName: { flex: 1, color: colors.muted, fontSize: 11, fontWeight: '800' },
+  realityAccountNameActive: { color: colors.ink },
+  realityAccountBalance: { color: colors.ink, fontSize: 10, fontWeight: '900' },
   guardCard: {
     backgroundColor: colors.inkSoft,
     borderRadius: radii.medium,
