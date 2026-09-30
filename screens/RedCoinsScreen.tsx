@@ -220,6 +220,11 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     await saveRedCoins(next);
     if (bluecoinsBase) setBluecoins(await mergeRedCoinsIntoBudgetCoach(bluecoinsBase));
   };
+  const refreshLiveBluecoins = async () => {
+    const refreshed = await refreshBluecoinsSummary();
+    setBluecoinsBase(refreshed);
+    setBluecoins(await mergeRedCoinsIntoBudgetCoach(refreshed));
+  };
   const resetEntry = (initialType: RedCoinsType = 'expense') => {
     if (!state) return;
     const recent = state.entries.find((entry) => entry.type === initialType);
@@ -533,22 +538,25 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       const date = new Date(entry.date);
       return date >= cycleStart && date <= cycleEnd;
     });
-    let spent = 0;
+    let spent = bluecoins?.monthly.spent || 0;
     let income = 0;
-    const catSpend: Record<string, number> = {};
-    const subcategorySpend: Record<string, number> = {};
+    const catSpend: Record<string, number> = Object.fromEntries((bluecoins?.monthly.topCategories || []).map((category) => [category.name, category.amount]));
+    const subcategorySpend: Record<string, number> = Object.fromEntries((bluecoins?.monthly.topCategories || []).flatMap((category) => category.details.map((detail) => [budgetKey(category.name, detail.subcategory), detail.amount])));
     cycleRows.forEach((entry) => {
       if (entry.type === 'income') income += entry.amount;
       if (entry.type !== 'expense') return;
-      spent += entry.amount;
-      catSpend[entry.category] = (catSpend[entry.category] || 0) + entry.amount;
-      const key = budgetKey(entry.category, entry.subcategory);
-      subcategorySpend[key] = (subcategorySpend[key] || 0) + entry.amount;
+      // Entries already represented by the Bluecoins baseline must not be counted twice.
+      if (!bluecoins && entry.origin !== 'bluecoins') {
+        spent += entry.amount;
+        catSpend[entry.category] = (catSpend[entry.category] || 0) + entry.amount;
+        const key = budgetKey(entry.category, entry.subcategory);
+        subcategorySpend[key] = (subcategorySpend[key] || 0) + entry.amount;
+      }
     });
     const remaining = state.monthlyBudget - spent;
     const daysLeft = Math.max(1, Math.ceil((new Date(cycleStart.getFullYear(), cycleStart.getMonth() + 1, state.payday).getTime() - now.getTime()) / 86400000));
-    const cardDebt = state.accounts.filter((account) => account.type === 'Credit card').reduce((sum, account) => sum + Math.max(0, -account.balance), 0);
-    const cash = state.accounts.filter((account) => ['Bank', 'Cash'].includes(account.type)).reduce((sum, account) => sum + account.balance, 0);
+    const cardDebt = bluecoins?.cashReality.cardOutstanding ?? state.accounts.filter((account) => account.type === 'Credit card').reduce((sum, account) => sum + Math.max(0, -account.balance), 0);
+    const cash = bluecoins?.cashReality.liquidBalance ?? state.accounts.filter((account) => ['Bank', 'Cash'].includes(account.type)).reduce((sum, account) => sum + account.balance, 0);
     const allocatedBudget = Object.entries(state.subcategoryBudgets || {}).reduce((sum, [key, value]) => sum + (budgetKeys.has(key) ? Math.max(0, Number(value) || 0) : 0), 0);
     return {
       now,
@@ -560,14 +568,14 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       daysLeft,
       cardDebt,
       cash,
-      trueSpendable: Math.min(remaining - state.safetyBuffer, cash - cardDebt),
+      trueSpendable: bluecoins ? Math.min(remaining, bluecoins.cashReality.trueSpendable) : Math.min(remaining - state.safetyBuffer, cash - cardDebt),
       catSpend,
       topCats: Object.entries(catSpend).sort((a, b) => b[1] - a[1]),
       allocatedBudget,
       unallocatedBudget: state.monthlyBudget - allocatedBudget,
       subcategorySpend,
     };
-  }, [state, budgetKeys]);
+  }, [state, budgetKeys, bluecoins]);
 
   if (!state)
     return (
@@ -1224,7 +1232,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
             const selected = bluecoins.cashReality.cashAccounts.filter((item) => item.name === candidate.name ? !item.selected : item.selected).map((item) => item.name);
             setBluecoins((current) => current ? { ...current, cashReality: { ...current.cashReality, selectedAccounts: selected, cashAccounts: current.cashReality.cashAccounts.map((item) => ({ ...item, selected: selected.includes(item.name) })) } } : current);
             await setCashRealityAccounts(selected);
-            if (bluecoinsBase) setBluecoins(await mergeRedCoinsIntoBudgetCoach(bluecoinsBase));
+            await refreshLiveBluecoins();
           }}>
             <Ionicons name={candidate.selected ? 'checkmark-circle' : 'ellipse-outline'} size={18} color={candidate.selected ? C.ink : C.muted} />
             <Text style={s.cashSelectName}>{candidate.name}</Text><Text style={s.cashSelectAmount}>{money(candidate.balance)}</Text>
@@ -1238,7 +1246,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           const next = option.selected ? current.filter((key) => key !== option.key) : [...current, option.key];
           setBluecoins((value) => value ? { ...value, monthly: { ...value.monthly, fixedCommitmentSelection: next, fixedCommitmentOptions: value.monthly.fixedCommitmentOptions.map((item) => ({ ...item, selected: next.includes(item.key) })) } } : value);
           await setBluecoinsFixedCommitments(next);
-          if (bluecoinsBase) setBluecoins(await mergeRedCoinsIntoBudgetCoach(bluecoinsBase));
+          await refreshLiveBluecoins();
         }}><Ionicons name={option.selected ? 'checkbox' : 'square-outline'} size={18} color={option.selected ? C.coral : C.muted} /><View style={{flex: 1}}><Text style={s.cashSelectName}>{option.label}</Text><Text style={s.guardMeta}>Last paid {option.lastUsed}</Text></View><Text style={s.cashSelectAmount}>{money(option.lastAmount)}</Text></TouchableOpacity>)}
       </View>}
       <View style={s.expectedCard}>
@@ -1380,7 +1388,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         </View>
       ) : (
         <ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
-          {section === 'home' ? <Home /> : section === 'accounts' ? <Accounts /> : section === 'plan' ? <Plan /> : <Reports />}
+          {section === 'home' ? Home() : section === 'accounts' ? Accounts() : section === 'plan' ? Plan() : Reports()}
         </ScrollView>
       )}
       {filterModal}
