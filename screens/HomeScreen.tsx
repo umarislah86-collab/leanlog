@@ -70,6 +70,7 @@ export default function HomeScreen({ navigation }: any) {
   const [showFixedManager, setShowFixedManager] = useState(false);
   const [fixedCommitmentSearch, setFixedCommitmentSearch] = useState('');
   const [selectedGuardId, setSelectedGuardId] = useState<string | null>(null);
+  const [expandedGuardPart, setExpandedGuardPart] = useState<string | null>(null);
   const [pinnedGuardId, setPinnedGuardId] = useState<string | null>(null);
   const [showGuardEditor, setShowGuardEditor] = useState(false);
   const [editingGuardId, setEditingGuardId] = useState<string | null>(null);
@@ -950,6 +951,7 @@ export default function HomeScreen({ navigation }: any) {
                     {money(bluecoins.cashReality.liquidBalance)} selected cash − {money(bluecoins.cashReality.cardOutstanding)} unpaid cards
                     {bluecoins.cashReality.safetyBuffer > 0 ? ` − ${money(bluecoins.cashReality.safetyBuffer)} buffer` : ''}
                   </Text>
+                  <Text style={styles.realityPanelFormula}>Cycle budget left: {money(bluecoins.monthly.remaining)}</Text>
                   {bluecoins.cashReality.creditCards.map((card) => (
                     <View key={card.name} style={styles.realityCardDebtRow}>
                       <View style={{ flex: 1 }}>
@@ -1193,7 +1195,7 @@ export default function HomeScreen({ navigation }: any) {
         </View>
       </Modal>
 
-      <Modal visible={!!selectedGuard} transparent animationType="slide" onRequestClose={() => setSelectedGuardId(null)}>
+      <Modal visible={!!selectedGuard} transparent animationType="slide" onRequestClose={() => { setSelectedGuardId(null); setExpandedGuardPart(null); }}>
         <View style={styles.budgetOverlay}>
           <View style={styles.guardDetailSheet}>
             <View style={styles.budgetHandle} />
@@ -1204,7 +1206,7 @@ export default function HomeScreen({ navigation }: any) {
                     <Text style={styles.budgetEyebrow}>SPENDING GUARD</Text>
                     <Text style={styles.budgetTitle}>{selectedGuard.name}</Text>
                   </View>
-                  <TouchableOpacity style={styles.budgetClose} onPress={() => setSelectedGuardId(null)}>
+                  <TouchableOpacity style={styles.budgetClose} onPress={() => { setSelectedGuardId(null); setExpandedGuardPart(null); }}>
                     <Ionicons name="close" size={22} color={colors.text} />
                   </TouchableOpacity>
                 </View>
@@ -1226,7 +1228,8 @@ export default function HomeScreen({ navigation }: any) {
                 </View>
                 <Text style={styles.budgetSectionTitle}>WHERE IT WENT</Text>
                 {selectedGuard.breakdown.map((item, index) => (
-                  <View key={item.name} style={styles.guardBreakdownRow}>
+                  <View key={item.name}>
+                  <TouchableOpacity style={styles.guardBreakdownRow} onPress={() => setExpandedGuardPart((value) => value === item.name ? null : item.name)} activeOpacity={0.75}>
                     <Text style={styles.budgetCategoryRank}>{String(index + 1).padStart(2, '0')}</Text>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.guardBreakdownName}>{item.name}</Text>
@@ -1235,27 +1238,14 @@ export default function HomeScreen({ navigation }: any) {
                       </View>
                     </View>
                     <Text style={styles.guardBreakdownAmount}>{money(item.amount)}</Text>
-                  </View>
-                ))}
-                <Text style={styles.budgetSectionTitle}>LATEST CHARGES</Text>
-                {selectedGuard.transactions.map((tx, index) => (
-                  <View key={`${tx.date}-${tx.amount}-${index}`} style={styles.guardTransaction}>
-                    <View style={{ flex: 1 }}>
-                      <View
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 6,
-                        }}
-                      >
-                        <Text style={styles.guardTransactionName}>{tx.itemName}</Text>
-                      </View>
-                      <Text style={styles.guardTransactionMeta}>
-                        {cycleDate(tx.date)} · {tx.category} / {tx.subcategory}
-                        {tx.note ? ` · ${tx.note}` : ''}
-                      </Text>
-                    </View>
-                    <Text style={styles.guardTransactionAmount}>{money(tx.amount)}</Text>
+                    <Ionicons name={expandedGuardPart === item.name ? 'chevron-up' : 'chevron-down'} size={15} color={colors.muted} />
+                  </TouchableOpacity>
+                  {expandedGuardPart === item.name && selectedGuard.transactions
+                    .filter((tx) => selectedGuard.scope === 'subcategory' ? tx.itemName === item.name : tx.subcategory === item.name)
+                    .map((tx, txIndex) => <View key={`${tx.date}-${tx.amount}-${txIndex}`} style={styles.guardTransaction}>
+                      <View style={{ flex: 1 }}><Text style={styles.guardTransactionName}>{tx.itemName}</Text><Text style={styles.guardTransactionMeta}>{cycleDate(tx.date)} · {tx.category} / {tx.subcategory}{tx.note ? ` · ${tx.note}` : ''}</Text></View>
+                      <Text style={styles.guardTransactionAmount}>{money(tx.amount)}</Text>
+                    </View>)}
                   </View>
                 ))}
                 <Text style={styles.guardFreshness}>Based on {bluecoins?.sourceName}. Refresh follows the newest Bluecoins backup—not live card activity.</Text>

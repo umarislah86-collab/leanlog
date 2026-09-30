@@ -383,7 +383,7 @@ export async function mergeRedCoinsIntoBudgetCoach(source: BluecoinsSummary): Pr
   const loanReserve = (summary.monthly.expectedFixedCommitments?.items || [])
     .filter((item) => item.category === 'Debt commitment' && item.status === 'due')
     .reduce((sum, item) => sum + item.expectedAmount, 0);
-  summary.cashReality.trueSpendable = Math.min(summary.monthly.remaining, summary.cashReality.liquidBalance - summary.cashReality.cardOutstanding - summary.cashReality.safetyBuffer - loanReserve);
+  summary.cashReality.trueSpendable = summary.cashReality.liquidBalance - summary.cashReality.cardOutstanding - summary.cashReality.safetyBuffer - loanReserve;
   summary.cashReality.coveragePercent = summary.cashReality.cardOutstanding ? (summary.cashReality.liquidBalance / summary.cashReality.cardOutstanding) * 100 : 100;
   summary.spendingGuards.forEach((guard) => {
     const guardStart = new Date(`${guard.cycleStart}T00:00:00`);
@@ -402,7 +402,7 @@ export async function mergeRedCoinsIntoBudgetCoach(source: BluecoinsSummary): Pr
     guard.level = guard.percent >= 100 ? 'breached' : guard.percent >= 85 ? 'danger' : guard.percent >= 70 ? 'slow-down' : guard.percent >= 50 ? 'heads-up' : 'safe';
     const breakdown = new Map<string, number>();
     guardRows.forEach((entry) => {
-      const key = guard.scope === 'account' ? entry.subcategory : entry.category;
+      const key = guard.scope === 'subcategory' ? entry.item : entry.subcategory;
       breakdown.set(key, (breakdown.get(key) || 0) + entry.amount);
     });
     guard.breakdown = [...breakdown]
@@ -425,7 +425,7 @@ export async function mergeRedCoinsIntoBudgetCoach(source: BluecoinsSummary): Pr
       })),
     ]
       .sort((a, b) => b.date.localeCompare(a.date))
-      .slice(0, 8);
+      .slice(0, 100);
   });
   return summary;
 }

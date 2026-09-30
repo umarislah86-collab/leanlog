@@ -743,7 +743,7 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
     const loanReserve = expectedItems
       .filter((item) => item.category === 'Debt commitment' && item.status === 'due')
       .reduce((sum, item) => sum + item.expectedAmount, 0);
-    cashReality.trueSpendable = Math.min(cashReality.trueSpendable, cashReality.liquidBalance - cashReality.cardOutstanding - cashReality.safetyBuffer - loanReserve);
+    cashReality.trueSpendable = cashReality.liquidBalance - cashReality.cardOutstanding - cashReality.safetyBuffer - loanReserve;
     const alerts: string[] = [];
     if (cashReality.trueSpendable < 0) alerts.push(`Cash illusion alert: selected banks are RM ${Math.abs(cashReality.trueSpendable).toFixed(0)} short after reserving unpaid card debt${cashReality.safetyBuffer > 0 ? ' and your safety buffer' : ''}.`);
     else if (cashReality.cardOutstanding > 0) alerts.push(`After reserving RM ${cashReality.cardOutstanding.toFixed(0)} for unpaid cards, your true spendable cash is RM ${cashReality.trueSpendable.toFixed(0)}.`);
@@ -788,7 +788,7 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
       const spent = rows.reduce((sum, row) => sum + row.rawAmount / AMOUNT_SCALE, 0);
       const breakdownMap = new Map<string, number>();
       rows.forEach((row) => {
-        const key = guard.scope === 'account' ? row.subcategory : row.category;
+        const key = guard.scope === 'subcategory' ? row.itemName : row.subcategory;
         breakdownMap.set(key, (breakdownMap.get(key) || 0) + row.rawAmount / AMOUNT_SCALE);
       });
       const elapsed = Math.max(1, Math.floor((source.getTime() - selectedCycle.start.getTime()) / 86400000) + 1);
@@ -803,7 +803,7 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
         level: guardLevel(percent),
         cycleStart: guardStart,
         cycleEnd: guardEnd,
-        transactions: rows.slice(0, 8).map((row) => ({
+        transactions: rows.slice(0, 100).map((row) => ({
           date: row.date,
           amount: row.rawAmount / AMOUNT_SCALE,
           itemName: row.itemName,
