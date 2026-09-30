@@ -97,11 +97,14 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   } | null>(null);
   const [budgetDraft, setBudgetDraft] = useState('');
   const [cycleBudgetDraft, setCycleBudgetDraft] = useState('');
+  const [paydayDraft, setPaydayDraft] = useState('25');
+  const [safetyBufferDraft, setSafetyBufferDraft] = useState('0');
   const [notificationAccess, setNotificationAccess] = useState(false);
   const [detections, setDetections] = useState<TransactionDetection[]>([]);
   const [reviewingDetectionId, setReviewingDetectionId] = useState<string | null>(null);
   const [fixedPickerOpen, setFixedPickerOpen] = useState(false);
   const [guardEditorOpen, setGuardEditorOpen] = useState(false);
+  const [expandedGuardId, setExpandedGuardId] = useState<string | null>(null);
   const [guardDraft, setGuardDraft] = useState<{ id?: string; name: string; scope: GuardScope; target: string; limit: string }>({ name: '', scope: 'account', target: '', limit: '' });
 
   useEffect(() => {
@@ -117,6 +120,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       setLedgerEntries(loaded.entries.slice(0, LEDGER_PAGE_SIZE));
       setLedgerTotal(loaded.entries.length);
       setCycleBudgetDraft(String(loaded.monthlyBudget));
+      setPaydayDraft(String(loaded.payday));
+      setSafetyBufferDraft(String(loaded.safetyBuffer));
       const latest = loaded.entries.reduce<Date | null>((best, entry) => {
         const date = new Date(entry.date);
         return !best || date > best ? date : best;
@@ -1123,18 +1128,13 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         </View>
         <Field
           label="PAYDAY (1—28)"
-          value={String(state.payday)}
-          onChange={async (v: string) => {
-            const payday = Math.max(1, Math.min(28, Number(v) || 25));
-            await setBluecoinsPayday(payday);
-            await persist({
-              ...state,
-              payday,
-            })
-          }}
+          value={paydayDraft}
+          onChange={setPaydayDraft}
           numeric
         />
-        <Field label="SAFETY BUFFER" value={String(state.safetyBuffer)} onChange={async (v: string) => { const value = Number(v) || 0; await setCashRealitySafetyBuffer(value); await persist({ ...state, safetyBuffer: value }); }} numeric />
+        <TouchableOpacity style={s.planInlineSave} onPress={async () => { const payday = Math.max(1, Math.min(28, Number(paydayDraft) || 25)); await setBluecoinsPayday(payday); await persist({ ...state, payday }); }}><Text style={s.planInlineSaveText}>SAVE PAYDAY</Text></TouchableOpacity>
+        <Field label="SAFETY BUFFER" value={safetyBufferDraft} onChange={setSafetyBufferDraft} numeric />
+        <TouchableOpacity style={s.planInlineSave} onPress={async () => { const value = Math.max(0, Number(safetyBufferDraft) || 0); await setCashRealitySafetyBuffer(value); await persist({ ...state, safetyBuffer: value }); }}><Text style={s.planInlineSaveText}>SAVE SAFETY BUFFER</Text></TouchableOpacity>
       </View>
       <Title eyebrow="BUDGET BY SUBCATEGORY" title="Build the cycle from below." />
       {budgetCategories.map((group) => {
@@ -1222,6 +1222,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         {bluecoins?.cashReality.cashAccounts.map((candidate) => (
           <TouchableOpacity key={candidate.name} style={s.cashSelectRow} onPress={async () => {
             const selected = bluecoins.cashReality.cashAccounts.filter((item) => item.name === candidate.name ? !item.selected : item.selected).map((item) => item.name);
+            setBluecoins((current) => current ? { ...current, cashReality: { ...current.cashReality, selectedAccounts: selected, cashAccounts: current.cashReality.cashAccounts.map((item) => ({ ...item, selected: selected.includes(item.name) })) } } : current);
             await setCashRealityAccounts(selected);
             if (bluecoinsBase) setBluecoins(await mergeRedCoinsIntoBudgetCoach(bluecoinsBase));
           }}>
@@ -1235,6 +1236,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         {bluecoins?.monthly.fixedCommitmentOptions.map((option) => <TouchableOpacity key={option.key} style={s.cashSelectRow} onPress={async () => {
           const current = bluecoins.monthly.fixedCommitmentSelection;
           const next = option.selected ? current.filter((key) => key !== option.key) : [...current, option.key];
+          setBluecoins((value) => value ? { ...value, monthly: { ...value.monthly, fixedCommitmentSelection: next, fixedCommitmentOptions: value.monthly.fixedCommitmentOptions.map((item) => ({ ...item, selected: next.includes(item.key) })) } } : value);
           await setBluecoinsFixedCommitments(next);
           if (bluecoinsBase) setBluecoins(await mergeRedCoinsIntoBudgetCoach(bluecoinsBase));
         }}><Ionicons name={option.selected ? 'checkbox' : 'square-outline'} size={18} color={option.selected ? C.coral : C.muted} /><View style={{flex: 1}}><Text style={s.cashSelectName}>{option.label}</Text><Text style={s.guardMeta}>Last paid {option.lastUsed}</Text></View><Text style={s.cashSelectAmount}>{money(option.lastAmount)}</Text></TouchableOpacity>)}
@@ -1278,7 +1280,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       <Title eyebrow="SPENDING GUARDS" title="Boundaries before regret." action="＋ GUARD" onAction={() => { setGuardDraft({ name: '', scope: 'account', target: bluecoins?.guardOptions.accounts[0] || '', limit: '' }); setGuardEditorOpen(true); }} />
       <View style={s.guardList}>
         {bluecoins?.spendingGuards.map((guard) => (
-          <View key={guard.id} style={s.guardRow}>
+          <TouchableOpacity key={guard.id} style={s.guardRow} onPress={() => setExpandedGuardId((value) => value === guard.id ? null : guard.id)} activeOpacity={0.8}>
             <View style={[s.guardDot, { backgroundColor: guard.level === 'breached' || guard.level === 'slow-down' ? C.coral : guard.level === 'heads-up' ? C.gold : C.mint }]} />
             <View style={{ flex: 1 }}>
               <View style={s.guardLine}><Text style={s.guardName}>{guard.name}</Text><Text style={s.guardPercent}>{guard.percent.toFixed(0)}%</Text></View>
@@ -1286,7 +1288,13 @@ export default function RedCoinsScreen({ navigation, route }: any) {
               <View style={s.budgetTrack}><View style={[s.budgetFill, { width: `${Math.min(100, guard.percent)}%` }]} /></View>
             </View>
             <TouchableOpacity onPress={() => { setGuardDraft({ id: guard.id, name: guard.name, scope: guard.scope, target: guard.target, limit: String(guard.limit) }); setGuardEditorOpen(true); }}><Ionicons name="create-outline" size={17} color={C.muted} /></TouchableOpacity>
-          </View>
+            {expandedGuardId === guard.id && <View style={s.guardDetails}>
+              <Text style={s.guardDetailsTitle}>WHERE IT WENT</Text>
+              {guard.breakdown.map((part) => <View key={part.name} style={s.guardDetailRow}><Text style={s.guardDetailName}>{part.name}</Text><Text style={s.guardDetailAmount}>{money(part.amount)} · {part.share.toFixed(0)}%</Text></View>)}
+              <Text style={s.guardDetailsTitle}>LATEST CHARGES</Text>
+              {guard.transactions.slice(0, 6).map((charge, index) => <View key={`${charge.itemName}-${index}`} style={s.guardDetailRow}><View style={{flex: 1}}><Text style={s.guardDetailName}>{charge.itemName}</Text><Text style={s.guardMeta}>{charge.date} · {charge.category} / {charge.subcategory}</Text></View><Text style={s.guardDetailAmount}>{money(charge.amount)}</Text></View>)}
+            </View>}
+          </TouchableOpacity>
         ))}
         {!bluecoins?.spendingGuards.length && <Empty text="No spending guard configured yet." />}
       </View>
@@ -3059,6 +3067,13 @@ const s = StyleSheet.create({
   fixedPickerCard: { backgroundColor: C.white, borderRadius: 18, paddingHorizontal: 14, borderWidth: 1, borderColor: '#E7DECE', marginBottom: 12 },
   guardDelete: { alignItems: 'center', padding: 13, marginTop: 7 },
   guardDeleteText: { color: C.coral, fontSize: 9, fontWeight: '900' },
+  planInlineSave: { alignSelf: 'flex-end', backgroundColor: C.cream, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 8 },
+  planInlineSaveText: { color: C.ink, fontSize: 8, fontWeight: '900' },
+  guardDetails: { width: '100%', marginTop: 10, paddingTop: 9, borderTopWidth: 1, borderTopColor: '#E9E1D3' },
+  guardDetailsTitle: { color: C.coral, fontSize: 8, fontWeight: '900', letterSpacing: 1, marginTop: 7, marginBottom: 5 },
+  guardDetailRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: '#F0EADD' },
+  guardDetailName: { color: C.ink, fontSize: 9, fontWeight: '800', flex: 1 },
+  guardDetailAmount: { color: C.ink, fontSize: 9, fontWeight: '900' },
   ruleCard: {
     width: '48%',
     backgroundColor: C.white,

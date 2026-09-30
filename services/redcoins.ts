@@ -144,6 +144,16 @@ export async function loadRedCoins(summary?: BluecoinsSummary | null) {
       const customAccounts = saved.accounts.filter((account) => !summary.redcoins.accounts.some((source) => source.name === account.name));
       const customCategories = saved.categories.filter((category) => !summary.redcoins.categories.some((source) => source.name === category.name));
       const refreshed = freshRedCoinsState(summary);
+      const savedAccountIcons = new Map(saved.accounts.map((account) => [account.name, account.icon]).filter((entry): entry is [string, string] => !!entry[1]));
+      refreshed.accounts.forEach((account) => { const icon = savedAccountIcons.get(account.name); if (icon) account.icon = icon; });
+      const savedCategoryIcons = new Map(saved.categories.map((category) => [category.name, category]));
+      refreshed.categories.forEach((category) => {
+        const previous = savedCategoryIcons.get(category.name);
+        if (previous) {
+          category.icon = previous.icon || category.icon;
+          category.subcategoryIcons = previous.subcategoryIcons || {};
+        }
+      });
       const deletionReconciliation = reconcileOwnWithImported(deletions, refreshed.entries);
       const reconciliation = reconcileOwnWithImported(own, refreshed.entries);
       own.forEach((entry) => {
@@ -370,7 +380,10 @@ export async function mergeRedCoinsIntoBudgetCoach(source: BluecoinsSummary): Pr
   });
   summary.cashReality.liquidBalance = summary.cashReality.cashAccounts.filter((account) => account.selected).reduce((sum, account) => sum + account.balance, 0);
   summary.cashReality.cardOutstanding = summary.cashReality.creditCards.reduce((sum, card) => sum + card.outstanding, 0);
-  summary.cashReality.trueSpendable = Math.min(summary.monthly.remaining, summary.cashReality.liquidBalance - summary.cashReality.cardOutstanding - summary.cashReality.safetyBuffer);
+  const loanReserve = (summary.monthly.expectedFixedCommitments?.items || [])
+    .filter((item) => item.category === 'Debt commitment' && item.status === 'due')
+    .reduce((sum, item) => sum + item.expectedAmount, 0);
+  summary.cashReality.trueSpendable = Math.min(summary.monthly.remaining, summary.cashReality.liquidBalance - summary.cashReality.cardOutstanding - summary.cashReality.safetyBuffer - loanReserve);
   summary.cashReality.coveragePercent = summary.cashReality.cardOutstanding ? (summary.cashReality.liquidBalance / summary.cashReality.cardOutstanding) * 100 : 100;
   summary.spendingGuards.forEach((guard) => {
     const guardStart = new Date(`${guard.cycleStart}T00:00:00`);

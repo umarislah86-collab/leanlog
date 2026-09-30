@@ -962,20 +962,10 @@ export default function HomeScreen({ navigation }: any) {
                 </View>
                 <Text style={styles.realityPickerHint}>WHICH BALANCES COUNT AS SPENDABLE CASH?</Text>
                 <View style={styles.realityAccountList}>
-                  {bluecoins.cashReality.cashAccounts.map((account) => (
-                    <TouchableOpacity key={account.name} style={[styles.realityAccountRow, account.selected && styles.realityAccountRowActive]} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins', { section: 'plan' }); }} activeOpacity={0.72}>
-                      <Ionicons name={account.selected ? 'checkmark-circle' : 'ellipse-outline'} size={20} color={account.selected ? colors.ink : colors.muted} />
-                      <Text style={[styles.realityAccountName, account.selected && styles.realityAccountNameActive]}>{account.name}</Text>
-                      <Text style={styles.realityAccountBalance}>{money(account.balance)}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                <Text style={styles.realityPickerHint}>SAFETY BUFFER</Text>
-                <View style={styles.budgetEditRow}>
-                  <Text style={styles.currencyPrefix}>RM</Text>
-                  <TextInput style={styles.budgetInput} value={safetyBufferInput} editable={false} />
-                  <TouchableOpacity style={styles.budgetSave} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins', { section: 'plan' }); }}>
-                    <Text style={styles.budgetSaveText}>Manage</Text>
+                  <TouchableOpacity style={styles.realityAccountSummary} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins', { section: 'plan' }); }} activeOpacity={0.78}>
+                    <Ionicons name="checkmark-circle" size={20} color={colors.ink} />
+                    <Text style={styles.realityAccountNameActive}>{bluecoins.cashReality.selectedAccounts.length ? bluecoins.cashReality.selectedAccounts.join(' · ') : 'No cash account selected'}</Text>
+                    <Ionicons name="arrow-forward" size={16} color={colors.muted} />
                   </TouchableOpacity>
                 </View>
                 <Text style={styles.suggestedHint}>Card purchases reduce true spendable immediately. Paying the card later is settlement—not a second expense.</Text>
@@ -2699,6 +2689,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#DED5C6',
   },
   realityAccountRowActive: { backgroundColor: '#E2F4EB' },
+  realityAccountSummary: { minHeight: 54, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#E2F4EB', borderRadius: 14 },
   realityAccountName: { flex: 1, color: colors.muted, fontSize: 11, fontWeight: '800' },
   realityAccountNameActive: { color: colors.ink },
   realityAccountBalance: { color: colors.ink, fontSize: 10, fontWeight: '900' },

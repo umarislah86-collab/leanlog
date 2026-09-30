@@ -730,6 +730,20 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
       remaining: expectedItems.reduce((sum, item) => sum + (item.status === 'paid' ? 0 : item.expectedAmount), 0),
       items: expectedItems,
     };
+    const loanDetails = expectedItems
+      .filter((item) => item.category === 'Debt commitment')
+      .map((item) => ({ subcategory: 'Loan', item: item.label.replace(/^Loan \| /, ''), amount: item.currentAmount || item.expectedAmount, share: 0, transactions: item.currentAmount > 0 ? 1 : 0 }));
+    if (loanDetails.length) {
+      const loanAmount = loanDetails.reduce((sum, item) => sum + item.amount, 0);
+      monthlyTopCategories.push({ name: 'Debt commitment', amount: loanAmount, share: monthSpent ? (loanAmount / monthSpent) * 100 : 0, details: loanDetails });
+      monthlyTopCategories.sort((a, b) => b.amount - a.amount);
+    }
+    // Active mortgage/car loans are commitments, not optional cash. Reserve any
+    // amount still due in the current cycle in Cash Reality as well as Budget Coach.
+    const loanReserve = expectedItems
+      .filter((item) => item.category === 'Debt commitment' && item.status === 'due')
+      .reduce((sum, item) => sum + item.expectedAmount, 0);
+    cashReality.trueSpendable = Math.min(cashReality.trueSpendable, cashReality.liquidBalance - cashReality.cardOutstanding - cashReality.safetyBuffer - loanReserve);
     const alerts: string[] = [];
     if (cashReality.trueSpendable < 0) alerts.push(`Cash illusion alert: selected banks are RM ${Math.abs(cashReality.trueSpendable).toFixed(0)} short after reserving unpaid card debt${cashReality.safetyBuffer > 0 ? ' and your safety buffer' : ''}.`);
     else if (cashReality.cardOutstanding > 0) alerts.push(`After reserving RM ${cashReality.cardOutstanding.toFixed(0)} for unpaid cards, your true spendable cash is RM ${cashReality.trueSpendable.toFixed(0)}.`);
