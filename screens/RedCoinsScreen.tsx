@@ -1,7 +1,10 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, InteractionManager, Modal, Pressable, ScrollView, SectionList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, AppState, InteractionManager, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, SectionList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import Svg, { Circle } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BluecoinsDriveReader from 'bluecoins-drive-reader';
@@ -23,11 +26,19 @@ const C = {
   gold: '#E7B84A',
 };
 const money = (n = 0) => `RM ${Math.abs(n).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const html = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]!));
 const dayKey = (value: string) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value.slice(0, 10);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
+const localDay = (value: string) => new Date(`${value}T00:00:00`);
+const nextLocalDay = (value: string) => {
+  const date = localDay(value);
+  date.setDate(date.getDate() + 1);
+  return date;
+};
+const reportDate = (value: Date) => value.toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
 const entryTime = (value: string) => {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
@@ -40,8 +51,25 @@ const entryTime = (value: string) => {
 };
 const budgetKey = (category: string, subcategory: string) => `${category}\u0000${subcategory}`;
 type Section = 'home' | 'activity' | 'accounts' | 'plan' | 'reports';
+type ReportMode = 'salary-cycle' | 'custom';
+type SalarySource = { key: string; label: string; entries: RedCoinsEntry[]; average: number };
 const LEDGER_PAGE_SIZE = 120;
-const ICON_LIBRARY = ['wallet', 'cash', 'card', 'business', 'briefcase', 'trending-up', 'home', 'restaurant', 'cart', 'basket', 'car-sport', 'bus', 'airplane', 'train', 'bicycle', 'flash', 'water', 'wifi', 'phone-portrait', 'medical', 'fitness', 'barbell', 'school', 'book', 'game-controller', 'film', 'musical-notes', 'paw', 'people', 'person', 'heart', 'gift', 'shirt', 'construct', 'hammer', 'cafe', 'beer', 'cut', 'camera', 'desktop', 'cloud', 'leaf', 'flower', 'key', 'shield-checkmark', 'receipt', 'calendar', 'location', 'ellipsis-horizontal-circle'];
+// Curated from the Ionicons set bundled by @expo/vector-icons. Keeping a curated
+// catalogue gives broad coverage without mounting the entire font map at once.
+const ICON_LIBRARY = [
+  'wallet', 'cash', 'card', 'business', 'briefcase', 'trending-up', 'stats-chart', 'pie-chart', 'bar-chart', 'calculator', 'receipt', 'pricetag', 'ticket', 'storefront',
+  'home', 'bed', 'key', 'lock-closed', 'shield-checkmark', 'construct', 'build', 'hammer', 'cut', 'color-palette', 'layers',
+  'restaurant', 'fast-food', 'pizza', 'cafe', 'beer', 'wine', 'nutrition', 'fish', 'ice-cream', 'water', 'basket', 'cart', 'bag',
+  'car', 'car-sport', 'bus', 'airplane', 'train', 'subway', 'bicycle', 'boat', 'walk', 'rocket', 'map', 'location', 'pin', 'compass',
+  'medical', 'medkit', 'fitness', 'barbell', 'bandage', 'pulse', 'body', 'accessibility', 'glasses', 'eye',
+  'school', 'book', 'library', 'newspaper', 'document-text', 'clipboard', 'pencil', 'language', 'ribbon', 'trophy',
+  'game-controller', 'film', 'musical-notes', 'headset', 'mic', 'camera', 'images', 'videocam', 'tv', 'desktop', 'laptop',
+  'phone-portrait', 'call', 'chatbubble', 'mail', 'wifi', 'cloud', 'download', 'print', 'save', 'qr-code', 'scan',
+  'flash', 'bulb', 'battery-charging', 'thermometer', 'flame', 'partly-sunny', 'umbrella', 'earth', 'leaf', 'flower',
+  'people', 'person', 'person-add', 'man', 'woman', 'heart', 'heart-circle', 'happy', 'paw', 'shirt', 'gift', 'diamond',
+  'calendar', 'time', 'stopwatch', 'alarm', 'notifications', 'repeat', 'sync', 'checkmark-circle', 'warning', 'information-circle',
+  'settings', 'options', 'filter', 'search', 'star', 'flag', 'bookmark', 'attach', 'link', 'ellipsis-horizontal-circle',
+];
 
 export default function RedCoinsScreen({ navigation, route }: any) {
   const [state, setState] = useState<RedCoinsState | null>(null);
@@ -57,9 +85,10 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const [editingSubName, setEditingSubName] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
-  const [filterType, setFilterType] = useState<'all' | RedCoinsType>('all');
-  const [filterAccount, setFilterAccount] = useState('all');
-  const [filterCategory, setFilterCategory] = useState('all');
+  const [filterTypes, setFilterTypes] = useState<RedCoinsType[]>([]);
+  const [filterAccounts, setFilterAccounts] = useState<string[]>([]);
+  const [filterCategories, setFilterCategories] = useState<string[]>([]);
+  const [filterSubcategories, setFilterSubcategories] = useState<string[]>([]);
   const [filterDay, setFilterDay] = useState('');
   const [calendarCursor, setCalendarCursor] = useState(() => new Date());
   const [collapsedCards, setCollapsedCards] = useState<string[]>([]);
@@ -107,6 +136,14 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const [expandedGuardId, setExpandedGuardId] = useState<string | null>(null);
   const [expandedGuardPart, setExpandedGuardPart] = useState<string | null>(null);
   const [guardDraft, setGuardDraft] = useState<{ id?: string; name: string; scope: GuardScope; target: string; limit: string }>({ name: '', scope: 'account', target: '', limit: '' });
+  const [reportMode, setReportMode] = useState<ReportMode>('salary-cycle');
+  const [reportSalarySource, setReportSalarySource] = useState('');
+  const [reportCycleOffset, setReportCycleOffset] = useState(0);
+  const [reportCustomStart, setReportCustomStart] = useState(() => `${new Date().getFullYear()}-01-01`);
+  const [reportCustomEnd, setReportCustomEnd] = useState(() => dayKey(new Date().toISOString()));
+  const [reportPeriodOpen, setReportPeriodOpen] = useState(false);
+  const [expandedReportCategory, setExpandedReportCategory] = useState<string | null>(null);
+  const [reportExporting, setReportExporting] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -123,6 +160,12 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       setCycleBudgetDraft(String(loaded.monthlyBudget));
       setPaydayDraft(String(loaded.payday));
       setSafetyBufferDraft(String(loaded.safetyBuffer));
+      if (loaded.reportPreferences) {
+        setReportMode(loaded.reportPreferences.mode);
+        setReportSalarySource(loaded.reportPreferences.salarySource);
+        setReportCustomStart(loaded.reportPreferences.customStart);
+        setReportCustomEnd(loaded.reportPreferences.customEnd);
+      }
       const latest = loaded.entries.reduce<Date | null>((best, entry) => {
         const date = new Date(entry.date);
         return !best || date > best ? date : best;
@@ -143,7 +186,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     if (!ledgerReady || ledgerFallback) {
       if (!state) return;
       const needle = search.trim().toLocaleLowerCase('en-MY');
-      const filtered = state.entries.filter((entry) => (!needle || [entry.item, entry.category, entry.subcategory, entry.account, entry.toAccount, entry.note].filter(Boolean).join(' ').toLocaleLowerCase('en-MY').includes(needle)) && (filterType === 'all' || entry.type === filterType) && (filterAccount === 'all' || entry.account === filterAccount || entry.toAccount === filterAccount) && (filterCategory === 'all' || entry.category === filterCategory) && (!filterDay || dayKey(entry.date) === filterDay));
+      const filtered = state.entries.filter((entry) => (!needle || [entry.item, entry.category, entry.subcategory, entry.account, entry.toAccount, entry.note].filter(Boolean).join(' ').toLocaleLowerCase('en-MY').includes(needle)) && (!filterTypes.length || filterTypes.includes(entry.type)) && (!filterAccounts.length || filterAccounts.includes(entry.account) || !!entry.toAccount && filterAccounts.includes(entry.toAccount)) && (!filterCategories.length || filterCategories.includes(entry.category)) && (!filterSubcategories.length || filterSubcategories.includes(entry.subcategory)) && (!filterDay || dayKey(entry.date) === filterDay));
       setLedgerEntries(filtered.slice(0, visibleLedgerCount));
       setLedgerTotal(filtered.length);
       return;
@@ -151,9 +194,10 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     const requestId = ++ledgerQueryId.current;
     queryRedCoinsLedger({
       search,
-      type: filterType,
-      account: filterAccount,
-      category: filterCategory,
+      types: filterTypes,
+      accounts: filterAccounts,
+      categories: filterCategories,
+      subcategories: filterSubcategories,
       day: filterDay,
       limit: visibleLedgerCount,
     })
@@ -167,7 +211,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         console.warn('RedCoins ledger query failed', error);
         setLedgerFallback(true);
       });
-  }, [ledgerReady, ledgerFallback, ledgerRevision, section, search, filterType, filterAccount, filterCategory, filterDay, visibleLedgerCount, state]);
+  }, [ledgerReady, ledgerFallback, ledgerRevision, section, search, filterTypes, filterAccounts, filterCategories, filterSubcategories, filterDay, visibleLedgerCount, state]);
 
   useEffect(() => {
     const refreshDetector = () => {
@@ -408,6 +452,23 @@ export default function RedCoinsScreen({ navigation, route }: any) {
 
   const filtered = ledgerEntries;
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const categoryIcons = useMemo(() => {
+    const icons = new Map<string, { icon?: string; subcategoryIcons?: Record<string, string> }>();
+    (state?.categories || []).forEach((category) => {
+      icons.set(category.name, {
+        icon: category.icon,
+        subcategoryIcons: category.subcategoryIcons,
+      });
+    });
+    return icons;
+  }, [state?.categories]);
+  const iconForEntry = useCallback((entry: RedCoinsEntry) => {
+    if (entry.type !== 'expense') return transactionIcon(entry);
+    const category = categoryIcons.get(entry.category);
+    const savedIcon = category?.subcategoryIcons?.[entry.subcategory] || category?.icon;
+    return savedIcon && ICON_LIBRARY.includes(savedIcon) ? savedIcon : transactionIcon(entry);
+  }, [categoryIcons]);
+  const ledgerExtraData = useMemo(() => ({ selectedIds, categoryIcons }), [selectedIds, categoryIcons]);
   const entryBalanceById = useMemo(() => {
     if (!state) return new Map<string, number>();
     const balances = new Map(state.accounts.map((account) => [account.name, account.balance]));
@@ -472,17 +533,19 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const openDashboardFilter = (kind: 'day' | 'category' | 'account', value: string) => {
     setSearch('');
     setSelectedIds([]);
-    setFilterType('all');
+    setFilterTypes([]);
     setFilterDay(kind === 'day' ? value : '');
-    setFilterCategory(kind === 'category' ? value : 'all');
-    setFilterAccount(kind === 'account' ? value : 'all');
+    setFilterCategories(kind === 'category' ? [value] : []);
+    setFilterAccounts(kind === 'account' ? [value] : []);
+    setFilterSubcategories([]);
     setSection('activity');
   };
-  const applyLedgerFilters = useCallback((next: { type: 'all' | RedCoinsType; account: string; category: string; day: string }) => {
+  const applyLedgerFilters = useCallback((next: { types: RedCoinsType[]; accounts: string[]; categories: string[]; subcategories: string[]; day: string }) => {
     setVisibleLedgerCount(LEDGER_PAGE_SIZE);
-    setFilterType(next.type);
-    setFilterAccount(next.account);
-    setFilterCategory(next.category);
+    setFilterTypes(next.types);
+    setFilterAccounts(next.accounts);
+    setFilterCategories(next.categories);
+    setFilterSubcategories(next.subcategories);
     setFilterDay(next.day);
     setFilterOpen(false);
   }, []);
@@ -530,6 +593,99 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       .filter((group) => group.subcategories.length > 0);
   }, [state?.categories, state?.entries]);
   const budgetKeys = useMemo(() => new Set(budgetCategories.flatMap((group) => group.subcategories.map((subcategory) => budgetKey(group.name, subcategory)))), [budgetCategories]);
+
+  const salarySources = useMemo<SalarySource[]>(() => {
+    if (!state) return [];
+    const groups = new Map<string, RedCoinsEntry[]>();
+    state.entries.filter((entry) => entry.type === 'income').forEach((entry) => {
+      const key = entry.item.trim().toLowerCase().replace(/\s+/g, ' ');
+      if (!key) return;
+      const rows = groups.get(key);
+      if (rows) rows.push(entry);
+      else groups.set(key, [entry]);
+    });
+    return [...groups].map(([key, entries]) => ({
+      key,
+      label: entries[0].item.trim(),
+      entries: [...entries].sort((a, b) => a.date.localeCompare(b.date)),
+      average: entries.reduce((sum, entry) => sum + entry.amount, 0) / entries.length,
+    })).sort((a, b) => b.entries.length - a.entries.length || b.average - a.average);
+  }, [state?.entries]);
+
+  const report = useMemo(() => {
+    if (!state) return null;
+    const source = salarySources.find((item) => item.key === reportSalarySource) || salarySources[0];
+    const maxOffset = Math.max(0, (source?.entries.length || 1) - 1);
+    const safeOffset = Math.min(reportCycleOffset, maxOffset);
+    const anchorIndex = source ? source.entries.length - 1 - safeOffset : -1;
+    const anchor = anchorIndex >= 0 ? source!.entries[anchorIndex] : undefined;
+    const nextAnchor = source && anchorIndex >= 0 ? source.entries[anchorIndex + 1] : undefined;
+    const now = new Date();
+    const start = reportMode === 'custom'
+      ? localDay(reportCustomStart)
+      : anchor ? new Date(anchor.date) : new Date(now.getFullYear(), now.getMonth() - (now.getDate() < state.payday ? 1 : 0), state.payday);
+    const endExclusive = reportMode === 'custom'
+      ? nextLocalDay(reportCustomEnd)
+      : nextAnchor ? new Date(nextAnchor.date) : new Date(now.getTime() + 1);
+    const rows = state.entries.filter((entry) => {
+      const date = new Date(entry.date);
+      return date >= start && date < endExclusive;
+    });
+    const actualRows = rows.filter((entry) => new Date(entry.date) <= now);
+    const scheduledRows = rows.filter((entry) => new Date(entry.date) > now);
+    const expenses = actualRows.filter((entry) => entry.type === 'expense');
+    const incomes = actualRows.filter((entry) => entry.type === 'income');
+    const transfers = actualRows.filter((entry) => entry.type === 'transfer');
+    const expense = expenses.reduce((sum, entry) => sum + entry.amount, 0);
+    const income = incomes.reduce((sum, entry) => sum + entry.amount, 0);
+    const transfer = transfers.reduce((sum, entry) => sum + entry.amount, 0);
+    const categories = new Map<string, { amount: number; subcategories: Map<string, number>; entries: RedCoinsEntry[] }>();
+    expenses.forEach((entry) => {
+      const group = categories.get(entry.category) || { amount: 0, subcategories: new Map<string, number>(), entries: [] };
+      group.amount += entry.amount;
+      group.subcategories.set(entry.subcategory, (group.subcategories.get(entry.subcategory) || 0) + entry.amount);
+      group.entries.push(entry);
+      categories.set(entry.category, group);
+    });
+    const accountMovement = new Map<string, { incoming: number; outgoing: number }>();
+    const movement = (name: string | undefined, incoming: number, outgoing: number) => {
+      if (!name) return;
+      const row = accountMovement.get(name) || { incoming: 0, outgoing: 0 };
+      row.incoming += incoming;
+      row.outgoing += outgoing;
+      accountMovement.set(name, row);
+    };
+    actualRows.forEach((entry) => {
+      if (entry.type === 'income') movement(entry.account, entry.amount, 0);
+      if (entry.type === 'expense') movement(entry.account, 0, entry.amount);
+      if (entry.type === 'transfer') {
+        movement(entry.account, 0, entry.amount);
+        movement(entry.toAccount, entry.amount, 0);
+      }
+    });
+    const cycleLabel = anchor
+      ? `${source?.label || 'Salary'} · ${new Date(anchor.date).toLocaleDateString('en-MY', { month: 'short', year: 'numeric' })}`
+      : 'Configured salary cycle';
+    const displayEnd = new Date(endExclusive.getTime() - 1);
+    return {
+      source,
+      maxOffset,
+      safeOffset,
+      start,
+      endExclusive,
+      displayEnd,
+      rows: actualRows,
+      scheduledRows,
+      expense,
+      income,
+      transfer,
+      net: income - expense,
+      cycleLabel,
+      categories: [...categories].sort((a, b) => b[1].amount - a[1].amount),
+      accountMovement: [...accountMovement].sort((a, b) => (b[1].incoming + b[1].outgoing) - (a[1].incoming + a[1].outgoing)),
+      ongoing: reportMode === 'salary-cycle' && !nextAnchor,
+    };
+  }, [state, salarySources, reportSalarySource, reportCycleOffset, reportMode, reportCustomStart, reportCustomEnd]);
 
   const finance = useMemo(() => {
     if (!state) return null;
@@ -874,6 +1030,9 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         <LedgerSearch value={search} onChange={updateLedgerSearch} />
         <TouchableOpacity style={s.filterButton} onPress={() => setFilterOpen(true)}>
           <Ionicons name="options" size={17} color={C.white} />
+          {(filterTypes.length + filterAccounts.length + filterCategories.length + filterSubcategories.length + (filterDay ? 1 : 0)) > 0 && (
+            <Text style={{ color: C.white, fontSize: 10, fontWeight: '900', marginLeft: 4 }}>{filterTypes.length + filterAccounts.length + filterCategories.length + filterSubcategories.length + (filterDay ? 1 : 0)}</Text>
+          )}
         </TouchableOpacity>
       </View>
       {selectedIds.length > 0 && (
@@ -893,15 +1052,38 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     <LedgerFilterModal
       visible={filterOpen}
       current={{
-        type: filterType,
-        account: filterAccount,
-        category: filterCategory,
+        types: filterTypes,
+        accounts: filterAccounts,
+        categories: filterCategories,
+        subcategories: filterSubcategories,
         day: filterDay,
       }}
       accounts={state.accounts.map((entry) => entry.name)}
       categories={state.categories.map((entry) => entry.name)}
+      subcategories={[...new Set(state.categories.flatMap((entry) => entry.subcategories))]}
       close={() => setFilterOpen(false)}
       apply={applyLedgerFilters}
+    />
+  );
+  const reportPeriodModal = (
+    <ReportPeriodModal
+      visible={reportPeriodOpen}
+      mode={reportMode}
+      salarySource={reportSalarySource || salarySources[0]?.key || ''}
+      salarySources={salarySources}
+      customStart={reportCustomStart}
+      customEnd={reportCustomEnd}
+      close={() => setReportPeriodOpen(false)}
+      apply={(next) => {
+        setReportMode(next.mode);
+        setReportSalarySource(next.salarySource);
+        setReportCustomStart(next.customStart);
+        setReportCustomEnd(next.customEnd);
+        setReportCycleOffset(0);
+        setExpandedReportCategory(null);
+        setReportPeriodOpen(false);
+        persist({ ...state, reportPreferences: next }).catch(() => Alert.alert('Could not save report preference', 'The report still changed for this session.'));
+      }}
     />
   );
   const Accounts = () => {
@@ -972,7 +1154,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         />
         {state.categories.map((c) => (
           <View key={c.id} style={s.categoryCard}>
-            <FinanceAvatar name={c.name} kind={c.name} icon={c.icon} />
+            <FinanceAvatar name={c.name} kind={c.name} icon={c.icon} round />
             <View style={{ flex: 1, marginLeft: 10 }}>
               <View style={s.categoryTitleRow}>
                 <Text style={s.categoryName}>{c.name}</Text>
@@ -1012,7 +1194,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
             .filter((e) => e.repeat && e.repeat !== 'none')
             .slice(0, 8)
             .map((e) => (
-              <EntryRow key={e.id} entry={e} />
+              <EntryRow key={e.id} entry={e} icon={iconForEntry(e)} />
             ))}
           {!state.entries.some((e) => e.repeat && e.repeat !== 'none') && <Empty text="No scheduled RedCoins entries yet." />}
         </View>
@@ -1308,38 +1490,116 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       </View>
     </>
   );
-  const Reports = () => (
+  const exportCurrentReportPdf = async () => {
+    if (!report || reportExporting) return;
+    setReportExporting(true);
+    try {
+      const periodLabel = reportMode === 'salary-cycle' ? report.cycleLabel : `${reportDate(report.start)} — ${reportDate(report.displayEnd)}`;
+      const biggestCategory = report.categories[0];
+      const healthLine = report.net >= 0
+        ? `This period retained ${money(report.net)} after expenses.`
+        : `Expenses exceeded income by ${money(Math.abs(report.net))} during this period.`;
+      const categoryMarkup = report.categories.map(([name, group], index) => {
+        const share = report.expense ? (group.amount / report.expense) * 100 : 0;
+        const subs = [...group.subcategories].sort((a, b) => b[1] - a[1]).map(([sub, amount]) => `<div class="sub"><span>${html(sub)}</span><b>${html(money(amount))}</b></div>`).join('');
+        return `<section class="category keep"><div class="cat-head"><span class="rank">${String(index + 1).padStart(2, '0')}</span><div class="grow"><div class="line"><h3>${html(name)}</h3><strong>${html(money(group.amount))}</strong></div><div class="bar"><i style="width:${Math.min(100, share).toFixed(2)}%"></i></div><small>${share.toFixed(1)}% of expense · ${group.entries.length} charge${group.entries.length === 1 ? '' : 's'}</small></div></div><div class="subs">${subs}</div></section>`;
+      }).join('');
+      const accountMarkup = report.accountMovement.map(([name, movement]) => {
+        const net = movement.incoming - movement.outgoing;
+        return `<div class="account keep"><div><h3>${html(name)}</h3><small>In ${html(money(movement.incoming))} · Out ${html(money(movement.outgoing))}</small></div><strong class="${net >= 0 ? 'positive' : 'negative'}">${net >= 0 ? '+' : '−'}${html(money(net))}</strong></div>`;
+      }).join('');
+      const scheduledMarkup = report.scheduledRows.length ? report.scheduledRows.sort((a, b) => a.date.localeCompare(b.date)).map((entry) => `<div class="transaction"><div><b>${html(entry.item)}</b><small>${html(reportDate(new Date(entry.date)))} · ${html(entry.account)} · ${html(entry.subcategory)}</small></div><strong>${html(money(entry.amount))}</strong></div>`).join('') : '<p class="empty">No scheduled transactions inside this period.</p>';
+      const appendix = [...report.rows].sort((a, b) => b.date.localeCompare(a.date)).map((entry) => `<tr><td>${html(reportDate(new Date(entry.date)))}</td><td><b>${html(entry.item)}</b><small>${html(entry.category)} / ${html(entry.subcategory)}</small></td><td>${html(entry.account)}${entry.toAccount ? ` → ${html(entry.toAccount)}` : ''}</td><td class="type">${html(entry.type)}</td><td class="num ${entry.type === 'income' ? 'positive' : entry.type === 'expense' ? 'negative' : ''}">${entry.type === 'income' ? '+' : entry.type === 'expense' ? '−' : ''}${html(money(entry.amount))}</td></tr>`).join('');
+      const documentHtml = `<!doctype html><html><head><meta charset="utf-8"><style>
+        @page{size:A4;margin:14mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#111A2A;margin:0;background:#fff;font-size:10px}h1,h2,h3,p{margin:0}.hero{background:#111A2A;color:#FFF9EA;border-radius:22px;padding:27px;margin-bottom:16px}.brand{color:#F04444;font-size:10px;font-weight:900;letter-spacing:2px}.hero h1{font-family:Georgia,serif;font-size:30px;margin:9px 0 5px}.hero .period{color:#8BD8B6;font-weight:800}.hero .dates{color:#AAB3C1;margin-top:6px}.metrics{display:flex;gap:9px;margin:14px 0}.metric{flex:1;background:#F0E6D4;border-radius:14px;padding:13px}.metric label{display:block;color:#727987;font-size:8px;font-weight:900;letter-spacing:1px}.metric b{display:block;font-family:Georgia,serif;font-size:20px;margin-top:6px}.positive{color:#168A65!important}.negative{color:#E14444!important}.insight{border-left:5px solid #83D8B4;background:#F5F0E7;padding:13px 15px;border-radius:4px 13px 13px 4px;margin-bottom:18px;line-height:1.5}.section-title{font-family:Georgia,serif;font-size:20px;margin:20px 0 4px}.section-kicker{color:#F04444;font-size:8px;font-weight:900;letter-spacing:1.5px}.section-copy{color:#727987;margin:4px 0 10px}.keep{break-inside:avoid}.category{padding:12px 0;border-bottom:1px solid #E6DED1}.cat-head{display:flex;gap:10px}.rank{color:#F04444;font-weight:900}.grow{flex:1}.line{display:flex;justify-content:space-between;align-items:center}.line h3{font-size:12px}.bar{height:5px;background:#ECE5D9;border-radius:5px;margin:7px 0}.bar i{display:block;height:5px;background:#E7B84A;border-radius:5px}.category small,.account small,.transaction small,td small{display:block;color:#7C8290;margin-top:3px}.subs{margin:8px 0 0 23px;background:#F7F1E6;border-radius:10px;padding:6px 10px}.sub{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #E8DFD1}.sub:last-child{border:0}.account,.transaction{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #E8E1D5}.page-break{break-before:page}.summary-strip{display:flex;gap:7px;margin:10px 0}.fact{flex:1;background:#F7F1E6;padding:10px;border-radius:10px}.fact span{display:block;color:#7C8290;font-size:7px;font-weight:900;letter-spacing:.7px}.fact b{display:block;margin-top:4px;font-size:11px}table{width:100%;border-collapse:collapse;margin-top:10px;font-size:8px}th{text-align:left;background:#111A2A;color:#FFF9EA;padding:8px}td{padding:7px;border-bottom:1px solid #E8E1D5;vertical-align:top}.num{text-align:right;font-weight:900}.type{text-transform:uppercase;color:#727987}.footer{color:#8A8F99;border-top:1px solid #DDD5C8;margin-top:22px;padding-top:8px;font-size:7px}.empty{color:#7C8290;background:#F7F1E6;padding:12px;border-radius:10px}
+      </style></head><body>
+        <header class="hero"><div class="brand">LEANLOG / REDCOINS</div><h1>Money, told clearly.</h1><div class="period">${html(periodLabel)}</div><div class="dates">${html(reportDate(report.start))} → ${html(report.ongoing ? 'Today · ongoing' : reportDate(report.displayEnd))}</div></header>
+        <div class="metrics"><div class="metric"><label>INCOME</label><b class="positive">${html(money(report.income))}</b></div><div class="metric"><label>EXPENSE</label><b class="negative">${html(money(report.expense))}</b></div><div class="metric"><label>NET RETAINED</label><b class="${report.net >= 0 ? 'positive' : 'negative'}">${report.net >= 0 ? '' : '−'}${html(money(report.net))}</b></div></div>
+        <div class="insight"><b>Period reading.</b> ${html(healthLine)}${biggestCategory ? ` The largest category was ${html(biggestCategory[0])} at ${html(money(biggestCategory[1].amount))}.` : ''}</div>
+        <div class="summary-strip"><div class="fact"><span>TRANSFERS</span><b>${html(money(report.transfer))}</b></div><div class="fact"><span>TRANSACTIONS</span><b>${report.rows.length}</b></div><div class="fact"><span>SCHEDULED</span><b>${report.scheduledRows.length}</b></div><div class="fact"><span>DAYS COVERED</span><b>${Math.max(1, Math.ceil((report.displayEnd.getTime() - report.start.getTime()) / 86400000) + 1)}</b></div></div>
+        <div class="section-kicker">SPENDING MAP</div><h2 class="section-title">Where the money went</h2><p class="section-copy">Category share, subcategory composition and charge volume for this exact reporting window.</p>${categoryMarkup || '<p class="empty">No expenses in this period.</p>'}
+        <div class="section-kicker">CASH MOVEMENT</div><h2 class="section-title">Accounts in motion</h2><p class="section-copy">Transfers appear here but are not counted as expense.</p>${accountMarkup || '<p class="empty">No account movement in this period.</p>'}
+        <div class="section-kicker">LOOKING AHEAD</div><h2 class="section-title">Scheduled inside the window</h2>${scheduledMarkup}
+        <section class="page-break"><div class="section-kicker">AUDIT TRAIL</div><h2 class="section-title">Transaction appendix</h2><p class="section-copy">Every actual transaction used to calculate this report.</p><table><thead><tr><th>Date</th><th>Transaction</th><th>Account</th><th>Type</th><th style="text-align:right">Amount</th></tr></thead><tbody>${appendix || '<tr><td colspan="5">No transactions.</td></tr>'}</tbody></table></section>
+        <div class="footer">Generated by LeanLog on ${html(new Date().toLocaleString('en-MY'))}. Transfers are excluded from expense and net-retained calculations. Future-dated entries are shown separately as scheduled.</div>
+      </body></html>`;
+      const printable = await Print.printToFileAsync({ html: documentHtml });
+      const safeName = `LeanLog_Report_${dayKey(report.start.toISOString())}_${dayKey(report.displayEnd.toISOString())}_${Date.now()}.pdf`;
+      const destination = `${FileSystem.documentDirectory}${safeName}`;
+      await FileSystem.copyAsync({ from: printable.uri, to: destination });
+      if (!(await Sharing.isAvailableAsync())) return Alert.alert('PDF created', `Saved as ${safeName}.`);
+      await Sharing.shareAsync(destination, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: `Export ${periodLabel}` });
+    } catch (error) {
+      console.warn('RedCoins report PDF export failed', error);
+      Alert.alert('PDF export failed', 'LeanLog could not generate this report. Please try again.');
+    } finally {
+      setReportExporting(false);
+    }
+  };
+
+  const Reports = () => report ? (
     <>
-      <Title eyebrow="REPORTS" title="Patterns, not vibes." />
-      <View style={s.grid}>
-        <Stat label="INCOME" value={income} color={C.mint} />
-        <Stat label="EXPENSE" value={spent} color={C.coral} />
-        <Stat label="NET" value={income - spent} color={C.blue} />
-      </View>
-      <View style={s.card}>
-        <Text style={s.cardTitle}>Top categories · salary cycle</Text>
-        {topCats.map(([name, value], index) => (
-          <View key={name} style={s.reportRow}>
-            <Text style={s.reportName}>
-              {index + 1}. {name}
-            </Text>
-            <View style={s.reportTrack}>
-              <View
-                style={[
-                  s.reportFill,
-                  {
-                    width: `${spent ? Math.min(100, (value / spent) * 100) : 0}%`,
-                  },
-                ]}
-              />
-            </View>
-            <Text style={s.reportValue}>{money(value)}</Text>
+      <Title eyebrow="REPORTS" title="The whole money story." action={reportExporting ? 'BUILDING…' : 'PDF ↗'} onAction={exportCurrentReportPdf} />
+      <TouchableOpacity style={s.reportPeriodCard} onPress={() => setReportPeriodOpen(true)} activeOpacity={0.82}>
+        <View style={s.reportPeriodTop}>
+          <View>
+            <Text style={s.reportPeriodEyebrow}>{reportMode === 'salary-cycle' ? 'SALARY CYCLE' : 'CUSTOM REPORT'}</Text>
+            <Text style={s.reportPeriodTitle}>{reportMode === 'salary-cycle' ? report.cycleLabel : `${reportDate(report.start)} — ${reportDate(report.displayEnd)}`}</Text>
           </View>
-        ))}
-        {!topCats.length && <Empty text="Reports wake up after your first expense." />}
+          <View style={s.reportChange}><Text style={s.reportChangeText}>CHANGE</Text></View>
+        </View>
+        <Text style={s.reportPeriodDates}>{reportDate(report.start)} → {report.ongoing ? 'Today · ongoing' : reportDate(report.displayEnd)}</Text>
+        {reportMode === 'salary-cycle' && <View style={s.reportCycleNav}>
+          <TouchableOpacity disabled={report.safeOffset >= report.maxOffset} onPress={(event) => { event.stopPropagation(); setReportCycleOffset((value) => Math.min(report.maxOffset, value + 1)); }} style={[s.reportArrow, report.safeOffset >= report.maxOffset && s.reportArrowDisabled]}><Ionicons name="chevron-back" size={17} color={C.ink} /></TouchableOpacity>
+          <Text style={s.reportCycleNavText}>{report.safeOffset === 0 ? 'LATEST CYCLE' : `${report.safeOffset} CYCLE${report.safeOffset > 1 ? 'S' : ''} AGO`}</Text>
+          <TouchableOpacity disabled={report.safeOffset === 0} onPress={(event) => { event.stopPropagation(); setReportCycleOffset((value) => Math.max(0, value - 1)); }} style={[s.reportArrow, report.safeOffset === 0 && s.reportArrowDisabled]}><Ionicons name="chevron-forward" size={17} color={C.ink} /></TouchableOpacity>
+        </View>}
+      </TouchableOpacity>
+
+      <View style={s.grid}>
+        <Stat label="INCOME" value={report.income} color="#168A65" />
+        <Stat label="EXPENSE" value={report.expense} color={C.coral} />
+        <Stat label="NET RETAINED" value={report.net} color={report.net >= 0 ? C.blue : C.coral} />
+      </View>
+      <View style={s.reportFacts}>
+        <View style={s.reportFact}><Text style={s.reportFactLabel}>TRANSFERS</Text><Text style={s.reportFactValue}>{money(report.transfer)}</Text></View>
+        <View style={s.reportFact}><Text style={s.reportFactLabel}>TRANSACTIONS</Text><Text style={s.reportFactValue}>{report.rows.length}</Text></View>
+        <View style={s.reportFact}><Text style={s.reportFactLabel}>SCHEDULED</Text><Text style={s.reportFactValue}>{report.scheduledRows.length}</Text></View>
+      </View>
+
+      <View style={s.card}>
+        <Text style={s.cardTitle}>Where the money went</Text>
+        <Text style={s.reportSectionHint}>Tap a category to inspect its subcategories and charges.</Text>
+        {report.categories.map(([name, group], index) => {
+          const expanded = expandedReportCategory === name;
+          return <View key={name} style={s.reportCategoryBlock}>
+            <TouchableOpacity style={s.reportCategoryHead} onPress={() => setExpandedReportCategory(expanded ? null : name)} activeOpacity={0.75}>
+              <Text style={s.reportRank}>{String(index + 1).padStart(2, '0')}</Text>
+              <View style={{ flex: 1 }}>
+                <View style={s.reportCategoryLine}><Text style={s.reportName}>{name}</Text><Text style={s.reportValue}>{money(group.amount)}</Text></View>
+                <View style={s.reportTrack}><View style={[s.reportFill, { width: `${report.expense ? Math.min(100, (group.amount / report.expense) * 100) : 0}%` }]} /></View>
+              </View>
+              <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={15} color={C.muted} />
+            </TouchableOpacity>
+            {expanded && <View style={s.reportDrilldown}>
+              {[...group.subcategories].sort((a, b) => b[1] - a[1]).map(([subcategoryName, amount]) => <View key={subcategoryName}>
+                <View style={s.reportSubRow}><Text style={s.reportSubName}>{subcategoryName}</Text><Text style={s.reportSubAmount}>{money(amount)}</Text></View>
+                {group.entries.filter((entry) => entry.subcategory === subcategoryName).sort((a, b) => b.date.localeCompare(a.date)).map((entry) => <TouchableOpacity key={entry.id} style={s.reportCharge} onPress={() => editEntry(entry)}><View style={{ flex: 1 }}><Text style={s.reportChargeName}>{entry.item}</Text><Text style={s.reportChargeMeta}>{reportDate(new Date(entry.date))} · {entry.account}</Text></View><Text style={s.reportChargeAmount}>{money(entry.amount)}</Text></TouchableOpacity>)}
+              </View>)}
+            </View>}
+          </View>;
+        })}
+        {!report.categories.length && <Empty text="No expenses inside this reporting window." />}
+      </View>
+
+      <View style={s.card}>
+        <Text style={s.cardTitle}>Account movement</Text>
+        <Text style={s.reportSectionHint}>Transfers move cash between accounts but do not count as expense.</Text>
+        {report.accountMovement.map(([name, movement]) => <View key={name} style={s.reportAccountRow}><View style={{ flex: 1 }}><Text style={s.reportName}>{name}</Text><Text style={s.reportChargeMeta}>In {money(movement.incoming)} · Out {money(movement.outgoing)}</Text></View><Text style={[s.reportAccountNet, { color: movement.incoming - movement.outgoing >= 0 ? '#168A65' : C.coral }]}>{movement.incoming - movement.outgoing >= 0 ? '+' : '− '}{money(movement.incoming - movement.outgoing)}</Text></View>)}
+        {!report.accountMovement.length && <Empty text="No account movement in this period." />}
       </View>
     </>
-  );
+  ) : null;
 
   return (
     <SafeAreaView style={s.safe}>
@@ -1359,7 +1619,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
             <SectionList
               sections={activitySections}
               keyExtractor={(entry) => entry.id}
-              renderItem={({ item: entry }) => <EntryRow entry={entry} accountBalance={entryBalanceById.get(entry.id)} selected={selectedSet.has(entry.id)} onPress={selectedIds.length ? () => toggleSelected(entry) : () => editEntry(entry)} onLong={() => toggleSelected(entry)} />}
+              renderItem={({ item: entry }) => <EntryRow entry={entry} icon={iconForEntry(entry)} accountBalance={entryBalanceById.get(entry.id)} selected={selectedSet.has(entry.id)} onPress={selectedIds.length ? () => toggleSelected(entry) : () => editEntry(entry)} onLong={() => toggleSelected(entry)} />}
               renderSectionHeader={({ section }) => (
                 <View style={s.ledgerDate}>
                   <Text style={s.ledgerDateText}>{section.title}</Text>
@@ -1369,7 +1629,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                   </Text>
                 </View>
               )}
-              extraData={selectedIds}
+              extraData={ledgerExtraData}
               initialNumToRender={10}
               maxToRenderPerBatch={8}
               updateCellsBatchingPeriod={16}
@@ -1392,6 +1652,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         </ScrollView>
       )}
       {filterModal}
+      {reportPeriodModal}
       <View style={s.nav}>
         {(['home', 'activity', 'accounts', 'plan', 'reports'] as Section[]).map((name) => (
           <TouchableOpacity key={name} style={[s.navButton, section === name && s.navActive]} onPress={() => setSection(name)}>
@@ -1632,11 +1893,11 @@ const transactionIcon = (entry: RedCoinsEntry): any => {
   if (/bill|utilities|electric|internet/.test(label)) return 'receipt';
   return 'wallet';
 };
-const EntryRow = memo(function EntryRow({ entry, accountBalance, onLong, onPress, selected }: { entry: RedCoinsEntry; accountBalance?: number; onLong?: () => void; onPress?: () => void; selected?: boolean }) {
+const EntryRow = memo(function EntryRow({ entry, icon, accountBalance, onLong, onPress, selected }: { entry: RedCoinsEntry; icon?: string; accountBalance?: number; onLong?: () => void; onPress?: () => void; selected?: boolean }) {
   const color = entry.type === 'transfer' ? C.blue : entry.type === 'income' ? '#18A879' : C.coral;
   return (
     <TouchableOpacity onPress={onPress} onLongPress={onLong} delayLongPress={350} style={[s.entry, selected && s.entrySelected]}>
-      <View style={[s.entryIcon, { backgroundColor: color }]}>{selected ? <Ionicons name="checkmark" size={15} color={C.white} /> : <Ionicons name={transactionIcon(entry)} size={14} color={C.white} />}</View>
+      <View style={[s.entryIcon, { backgroundColor: color }]}>{selected ? <Ionicons name="checkmark" size={15} color={C.white} /> : <Ionicons name={(icon || transactionIcon(entry)) as any} size={14} color={C.white} />}</View>
       <View style={s.entryMain}>
         <Text style={s.entryName} numberOfLines={1}>
           {entry.item}
@@ -1684,26 +1945,33 @@ const LedgerFilterModal = memo(function LedgerFilterModal({
   current,
   accounts,
   categories,
+  subcategories,
   close,
   apply,
 }: {
   visible: boolean;
   current: {
-    type: 'all' | RedCoinsType;
-    account: string;
-    category: string;
+    types: RedCoinsType[];
+    accounts: string[];
+    categories: string[];
+    subcategories: string[];
     day: string;
   };
   accounts: string[];
   categories: string[];
+  subcategories: string[];
   close: () => void;
-  apply: (next: { type: 'all' | RedCoinsType; account: string; category: string; day: string }) => void;
+  apply: (next: { types: RedCoinsType[]; accounts: string[]; categories: string[]; subcategories: string[]; day: string }) => void;
 }) {
   const [draft, setDraft] = useState(current);
   useEffect(() => {
     if (visible) setDraft(current);
   }, [visible]);
-  const clear = () => setDraft({ type: 'all', account: 'all', category: 'all', day: '' });
+  const clear = () => setDraft({ types: [], accounts: [], categories: [], subcategories: [], day: '' });
+  const toggle = (key: 'types' | 'accounts' | 'categories' | 'subcategories', value: string) => setDraft((row) => {
+    const values = row[key] as string[];
+    return { ...row, [key]: values.includes(value) ? values.filter((entry) => entry !== value) : [...values, value] };
+  });
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={close}>
       <View style={s.sheetShade}>
@@ -1728,9 +1996,10 @@ const LedgerFilterModal = memo(function LedgerFilterModal({
                 </View>
               </View>
             ) : null}
-            <FilterList title="TYPE" values={['all', 'expense', 'income', 'transfer']} selected={draft.type} onSelect={(value) => setDraft((row) => ({ ...row, type: value as 'all' | RedCoinsType }))} />
-            <FilterList title="ACCOUNT" values={['all', ...accounts]} selected={draft.account} onSelect={(value) => setDraft((row) => ({ ...row, account: value }))} />
-            <FilterList title="CATEGORY" values={['all', ...categories]} selected={draft.category} onSelect={(value) => setDraft((row) => ({ ...row, category: value }))} />
+            <FilterList title="TYPE" values={['expense', 'income', 'transfer']} selected={draft.types} onSelect={(value) => toggle('types', value)} onAll={() => setDraft((row) => ({ ...row, types: [] }))} />
+            <FilterList title="ACCOUNT" values={accounts} selected={draft.accounts} onSelect={(value) => toggle('accounts', value)} onAll={() => setDraft((row) => ({ ...row, accounts: [] }))} />
+            <FilterList title="CATEGORY" values={categories} selected={draft.categories} onSelect={(value) => toggle('categories', value)} onAll={() => setDraft((row) => ({ ...row, categories: [] }))} />
+            <FilterList title="SUBCATEGORY" values={subcategories} selected={draft.subcategories} onSelect={(value) => toggle('subcategories', value)} onAll={() => setDraft((row) => ({ ...row, subcategories: [] }))} />
           </ScrollView>
           <TouchableOpacity style={s.sheetSave} onPress={() => apply(draft)}>
             <Text style={s.sheetSaveText}>APPLY FILTERS</Text>
@@ -1741,16 +2010,17 @@ const LedgerFilterModal = memo(function LedgerFilterModal({
   );
 });
 
-function FilterList({ title, values, selected, onSelect }: { title: string; values: readonly string[]; selected: string; onSelect: (value: string) => void }) {
+function FilterList({ title, values, selected, onSelect, onAll }: { title: string; values: readonly string[]; selected: string[]; onSelect: (value: string) => void; onAll: () => void }) {
+  const rows = ['all', ...values];
   return (
     <View style={s.filterGroup}>
       <Text style={s.inputLabel}>{title}</Text>
       <View style={s.filterListBox}>
-        {values.map((value, index) => {
-          const active = selected === value;
+        {rows.map((value, index) => {
+          const active = value === 'all' ? selected.length === 0 : selected.includes(value);
           return (
-            <TouchableOpacity key={value} style={[s.filterListRow, index < values.length - 1 && s.filterListDivider, active && s.filterListRowActive]} onPress={() => onSelect(value)} activeOpacity={0.7}>
-              <Ionicons name={active ? 'radio-button-on' : 'radio-button-off'} size={19} color={active ? C.coral : C.muted} />
+            <TouchableOpacity key={value} style={[s.filterListRow, index < rows.length - 1 && s.filterListDivider, active && s.filterListRowActive]} onPress={() => value === 'all' ? onAll() : onSelect(value)} activeOpacity={0.7}>
+              <Ionicons name={active ? 'checkbox' : 'square-outline'} size={19} color={active ? C.coral : C.muted} />
               <Text style={[s.filterListText, active && s.filterListTextActive]}>{value === 'all' ? `All ${title.toLowerCase()}` : value}</Text>
             </TouchableOpacity>
           );
@@ -1758,6 +2028,96 @@ function FilterList({ title, values, selected, onSelect }: { title: string; valu
       </View>
     </View>
   );
+}
+
+function ReportPeriodModal({ visible, mode, salarySource, salarySources, customStart, customEnd, close, apply }: {
+  visible: boolean;
+  mode: ReportMode;
+  salarySource: string;
+  salarySources: SalarySource[];
+  customStart: string;
+  customEnd: string;
+  close: () => void;
+  apply: (value: { mode: ReportMode; salarySource: string; customStart: string; customEnd: string }) => void;
+}) {
+  const [draftMode, setDraftMode] = useState(mode);
+  const [draftSource, setDraftSource] = useState(salarySource);
+  const [draftStart, setDraftStart] = useState(customStart);
+  const [draftEnd, setDraftEnd] = useState(customEnd);
+  const [picker, setPicker] = useState<'start' | 'end' | null>(null);
+  useEffect(() => {
+    if (!visible) return;
+    setDraftMode(mode);
+    setDraftSource(salarySource || salarySources[0]?.key || '');
+    setDraftStart(customStart);
+    setDraftEnd(customEnd);
+    setPicker(null);
+  }, [visible]);
+  const preset = (kind: 'month' | 'last-month' | 'quarter' | 'year') => {
+    const now = new Date();
+    let start = new Date(now.getFullYear(), now.getMonth(), 1);
+    let end = now;
+    if (kind === 'last-month') {
+      start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      end = new Date(now.getFullYear(), now.getMonth(), 0);
+    } else if (kind === 'quarter') start = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+    else if (kind === 'year') start = new Date(now.getFullYear(), 0, 1);
+    setDraftStart(dayKey(start.toISOString()));
+    setDraftEnd(dayKey(end.toISOString()));
+  };
+  const submit = () => {
+    if (draftMode === 'custom' && localDay(draftStart) > localDay(draftEnd)) return Alert.alert('Invalid reporting window', 'The start date must be before the end date.');
+    if (draftMode === 'salary-cycle' && !draftSource) return Alert.alert('Salary anchor required', 'Log or import a salary income first, then choose it as the cycle anchor.');
+    apply({ mode: draftMode, salarySource: draftSource, customStart: draftStart, customEnd: draftEnd });
+  };
+  return <Modal visible={visible} transparent animationType="slide" onRequestClose={close}>
+    <Pressable style={s.sheetShade} onPress={close}>
+      <Pressable style={[s.sheet, { maxHeight: '90%' }]} onPress={() => {}}>
+        <View style={s.sheetGrab} />
+        <Text style={s.eyebrow}>REPORTING WINDOW</Text>
+        <Text style={s.sheetTitle}>Choose the story to tell.</Text>
+        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <TouchableOpacity style={[s.periodModeRow, draftMode === 'salary-cycle' && s.periodModeRowActive]} onPress={() => setDraftMode('salary-cycle')}>
+            <Ionicons name={draftMode === 'salary-cycle' ? 'radio-button-on' : 'radio-button-off'} size={20} color={draftMode === 'salary-cycle' ? C.coral : C.muted} />
+            <View style={{ flex: 1 }}><Text style={s.periodModeTitle}>Salary cycle</Text><Text style={s.periodModeMeta}>From one real salary credit to the next.</Text></View>
+          </TouchableOpacity>
+          <TouchableOpacity style={[s.periodModeRow, draftMode === 'custom' && s.periodModeRowActive]} onPress={() => setDraftMode('custom')}>
+            <Ionicons name={draftMode === 'custom' ? 'radio-button-on' : 'radio-button-off'} size={20} color={draftMode === 'custom' ? C.coral : C.muted} />
+            <View style={{ flex: 1 }}><Text style={s.periodModeTitle}>Custom range</Text><Text style={s.periodModeMeta}>Any inclusive start and end date.</Text></View>
+          </TouchableOpacity>
+
+          {draftMode === 'salary-cycle' ? <View style={s.periodSection}>
+            <Text style={s.inputLabel}>SALARY ANCHOR</Text>
+            {salarySources.map((source) => <TouchableOpacity key={source.key} style={[s.salarySourceRow, draftSource === source.key && s.salarySourceRowActive]} onPress={() => setDraftSource(source.key)}>
+              <Ionicons name={draftSource === source.key ? 'checkmark-circle' : 'ellipse-outline'} size={19} color={draftSource === source.key ? '#168A65' : C.muted} />
+              <View style={{ flex: 1 }}><Text style={s.salarySourceName}>{source.label}</Text><Text style={s.periodModeMeta}>{source.entries.length} income record{source.entries.length === 1 ? '' : 's'} · average {money(source.average)}</Text></View>
+            </TouchableOpacity>)}
+            {!salarySources.length && <Empty text="No income transaction is available as a salary anchor yet." />}
+          </View> : <View style={s.periodSection}>
+            <Text style={s.inputLabel}>QUICK RANGE</Text>
+            <View style={s.periodPresetGrid}>
+              <TouchableOpacity style={s.periodPreset} onPress={() => preset('month')}><Text style={s.periodPresetText}>THIS MONTH</Text></TouchableOpacity>
+              <TouchableOpacity style={s.periodPreset} onPress={() => preset('last-month')}><Text style={s.periodPresetText}>LAST MONTH</Text></TouchableOpacity>
+              <TouchableOpacity style={s.periodPreset} onPress={() => preset('quarter')}><Text style={s.periodPresetText}>THIS QUARTER</Text></TouchableOpacity>
+              <TouchableOpacity style={s.periodPreset} onPress={() => preset('year')}><Text style={s.periodPresetText}>THIS YEAR</Text></TouchableOpacity>
+            </View>
+            <View style={s.periodDatesRow}>
+              <TouchableOpacity style={s.periodDateButton} onPress={() => setPicker('start')}><Text style={s.inputLabel}>FROM</Text><Text style={s.periodDateValue}>{reportDate(localDay(draftStart))}</Text></TouchableOpacity>
+              <Ionicons name="arrow-forward" size={17} color={C.muted} />
+              <TouchableOpacity style={s.periodDateButton} onPress={() => setPicker('end')}><Text style={s.inputLabel}>TO</Text><Text style={s.periodDateValue}>{reportDate(localDay(draftEnd))}</Text></TouchableOpacity>
+            </View>
+            {picker && <DateTimePicker value={localDay(picker === 'start' ? draftStart : draftEnd)} mode="date" onChange={(_, value) => {
+              setPicker(null);
+              if (!value) return;
+              const key = dayKey(value.toISOString());
+              if (picker === 'start') setDraftStart(key); else setDraftEnd(key);
+            }} />}
+          </View>}
+        </ScrollView>
+        <TouchableOpacity style={s.sheetSave} onPress={submit}><Text style={s.sheetSaveText}>SHOW REPORT</Text></TouchableOpacity>
+      </Pressable>
+    </Pressable>
+  </Modal>;
 }
 
 function EntryModal(p: any) {
@@ -1948,7 +2308,7 @@ function EntryModal(p: any) {
                           }}
                         >
                           <View style={s.categoryIcon}>
-                            {ICON_LIBRARY.includes(group.icon) ? <Ionicons name={group.icon as any} size={17} color={C.ink} /> : <Text>{group.icon}</Text>}
+                            {ICON_LIBRARY.includes(group.subcategoryIcons?.[sub] || group.icon) ? <Ionicons name={(group.subcategoryIcons?.[sub] || group.icon) as any} size={17} color={C.ink} /> : <Text>{group.subcategoryIcons?.[sub] || group.icon}</Text>}
                           </View>
                           <Text style={s.categoryChoiceText}>{sub}</Text>
                         </TouchableOpacity>
@@ -2000,7 +2360,7 @@ function PickerRow({ icon, label, value, onPress }: any) {
 function SelectionSheet({ visible, close, search, setSearch, title, children }: any) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={close}>
-      <View style={s.sheetShade}>
+      <KeyboardAvoidingView style={s.keyboardSheetShade} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
         <View style={s.selectionSheet}>
           <View style={s.sheetGrab} />
           <View style={s.selectionTop}>
@@ -2009,9 +2369,9 @@ function SelectionSheet({ visible, close, search, setSearch, title, children }: 
               <Text style={s.selectionDoneText}>DONE</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView keyboardShouldPersistTaps="handled">{children}</ScrollView>
+          <ScrollView keyboardShouldPersistTaps="always" keyboardDismissMode="on-drag" contentContainerStyle={s.selectionResults}>{children}</ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -2026,9 +2386,11 @@ function BudgetModal({ visible, target, value, setValue, allocated, total, curre
   const available = Math.max(0, total - allocated + current);
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={close}>
-      <Pressable style={s.sheetShade} onPress={close}>
-        <Pressable style={s.sheet} onPress={() => {}}>
+      <KeyboardAvoidingView style={s.keyboardSheetShade} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
+        <Pressable style={s.keyboardSheetFill} onPress={close}>
+          <Pressable style={[s.sheet, s.keyboardScrollableSheet]} onPress={() => {}}>
           <View style={s.sheetGrab} />
+          <ScrollView keyboardShouldPersistTaps="always" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}>
           <Text style={s.eyebrow}>SUBCATEGORY BUDGET</Text>
           <Text style={s.sheetTitle}>{target?.subcategory || 'Budget'}</Text>
           <Text style={s.budgetModalParent}>
@@ -2048,17 +2410,29 @@ function BudgetModal({ visible, target, value, setValue, allocated, total, curre
           <TouchableOpacity style={s.sheetSave} onPress={save}>
             <Text style={s.sheetSaveText}>SAVE BUDGET</Text>
           </TouchableOpacity>
+          </ScrollView>
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 function ManageModal({ visible, mode, close, draft, save, editing }: any) {
+  const [iconSearch, setIconSearch] = useState('');
+  useEffect(() => {
+    if (visible) setIconSearch('');
+  }, [visible]);
+  const visibleIcons = useMemo(() => {
+    const query = iconSearch.trim().toLowerCase();
+    return query ? ICON_LIBRARY.filter((icon) => icon.includes(query)) : ICON_LIBRARY;
+  }, [iconSearch]);
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={close}>
-      <Pressable style={s.sheetShade} onPress={close}>
-        <Pressable style={s.sheet} onPress={() => {}}>
+      <KeyboardAvoidingView style={s.keyboardSheetShade} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
+        <Pressable style={s.keyboardSheetFill} onPress={close}>
+          <Pressable style={[s.sheet, s.keyboardScrollableSheet]} onPress={() => {}}>
           <View style={s.sheetGrab} />
+          <ScrollView keyboardShouldPersistTaps="always" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}>
           <Text style={s.eyebrow}>{editing ? 'EDIT STRUCTURE' : mode === 'account' ? 'NEW ACCOUNT' : mode === 'category' ? 'NEW CATEGORY' : 'NEW SUBCATEGORY'}</Text>
           <Text style={s.sheetTitle}>{editing ? 'Keep your money map accurate' : mode === 'account' ? 'Add your money container' : mode === 'category' ? 'Name the spending' : `Add to ${draft.draftParent}`}</Text>
           {mode === 'account' ? (
@@ -2083,21 +2457,37 @@ function ManageModal({ visible, mode, close, draft, save, editing }: any) {
             <Field label="SUBCATEGORY" value={draft.draftSub} onChange={draft.setDraftSub} />
           )}
           <Text style={s.inputLabel}>ICON</Text>
+          <View style={s.iconSearchWrap}>
+            <Ionicons name="search" size={17} color={C.muted} />
+            <TextInput
+              value={iconSearch}
+              onChangeText={setIconSearch}
+              placeholder="Search icons — food, car, home…"
+              placeholderTextColor={C.muted}
+              autoCorrect={false}
+              autoCapitalize="none"
+              style={s.iconSearchInput}
+            />
+            {!!iconSearch && <TouchableOpacity onPress={() => setIconSearch('')} hitSlop={8}><Ionicons name="close-circle" size={18} color={C.muted} /></TouchableOpacity>}
+          </View>
           <ScrollView style={s.iconLibraryScroll} contentContainerStyle={s.iconLibrary} nestedScrollEnabled>
-            {ICON_LIBRARY.map((icon) => <TouchableOpacity key={icon} style={[s.iconChoice, draft.draftIcon === icon && s.iconChoiceActive]} onPress={() => draft.setDraftIcon(icon)}><Ionicons name={icon as any} size={19} color={draft.draftIcon === icon ? C.white : C.ink} /></TouchableOpacity>)}
+            {visibleIcons.map((icon) => <TouchableOpacity key={icon} accessibilityLabel={icon.replace(/-/g, ' ')} style={[s.iconChoice, draft.draftIcon === icon && s.iconChoiceActive]} onPress={() => draft.setDraftIcon(icon)}><Ionicons name={icon as any} size={19} color={draft.draftIcon === icon ? C.white : C.ink} /></TouchableOpacity>)}
+            {!visibleIcons.length && <Text style={s.empty}>No matching standard icon.</Text>}
           </ScrollView>
           <TouchableOpacity style={s.sheetSave} onPress={save}>
             <Text style={s.sheetSaveText}>SAVE</Text>
           </TouchableOpacity>
+          </ScrollView>
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 function GuardModal({ visible, draft, setDraft, options, close, save, remove }: any) {
   const targets = draft.scope === 'account' ? options?.accounts || [] : draft.scope === 'category' ? options?.categories || [] : options?.subcategories || [];
-  return <Modal visible={visible} transparent animationType="slide" onRequestClose={close}><Pressable style={s.sheetShade} onPress={close}><Pressable style={s.sheet} onPress={() => {}}><View style={s.sheetGrab} />
+  return <Modal visible={visible} transparent animationType="slide" onRequestClose={close}><KeyboardAvoidingView style={s.keyboardSheetShade} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}><Pressable style={s.keyboardSheetFill} onPress={close}><Pressable style={[s.sheet, s.keyboardScrollableSheet]} onPress={() => {}}><View style={s.sheetGrab} /><ScrollView keyboardShouldPersistTaps="always" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}>
     <Text style={s.eyebrow}>{draft.id ? 'EDIT SPENDING GUARD' : 'NEW SPENDING GUARD'}</Text><Text style={s.sheetTitle}>Draw a clear boundary.</Text>
     <Field label="NAME" value={draft.name} onChange={(name: string) => setDraft((value: any) => ({ ...value, name }))} />
     <Text style={s.inputLabel}>WATCH</Text><View style={s.typeRow}>{(['account', 'category', 'subcategory'] as GuardScope[]).map((scope) => <TouchableOpacity key={scope} style={[s.repeatButton, draft.scope === scope && s.repeatActive]} onPress={() => setDraft((value: any) => ({ ...value, scope, target: (scope === 'account' ? options?.accounts : scope === 'category' ? options?.categories : options?.subcategories)?.[0] || '' }))}><Text style={s.repeatText}>{scope.toUpperCase()}</Text></TouchableOpacity>)}</View>
@@ -2105,17 +2495,17 @@ function GuardModal({ visible, draft, setDraft, options, close, save, remove }: 
     <Field label="LIMIT (RM)" value={draft.limit} onChange={(limit: string) => setDraft((value: any) => ({ ...value, limit }))} numeric />
     <TouchableOpacity style={s.sheetSave} onPress={save}><Text style={s.sheetSaveText}>SAVE GUARD</Text></TouchableOpacity>
     {remove && <TouchableOpacity style={s.guardDelete} onPress={remove}><Text style={s.guardDeleteText}>DELETE GUARD</Text></TouchableOpacity>}
-  </Pressable></Pressable></Modal>;
+  </ScrollView></Pressable></Pressable></KeyboardAvoidingView></Modal>;
 }
 
 function inferFinanceIcon(name: string, kind?: string) {
   const value = `${kind || ''} ${name}`.toLowerCase();
   return value.includes('credit') ? 'card' : value.includes('cash') ? 'wallet' : value.includes('invest') ? 'trending-up' : value.includes('engine') || value.includes('minyak') ? 'car-sport' : value.includes('dining') || value.includes('food') ? 'restaurant' : value.includes('house') || value.includes('grocery') ? 'home' : value.includes('people') ? 'people' : value.includes('utilit') ? 'flash' : value.includes('travel') ? 'airplane' : value.includes('employer') || value.includes('salary') ? 'briefcase' : value.includes('liabil') || value.includes('loan') ? 'document-text' : 'grid';
 }
-function FinanceAvatar({ name, kind, icon }: { name: string; kind?: string; icon?: string }) {
+function FinanceAvatar({ name, kind, icon, round = false }: { name: string; kind?: string; icon?: string; round?: boolean }) {
   const palettes = [['#F4C7B8', '#7D2D2B'], ['#BFE0D4', '#185E50'], ['#C9D8F4', '#274E91'], ['#E8D3A8', '#72531B']];
   const index = [...name].reduce((sum, char) => sum + char.charCodeAt(0), 0) % palettes.length;
-  return <View style={[s.financeAvatar, { backgroundColor: palettes[index][0] }]}><Ionicons name={(icon || inferFinanceIcon(name, kind)) as any} size={21} color={palettes[index][1]} /></View>;
+  return <View style={[s.financeAvatar, round && s.financeAvatarRound, { backgroundColor: palettes[index][0] }]}><Ionicons name={(icon || inferFinanceIcon(name, kind)) as any} size={21} color={palettes[index][1]} /></View>;
 }
 
 const s = StyleSheet.create({
@@ -2317,6 +2707,9 @@ const s = StyleSheet.create({
   accountListBalance: { color: '#168A65', fontSize: 11, fontWeight: '900' },
   accountEdit: { padding: 7 },
   financeAvatar: { width: 43, height: 47, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderBottomLeftRadius: 9, borderBottomRightRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  financeAvatarRound: { width: 43, height: 43, borderRadius: 22 },
+  iconSearchWrap: { height: 42, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, marginBottom: 10, borderRadius: 13, borderWidth: 1, borderColor: '#DED5C5', backgroundColor: C.white },
+  iconSearchInput: { flex: 1, color: C.ink, fontSize: 12, fontWeight: '700', paddingVertical: 0 },
   iconLibraryScroll: { maxHeight: 150, marginBottom: 10 },
   iconLibrary: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   iconChoice: { width: 35, height: 35, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: C.cream },
@@ -2416,6 +2809,50 @@ const s = StyleSheet.create({
     fontWeight: '900',
     textAlign: 'right',
   },
+  reportPeriodCard: { backgroundColor: C.ink, borderRadius: 23, padding: 17, marginBottom: 12 },
+  reportPeriodTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  reportPeriodEyebrow: { color: C.mint, fontSize: 8, fontWeight: '900', letterSpacing: 1.2 },
+  reportPeriodTitle: { color: C.paper, fontFamily: 'serif', fontSize: 20, fontWeight: '800', marginTop: 4, textTransform: 'capitalize' },
+  reportPeriodDates: { color: '#AEB7C7', fontSize: 9, marginTop: 7 },
+  reportChange: { borderWidth: 1, borderColor: '#536079', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7 },
+  reportChangeText: { color: C.white, fontSize: 8, fontWeight: '900' },
+  reportCycleNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, paddingTop: 11, borderTopWidth: 1, borderTopColor: '#344057' },
+  reportCycleNavText: { color: C.white, fontSize: 8, fontWeight: '900', letterSpacing: 1 },
+  reportArrow: { width: 34, height: 30, borderRadius: 10, backgroundColor: C.paper, alignItems: 'center', justifyContent: 'center' },
+  reportArrowDisabled: { opacity: 0.25 },
+  reportFacts: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  reportFact: { flex: 1, backgroundColor: C.cream, borderRadius: 14, padding: 11 },
+  reportFactLabel: { color: C.muted, fontSize: 7, fontWeight: '900', letterSpacing: 0.7 },
+  reportFactValue: { color: C.ink, fontSize: 12, fontWeight: '900', marginTop: 5 },
+  reportSectionHint: { color: C.muted, fontSize: 9, lineHeight: 14, marginTop: 3, marginBottom: 8 },
+  reportCategoryBlock: { borderBottomWidth: 1, borderBottomColor: '#EAE2D4' },
+  reportCategoryHead: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 12 },
+  reportCategoryLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  reportRank: { color: C.coral, fontSize: 9, fontWeight: '900' },
+  reportDrilldown: { backgroundColor: '#F6EFE2', borderRadius: 14, padding: 11, marginBottom: 11 },
+  reportSubRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 7 },
+  reportSubName: { color: C.ink, fontSize: 10, fontWeight: '900' },
+  reportSubAmount: { color: C.ink, fontSize: 9, fontWeight: '900' },
+  reportCharge: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#E4DAC9' },
+  reportChargeName: { color: C.ink, fontSize: 9, fontWeight: '800' },
+  reportChargeMeta: { color: C.muted, fontSize: 8, marginTop: 2 },
+  reportChargeAmount: { color: C.coral, fontSize: 9, fontWeight: '900' },
+  reportAccountRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: '#EEE6D8' },
+  reportAccountNet: { fontSize: 10, fontWeight: '900' },
+  periodModeRow: { flexDirection: 'row', alignItems: 'center', gap: 11, borderWidth: 1, borderColor: '#E3DACB', borderRadius: 14, padding: 12, marginTop: 8, backgroundColor: C.white },
+  periodModeRowActive: { borderColor: C.coral, backgroundColor: '#FFF0EB' },
+  periodModeTitle: { color: C.ink, fontSize: 11, fontWeight: '900' },
+  periodModeMeta: { color: C.muted, fontSize: 8, marginTop: 3 },
+  periodSection: { marginTop: 5 },
+  salarySourceRow: { flexDirection: 'row', alignItems: 'center', gap: 9, padding: 11, borderBottomWidth: 1, borderBottomColor: '#E9E0D2' },
+  salarySourceRowActive: { backgroundColor: '#E6F6EF', borderRadius: 12 },
+  salarySourceName: { color: C.ink, fontSize: 10, fontWeight: '900' },
+  periodPresetGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  periodPreset: { width: '48%', paddingVertical: 10, paddingHorizontal: 8, borderRadius: 11, backgroundColor: C.cream, alignItems: 'center' },
+  periodPresetText: { color: C.ink, fontSize: 8, fontWeight: '900' },
+  periodDatesRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
+  periodDateButton: { flex: 1, backgroundColor: C.white, borderWidth: 1, borderColor: '#E3DACB', borderRadius: 13, padding: 11 },
+  periodDateValue: { color: C.ink, fontSize: 10, fontWeight: '900' },
   nav: {
     position: 'absolute',
     left: 10,
@@ -2546,6 +2983,13 @@ const s = StyleSheet.create({
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(6,10,18,.72)',
   },
+  keyboardSheetShade: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(6,10,18,.72)',
+  },
+  keyboardSheetFill: { flex: 1, justifyContent: 'flex-end' },
+  keyboardScrollableSheet: { maxHeight: '92%' },
   sheet: {
     backgroundColor: C.paper,
     borderTopLeftRadius: 29,
@@ -2705,6 +3149,7 @@ const s = StyleSheet.create({
     padding: 18,
     paddingBottom: 30,
   },
+  selectionResults: { paddingBottom: 12 },
   filterListScroll: { maxHeight: 500, marginBottom: 12 },
   filterGroup: { marginBottom: 5 },
   filterListBox: {

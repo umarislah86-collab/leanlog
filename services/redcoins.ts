@@ -66,6 +66,12 @@ export interface RedCoinsState {
   createdAt: string;
   exportBatches: RedCoinsExportBatch[];
   subcategoryBudgets: Record<string, number>;
+  reportPreferences?: {
+    mode: 'salary-cycle' | 'custom';
+    salarySource: string;
+    customStart: string;
+    customEnd: string;
+  };
   entryDefaults?: Partial<
     Record<
       RedCoinsType,
@@ -123,6 +129,7 @@ export function freshRedCoinsState(summary?: BluecoinsSummary | null): RedCoinsS
     exportBatches: [],
     subcategoryBudgets: {},
     entryDefaults: {},
+    reportPreferences: undefined,
     payday: summary?.monthly.payday || 25,
     monthlyBudget: summary?.monthly.budget || 2000,
     safetyBuffer: summary?.cashReality.safetyBuffer || 0,
@@ -188,6 +195,7 @@ export async function loadRedCoins(summary?: BluecoinsSummary | null) {
       refreshed.exportBatches = saved.exportBatches || [];
       refreshed.subcategoryBudgets = saved.subcategoryBudgets || {};
       refreshed.entryDefaults = saved.entryDefaults || {};
+      refreshed.reportPreferences = saved.reportPreferences;
       refreshed.payday = saved.payday || refreshed.payday;
       refreshed.monthlyBudget = saved.monthlyBudget || refreshed.monthlyBudget;
       refreshed.safetyBuffer = saved.safetyBuffer ?? refreshed.safetyBuffer;
@@ -201,6 +209,7 @@ export async function loadRedCoins(summary?: BluecoinsSummary | null) {
       deletedEntries: deletions,
       subcategoryBudgets: saved.subcategoryBudgets || {},
       entryDefaults: saved.entryDefaults || {},
+      reportPreferences: saved.reportPreferences,
     };
     if (balanceChanged) await saveRedCoins(normalized);
     return normalized;

@@ -13,3 +13,5 @@ credentials.json
 credentials/
 *.orig.*
 web-build/
+/output/
+/tmp/

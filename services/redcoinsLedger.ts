@@ -2,6 +2,7 @@ import * as SQLite from 'expo-sqlite';
 import type { RedCoinsEntry, RedCoinsType } from './redcoins';
 
 const DB_NAME = 'redcoins-ledger.db';
+const LEDGER_INDEX_VERSION = '2';
 let database: Promise<SQLite.SQLiteDatabase> | null = null;
 
 const openLedger = () => {
@@ -38,13 +39,25 @@ const openLedger = () => {
       CREATE INDEX IF NOT EXISTS redcoins_entries_account_idx ON redcoins_entries(account);
       CREATE INDEX IF NOT EXISTS redcoins_entries_category_idx ON redcoins_entries(category);
     `);
+    const indexedVersion = await db.getFirstAsync<{ value: string }>('SELECT value FROM redcoins_meta WHERE key = ?', 'search_index_version');
+    if (indexedVersion?.value !== LEDGER_INDEX_VERSION) {
+      await db.execAsync(`
+        UPDATE redcoins_entries
+        SET search_text = lower(
+          coalesce(item, '') || ' ' || coalesce(category, '') || ' ' ||
+          coalesce(subcategory, '') || ' ' || coalesce(account, '') || ' ' ||
+          coalesce(to_account, '') || ' ' || coalesce(note, '')
+        );
+        INSERT OR REPLACE INTO redcoins_meta(key,value) VALUES ('search_index_version','2');
+      `);
+    }
     return db;
   })();
   return database;
 };
 
 const normalizedSearch = (entry: RedCoinsEntry) => [entry.item, entry.category, entry.subcategory, entry.account, entry.toAccount, entry.note]
-  .filter(Boolean).join('\u0000').toLocaleLowerCase('en-MY');
+  .filter(Boolean).join(' ').toLowerCase();
 
 const values = (entry: RedCoinsEntry) => [
   entry.id, entry.type, entry.item, entry.amount, entry.date, entry.account, entry.toAccount || null,
@@ -63,7 +76,7 @@ const fingerprint = (entries: RedCoinsEntry[]) => {
     const token = `${entry.id}|${entry.date}|${entry.editedAt || ''}|${entry.exportedAt || ''}`;
     for (let index = 0; index < token.length; index += 1) hash = Math.imul(hash ^ token.charCodeAt(index), 16777619);
   });
-  return `${entries.length}:${hash >>> 0}`;
+  return `${LEDGER_INDEX_VERSION}:${entries.length}:${hash >>> 0}`;
 };
 
 export async function syncRedCoinsLedger(entries: RedCoinsEntry[]) {
@@ -95,19 +108,30 @@ export async function deleteRedCoinsLedgerEntry(id: string) {
 
 export interface LedgerQuery {
   search: string;
-  type: 'all' | RedCoinsType;
-  account: string;
-  category: string;
+  types: RedCoinsType[];
+  accounts: string[];
+  categories: string[];
+  subcategories: string[];
   day: string;
   limit: number;
 }
 
 type EntryRow = Omit<RedCoinsEntry, 'labels'> & { to_account: string | null; labels: string | null; repeat_value: RedCoinsEntry['repeat']; split_value: string | null; exported_at: string | null; edited_at: string | null };
 
+const parseLabels = (value: string | null) => {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((label): label is string => typeof label === 'string') : [];
+  } catch {
+    return [];
+  }
+};
+
 const mapRow = (row: EntryRow): RedCoinsEntry => ({
   id: row.id, type: row.type, item: row.item, amount: row.amount, date: row.date, account: row.account,
   toAccount: row.to_account || undefined, category: row.category, subcategory: row.subcategory, note: row.note || undefined,
-  labels: row.labels ? JSON.parse(row.labels) : [], status: row.status, repeat: row.repeat_value || undefined,
+  labels: parseLabels(row.labels), status: row.status, repeat: row.repeat_value || undefined,
   installments: row.installments || undefined, split: row.split_value || undefined, attachment: row.attachment || undefined,
   origin: row.origin, exportedAt: row.exported_at || undefined, editedAt: row.edited_at || undefined,
 });
@@ -115,10 +139,24 @@ const mapRow = (row: EntryRow): RedCoinsEntry => ({
 const whereFor = (query: LedgerQuery) => {
   const clauses: string[] = [];
   const params: (string | number)[] = [];
-  if (query.search.trim()) { clauses.push('search_text LIKE ?'); params.push(`%${query.search.trim().toLocaleLowerCase('en-MY')}%`); }
-  if (query.type !== 'all') { clauses.push('type = ?'); params.push(query.type); }
-  if (query.account !== 'all') { clauses.push('(account = ? OR to_account = ?)'); params.push(query.account, query.account); }
-  if (query.category !== 'all') { clauses.push('category = ?'); params.push(query.category); }
+  if (query.search.trim()) { clauses.push('instr(search_text, ?) > 0'); params.push(query.search.trim().toLowerCase()); }
+  if (query.types.length) {
+    clauses.push(`type IN (${query.types.map(() => '?').join(',')})`);
+    params.push(...query.types);
+  }
+  if (query.accounts.length) {
+    const placeholders = query.accounts.map(() => '?').join(',');
+    clauses.push(`(account IN (${placeholders}) OR to_account IN (${placeholders}))`);
+    params.push(...query.accounts, ...query.accounts);
+  }
+  if (query.categories.length) {
+    clauses.push(`category IN (${query.categories.map(() => '?').join(',')})`);
+    params.push(...query.categories);
+  }
+  if (query.subcategories.length) {
+    clauses.push(`subcategory IN (${query.subcategories.map(() => '?').join(',')})`);
+    params.push(...query.subcategories);
+  }
   if (query.day) { clauses.push('substr(date,1,10) = ?'); params.push(query.day); }
   return { sql: clauses.length ? `WHERE ${clauses.join(' AND ')}` : '', params };
 };

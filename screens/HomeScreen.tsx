@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth, fsFetchAll, fsFetchSettings } from '../firebase';
 import { ActivityEntry, FoodEntry, UserProfile } from '../types';
@@ -1136,7 +1136,7 @@ export default function HomeScreen({ navigation }: any) {
       </Modal>
 
       <Modal visible={showFixedManager} transparent animationType="fade" onRequestClose={() => setShowFixedManager(false)}>
-        <View style={styles.fixedManagerOverlay}>
+        <KeyboardAvoidingView style={styles.fixedManagerOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
           <View style={styles.fixedManagerSheet}>
             <View style={styles.fixedManagerHeader}>
               <View style={{ flex: 1 }}>
@@ -1192,7 +1192,7 @@ export default function HomeScreen({ navigation }: any) {
               <Text style={styles.fixedManagerDoneText}>DONE</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal visible={!!selectedGuard} transparent animationType="slide" onRequestClose={() => { setSelectedGuardId(null); setExpandedGuardPart(null); }}>
