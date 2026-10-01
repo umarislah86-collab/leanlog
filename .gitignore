@@ -1,7 +1,7 @@
 node_modules/
 .expo/
 dist/
-dist-v*-check*/
+dist-v*/
 *.apk
 npm-debug.*
 *.jks
