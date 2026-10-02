@@ -1,5 +1,6 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, InteractionManager, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, SectionList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, AppState, BackHandler, InteractionManager, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, SectionList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -14,6 +15,7 @@ import { applyEntryBalance, confirmRedCoinsExport, createRedCoinsDeletion, expor
 import { advanceReminderDate, materializeAutomaticReminders, nextReminderOccurrence, syncReminderNotifications } from '../services/redcoinsReminders';
 import { deleteRedCoinsLedgerEntry, queryRedCoinsLedger, syncRedCoinsLedger, upsertRedCoinsLedgerEntry } from '../services/redcoinsLedger';
 import { saveSpendingGuards, type GuardScope, type SpendingGuard } from '../services/spendingGuards';
+import { refreshLeanLogWidget } from '../services/widget';
 
 const C = {
   ink: '#111A2A',
@@ -53,6 +55,7 @@ const entryTime = (value: string) => {
 const budgetKey = (category: string, subcategory: string) => `${category}\u0000${subcategory}`;
 type Section = 'home' | 'activity' | 'accounts' | 'plan' | 'reports';
 type ReportMode = 'salary-cycle' | 'custom';
+type FilterDateMode = 'all' | 'single' | 'range' | 'cycle';
 type SalarySource = { key: string; label: string; entries: RedCoinsEntry[]; average: number };
 const LEDGER_PAGE_SIZE = 120;
 // Curated from the Ionicons set bundled by @expo/vector-icons. Keeping a curated
@@ -77,8 +80,11 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const [bluecoins, setBluecoins] = useState<BluecoinsSummary | null>(null);
   const [bluecoinsBase, setBluecoinsBase] = useState<BluecoinsSummary | null>(null);
   const [section, setSection] = useState<Section>('home');
+  const sectionHistory = useRef<Section[]>([]);
   const [entryOpen, setEntryOpen] = useState(false);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [schedulingOnly, setSchedulingOnly] = useState(false);
+  const [editingReminderId, setEditingReminderId] = useState<string | null>(null);
   const [entryDate, setEntryDate] = useState(new Date());
   const [manageOpen, setManageOpen] = useState<'account' | 'category' | 'sub' | null>(null);
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
@@ -90,7 +96,10 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const [filterAccounts, setFilterAccounts] = useState<string[]>([]);
   const [filterCategories, setFilterCategories] = useState<string[]>([]);
   const [filterSubcategories, setFilterSubcategories] = useState<string[]>([]);
-  const [filterDay, setFilterDay] = useState('');
+  const [filterDateMode, setFilterDateMode] = useState<FilterDateMode>('all');
+  const [filterStartDay, setFilterStartDay] = useState('');
+  const [filterEndDay, setFilterEndDay] = useState('');
+  const [filterDateLabel, setFilterDateLabel] = useState('');
   const [calendarCursor, setCalendarCursor] = useState(() => new Date());
   const [collapsedCards, setCollapsedCards] = useState<string[]>([]);
   const [expandedBudgetCategories, setExpandedBudgetCategories] = useState<string[]>([]);
@@ -154,6 +163,26 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const [expandedReportCategory, setExpandedReportCategory] = useState<string | null>(null);
   const [reportExporting, setReportExporting] = useState(false);
 
+  const navigateSection = useCallback((next: Section) => {
+    if (section === next) return;
+    sectionHistory.current.push(section);
+    setSection(next);
+  }, [section]);
+  const goBackInsideRedCoins = useCallback(() => {
+    const previous = sectionHistory.current.pop();
+    if (previous) {
+      setSection(previous);
+      return true;
+    }
+    navigation.navigate('Home');
+    return true;
+  }, [navigation]);
+
+  useFocusEffect(useCallback(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', goBackInsideRedCoins);
+    return () => subscription.remove();
+  }, [goBackInsideRedCoins]));
+
   useEffect(() => {
     (async () => {
       let summary: BluecoinsSummary | null = null;
@@ -195,7 +224,10 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     if (!ledgerReady || ledgerFallback) {
       if (!state) return;
       const needle = search.trim().toLocaleLowerCase('en-MY');
-      const filtered = state.entries.filter((entry) => (!needle || [entry.item, entry.category, entry.subcategory, entry.account, entry.toAccount, entry.note].filter(Boolean).join(' ').toLocaleLowerCase('en-MY').includes(needle)) && (!filterTypes.length || filterTypes.includes(entry.type)) && (!filterAccounts.length || filterAccounts.includes(entry.account) || !!entry.toAccount && filterAccounts.includes(entry.toAccount)) && (!filterCategories.length || filterCategories.includes(entry.category)) && (!filterSubcategories.length || filterSubcategories.includes(entry.subcategory)) && (!filterDay || dayKey(entry.date) === filterDay));
+      const filtered = state.entries.filter((entry) => {
+        const entryDay = dayKey(entry.date);
+        return (!needle || [entry.item, entry.category, entry.subcategory, entry.account, entry.toAccount, entry.note].filter(Boolean).join(' ').toLocaleLowerCase('en-MY').includes(needle)) && (!filterTypes.length || filterTypes.includes(entry.type)) && (!filterAccounts.length || filterAccounts.includes(entry.account) || !!entry.toAccount && filterAccounts.includes(entry.toAccount)) && (!filterCategories.length || filterCategories.includes(entry.category)) && (!filterSubcategories.length || filterSubcategories.includes(entry.subcategory)) && (!filterStartDay || entryDay >= filterStartDay) && (!filterEndDay || entryDay <= filterEndDay);
+      });
       setLedgerEntries(filtered.slice(0, visibleLedgerCount));
       setLedgerTotal(filtered.length);
       return;
@@ -207,7 +239,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       accounts: filterAccounts,
       categories: filterCategories,
       subcategories: filterSubcategories,
-      day: filterDay,
+      startDay: filterStartDay,
+      endDay: filterEndDay,
       limit: visibleLedgerCount,
     })
       .then((result) => {
@@ -220,7 +253,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         console.warn('RedCoins ledger query failed', error);
         setLedgerFallback(true);
       });
-  }, [ledgerReady, ledgerFallback, ledgerRevision, section, search, filterTypes, filterAccounts, filterCategories, filterSubcategories, filterDay, visibleLedgerCount, state]);
+  }, [ledgerReady, ledgerFallback, ledgerRevision, section, search, filterTypes, filterAccounts, filterCategories, filterSubcategories, filterStartDay, filterEndDay, visibleLedgerCount, state]);
 
   useEffect(() => {
     const refreshDetector = () => {
@@ -265,6 +298,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   useEffect(() => {
     const target = route?.params?.section as Section | undefined;
     if (!target || !['home', 'activity', 'accounts', 'plan', 'reports'].includes(target)) return;
+    sectionHistory.current = [];
     setSection(target);
     navigation.setParams({ section: undefined });
   }, [route?.params?.section]);
@@ -274,17 +308,38 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     await saveRedCoins(next);
     if (refreshSource) await refreshLiveBluecoins();
     else if (bluecoinsBase) setBluecoins(await mergeRedCoinsIntoBudgetCoach(bluecoinsBase));
+    refreshLeanLogWidget().catch(() => {});
   };
   const refreshLiveBluecoins = async () => {
     const refreshed = await refreshBluecoinsSummary();
     setBluecoinsBase(refreshed);
     setBluecoins(await mergeRedCoinsIntoBudgetCoach(refreshed));
   };
+  useEffect(() => {
+    if (!state) return;
+    const nextDue = state.reminders
+      .filter((reminder) => reminder.enabled)
+      .map((reminder) => nextReminderOccurrence(reminder))
+      .filter((date): date is Date => !!date)
+      .sort((a, b) => a.getTime() - b.getTime())[0];
+    if (!nextDue) return;
+    const delay = Math.max(0, nextDue.getTime() - Date.now() + 500);
+    const timer = setTimeout(async () => {
+      const refreshed = await loadRedCoins();
+      setState(refreshed);
+      await syncRedCoinsLedger(refreshed.entries);
+      setLedgerRevision((value) => value + 1);
+      if (bluecoinsBase) setBluecoins(await mergeRedCoinsIntoBudgetCoach(bluecoinsBase));
+    }, Math.min(delay, 2_147_000_000));
+    return () => clearTimeout(timer);
+  }, [state?.reminders, bluecoinsBase]);
   const resetEntry = (initialType: RedCoinsType = 'expense') => {
     if (!state) return;
     const recent = state.entries.find((entry) => entry.type === initialType);
     const defaults = state.entryDefaults?.[initialType];
     setEditingEntryId(null);
+    setSchedulingOnly(false);
+    setEditingReminderId(null);
     setReviewingDetectionId(null);
     setEntryDate(new Date());
     setItem('');
@@ -307,6 +362,12 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setWeekendMove('after');
     setAdvanced(false);
     setEntryOpen(true);
+  };
+  const createReminderSchedule = () => {
+    resetEntry('expense');
+    setSchedulingOnly(true);
+    setRepeat('monthly');
+    setAdvanced(true);
   };
   const suggestions = useMemo(() => {
     const query = item.trim().toLowerCase();
@@ -347,6 +408,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setSubcategory(entry.subcategory);
   };
   const editEntry = (entry: RedCoinsEntry) => {
+    setSchedulingOnly(false);
+    setEditingReminderId(null);
     setReviewingDetectionId(null);
     setEditingEntryId(entry.id);
     setItem(entry.item);
@@ -372,10 +435,89 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setAdvanced(!!entry.note || !!entry.labels?.length || (!!entry.repeat && entry.repeat !== 'none'));
     setEntryOpen(true);
   };
+  const editReminderSchedule = (reminder: RedCoinsReminder) => {
+    const template = reminder.template;
+    setEditingEntryId(null);
+    setReviewingDetectionId(null);
+    setSchedulingOnly(true);
+    setEditingReminderId(reminder.id);
+    setItem(template.item);
+    setAmount(String(template.amount));
+    setType(template.type);
+    setAccount(template.account);
+    setToAccount(template.toAccount || '');
+    setEntryDate(new Date(reminder.startDate));
+    setCategory(template.category);
+    setSubcategory(template.subcategory);
+    setNote(template.note || '');
+    setLabels((template.labels || []).join(', '));
+    setRepeat(reminder.frequency);
+    setInstallments('');
+    setRepeatEvery(String(reminder.repeatEvery || 1));
+    setReminderEndType(reminder.endType);
+    setReminderEndDate(reminder.endDate?.slice(0, 10) || '');
+    setReminderOccurrences(String(reminder.occurrences || 12));
+    setAutomaticLog(reminder.automaticLog);
+    setExcludeWeekend(reminder.excludeWeekend);
+    setWeekendMove(reminder.weekendMove);
+    setAdvanced(true);
+    setEntryOpen(true);
+  };
   const saveEntry = async () => {
     if (!state || !item.trim() || !Number(amount) || !account || (type === 'transfer' && !toAccount)) return Alert.alert('Incomplete entry', 'Add item, amount and account first.');
+    if (schedulingOnly && (!repeat || repeat === 'none' || repeat === 'installment')) return Alert.alert('Choose a schedule', 'Select daily, weekly, monthly or yearly.');
     if (repeat && repeat !== 'none' && reminderEndType === 'date' && (!reminderEndDate || Number.isNaN(new Date(`${reminderEndDate}T23:59:59`).getTime()))) return Alert.alert('Invalid end date', 'Use YYYY-MM-DD for the recurring end date.');
     if (repeat === 'installment' && (Number(installments) || 0) < 2) return Alert.alert('Invalid instalments', 'Use at least 2 instalments.');
+    if (schedulingOnly) {
+      const existing = editingReminderId ? state.reminders.find((reminder) => reminder.id === editingReminderId) : undefined;
+      const reminderId = existing?.id || `series-${Date.now()}`;
+      const reminder: RedCoinsReminder = {
+        id: reminderId,
+        enabled: existing?.enabled ?? true,
+        automaticLog,
+        frequency: repeat as RedCoinsReminder['frequency'],
+        repeatEvery: Math.max(1, Number(repeatEvery) || 1),
+        startDate: entryDate.toISOString(),
+        endType: reminderEndType,
+        endDate: reminderEndType === 'date' && reminderEndDate ? new Date(`${reminderEndDate}T23:59:59`).toISOString() : undefined,
+        occurrences: reminderEndType === 'occurrences' ? Math.max(1, Number(reminderOccurrences) || 1) : undefined,
+        excludeWeekend,
+        weekendMove,
+        createdAt: existing?.createdAt || new Date().toISOString(),
+        template: {
+          type,
+          item: item.trim(),
+          amount: Number(amount),
+          account,
+          toAccount: type === 'transfer' ? toAccount : undefined,
+          category: type === 'transfer' ? '(Transfer)' : category,
+          subcategory: type === 'transfer' ? '(Transfer)' : subcategory,
+          note: note.trim(),
+          labels: labels.split(',').map((value) => value.trim()).filter(Boolean),
+          status: 'pending',
+          origin: 'redcoins',
+        },
+        notificationIds: existing?.notificationIds || [],
+      };
+      const next: RedCoinsState = {
+        ...state,
+        reminders: existing ? state.reminders.map((row) => row.id === reminderId ? reminder : row) : [...state.reminders, reminder],
+        entries: state.entries.filter((entry) => entry.reminderSeriesId !== reminderId || !entry.autoGenerated || new Date(entry.date).getTime() <= Date.now()),
+        accounts: state.accounts.map((entry) => ({ ...entry })),
+      };
+      materializeAutomaticReminders(next).forEach((generated) => {
+        applyEntryBalance(next, generated, 1);
+        generated.balanceEffectApplied = true;
+      });
+      setEntryOpen(false);
+      setSchedulingOnly(false);
+      setEditingReminderId(null);
+      setReminderManagerOpen(true);
+      await syncReminderNotifications(next.reminders);
+      await Promise.all([persist(next), syncRedCoinsLedger(next.entries)]);
+      setLedgerRevision((value) => value + 1);
+      return;
+    }
     const original = editingEntryId ? state.entries.find((entry) => entry.id === editingEntryId) : undefined;
     const hasReminder = repeat && repeat !== 'none';
     const editingSeriesTemplate = !!original?.repeat && original.repeat !== 'none';
@@ -458,14 +600,17 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         notificationIds: existingSchedule?.notificationIds || [],
       };
       if (futureOccurrences > 0 || reminder.endType !== 'occurrences') next.reminders.push(reminder);
-      materializeAutomaticReminders(next);
+      materializeAutomaticReminders(next).forEach((generated) => {
+        applyEntryBalance(next, generated, 1);
+        generated.balanceEffectApplied = true;
+      });
     }
     if (original) applyEntryBalance(next, original, -1);
     applyEntryBalance(next, entry, 1);
     setEntryOpen(false);
     if (reviewingDetectionId) dismissDetection(reviewingDetectionId).catch(() => {});
     InteractionManager.runAfterInteractions(() => {
-      setSection('activity');
+      navigateSection('activity');
       syncRedCoinsLedger(next.entries)
         .then(() => setLedgerRevision((value) => value + 1))
         .catch((error) => console.warn('RedCoins ledger upsert failed', error));
@@ -532,7 +677,10 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       entries: state.entries.map((entry) => ({ ...entry })),
       accounts: state.accounts.map((entry) => ({ ...entry })),
     };
-    materializeAutomaticReminders(next);
+    materializeAutomaticReminders(next).forEach((generated) => {
+      applyEntryBalance(next, generated, 1);
+      generated.balanceEffectApplied = true;
+    });
     await syncReminderNotifications(next.reminders);
     await Promise.all([persist(next), syncRedCoinsLedger(next.entries)]);
     setLedgerRevision((value) => value + 1);
@@ -608,9 +756,9 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   }, [categoryIcons, iconLookupKey]);
   const ledgerExtraData = useMemo(() => ({ selectedIds, categoryIcons, ledgerRevision }), [selectedIds, categoryIcons, ledgerRevision]);
   const entryBalanceById = useMemo(() => {
-    if (!state) return new Map<string, number>();
+    if (!state) return new Map<string, { source: number; destination?: number }>();
     const balances = new Map(state.accounts.map((account) => [account.name, account.balance]));
-    const result = new Map<string, number>();
+    const result = new Map<string, { source: number; destination?: number }>();
     const now = Date.now();
     const future = state.entries.filter((entry) => new Date(entry.date).getTime() > now).sort((a, b) => a.date.localeCompare(b.date));
     future.forEach((entry) => {
@@ -620,14 +768,20 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         balances.set(entry.account, (balances.get(entry.account) || 0) - entry.amount);
         if (entry.toAccount) balances.set(entry.toAccount, (balances.get(entry.toAccount) || 0) + entry.amount);
       }
-      result.set(entry.id, balances.get(entry.account) || 0);
+      result.set(entry.id, {
+        source: balances.get(entry.account) || 0,
+        destination: entry.type === 'transfer' && entry.toAccount ? balances.get(entry.toAccount) || 0 : undefined,
+      });
     });
     const currentBalances = new Map(state.accounts.map((account) => [account.name, account.balance]));
     state.entries
       .filter((entry) => new Date(entry.date).getTime() <= now)
       .sort((a, b) => b.date.localeCompare(a.date))
       .forEach((entry) => {
-        result.set(entry.id, currentBalances.get(entry.account) || 0);
+        result.set(entry.id, {
+          source: currentBalances.get(entry.account) || 0,
+          destination: entry.type === 'transfer' && entry.toAccount ? currentBalances.get(entry.toAccount) || 0 : undefined,
+        });
         if (entry.type === 'expense') currentBalances.set(entry.account, (currentBalances.get(entry.account) || 0) + entry.amount);
         if (entry.type === 'income') currentBalances.set(entry.account, (currentBalances.get(entry.account) || 0) - entry.amount);
         if (entry.type === 'transfer') {
@@ -672,19 +826,25 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setSearch('');
     setSelectedIds([]);
     setFilterTypes([]);
-    setFilterDay(kind === 'day' ? value : '');
+    setFilterDateMode(kind === 'day' ? 'single' : 'all');
+    setFilterStartDay(kind === 'day' ? value : '');
+    setFilterEndDay(kind === 'day' ? value : '');
+    setFilterDateLabel(kind === 'day' ? reportDate(localDay(value)) : '');
     setFilterCategories(kind === 'category' ? [value] : []);
     setFilterAccounts(kind === 'account' ? [value] : []);
     setFilterSubcategories([]);
-    setSection('activity');
+    navigateSection('activity');
   };
-  const applyLedgerFilters = useCallback((next: { types: RedCoinsType[]; accounts: string[]; categories: string[]; subcategories: string[]; day: string }) => {
+  const applyLedgerFilters = useCallback((next: { types: RedCoinsType[]; accounts: string[]; categories: string[]; subcategories: string[]; dateMode: FilterDateMode; startDay: string; endDay: string; dateLabel: string }) => {
     setVisibleLedgerCount(LEDGER_PAGE_SIZE);
     setFilterTypes(next.types);
     setFilterAccounts(next.accounts);
     setFilterCategories(next.categories);
     setFilterSubcategories(next.subcategories);
-    setFilterDay(next.day);
+    setFilterDateMode(next.dateMode);
+    setFilterStartDay(next.startDay);
+    setFilterEndDay(next.endDay);
+    setFilterDateLabel(next.dateLabel);
     setFilterOpen(false);
   }, []);
   const toggleCard = (name: string) => setCollapsedCards((cards) => (cards.includes(name) ? cards.filter((card) => card !== name) : [...cards, name]));
@@ -1099,7 +1259,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                 </TouchableOpacity>
               ))}
               <Text style={s.favoriteTotal}>Total: {money(favoriteAccounts.reduce((sum, account) => sum + account.balance, 0))}</Text>
-              <TouchableOpacity style={s.balanceSheetButton} onPress={() => setSection('accounts')}>
+              <TouchableOpacity style={s.balanceSheetButton} onPress={() => navigateSection('accounts')}>
                 <Text style={s.balanceSheetText}>BALANCE SHEET</Text>
               </TouchableOpacity>
             </>
@@ -1168,8 +1328,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         <LedgerSearch value={search} onChange={updateLedgerSearch} />
         <TouchableOpacity style={s.filterButton} onPress={() => setFilterOpen(true)}>
           <Ionicons name="options" size={17} color={C.white} />
-          {(filterTypes.length + filterAccounts.length + filterCategories.length + filterSubcategories.length + (filterDay ? 1 : 0)) > 0 && (
-            <Text style={{ color: C.white, fontSize: 10, fontWeight: '900', marginLeft: 4 }}>{filterTypes.length + filterAccounts.length + filterCategories.length + filterSubcategories.length + (filterDay ? 1 : 0)}</Text>
+          {(filterTypes.length + filterAccounts.length + filterCategories.length + filterSubcategories.length + (filterDateMode !== 'all' ? 1 : 0)) > 0 && (
+            <Text style={{ color: C.white, fontSize: 10, fontWeight: '900', marginLeft: 4 }}>{filterTypes.length + filterAccounts.length + filterCategories.length + filterSubcategories.length + (filterDateMode !== 'all' ? 1 : 0)}</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -1194,11 +1354,15 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         accounts: filterAccounts,
         categories: filterCategories,
         subcategories: filterSubcategories,
-        day: filterDay,
+        dateMode: filterDateMode,
+        startDay: filterStartDay,
+        endDay: filterEndDay,
+        dateLabel: filterDateLabel,
       }}
       accounts={state.accounts.map((entry) => entry.name)}
       categories={state.categories.map((entry) => entry.name)}
       subcategories={[...new Set(state.categories.flatMap((entry) => entry.subcategories))]}
+      salarySources={salarySources}
       close={() => setFilterOpen(false)}
       apply={applyLedgerFilters}
     />
@@ -1326,12 +1490,6 @@ export default function RedCoinsScreen({ navigation, route }: any) {
             </TouchableOpacity>
           </View>
         ))}
-        <Title eyebrow="AUTOMATION" title="What comes back." />
-        <TouchableOpacity style={s.automationCard} onPress={() => setReminderManagerOpen(true)} activeOpacity={0.8}>
-          <View style={s.automationIcon}><Ionicons name="repeat" size={21} color={C.ink} /></View>
-          <View style={{ flex: 1 }}><Text style={s.automationTitle}>Reminders & Auto-log</Text><Text style={s.automationCopy}>{state.reminders.length ? `${state.reminders.filter((reminder) => reminder.enabled).length} active · ${state.reminders.filter((reminder) => reminder.automaticLog).length} auto-log` : 'Build recurring transactions from the logger.'}</Text></View>
-          <Ionicons name="arrow-forward" size={18} color={C.ink} />
-        </TouchableOpacity>
         <Title eyebrow="DATA BRIDGE" title="RedCoins → Bluecoins." />
         <View style={s.exportCard}>
           <Text style={s.exportTitle}>Weekly hand-off</Text>
@@ -1371,6 +1529,15 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const Plan = () => (
     <>
       <Title eyebrow="SALARY-CYCLE PLAN" title="Give every ringgit a job." />
+      <TouchableOpacity style={s.automationCard} onPress={() => setReminderManagerOpen(true)} activeOpacity={0.8}>
+        <View style={s.automationIcon}><Ionicons name="repeat" size={21} color={C.ink} /></View>
+        <View style={{ flex: 1 }}>
+          <Text style={s.eyebrow}>AUTOMATION</Text>
+          <Text style={s.automationTitle}>Reminders & Auto-log</Text>
+          <Text style={s.automationCopy}>{state.reminders.length ? `${state.reminders.filter((reminder) => reminder.enabled).length} active · ${state.reminders.filter((reminder) => reminder.automaticLog).length} auto-log` : 'Build recurring transactions from the logger.'}</Text>
+        </View>
+        <Ionicons name="arrow-forward" size={18} color={C.ink} />
+      </TouchableOpacity>
       <View style={s.detectorCard}>
         <View style={[s.detectorIcon, notificationAccess && { backgroundColor: C.mint }]}>
           <Ionicons name={notificationAccess ? 'notifications' : 'notifications-off'} size={20} color={C.ink} />
@@ -1738,7 +1905,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.navigate('Home')} style={s.back}>
+        <TouchableOpacity onPress={goBackInsideRedCoins} style={s.back}>
           <Ionicons name="arrow-back" size={21} color={C.ink} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
@@ -1792,13 +1959,12 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           <View style={s.reminderHeader}>
             <TouchableOpacity style={s.back} onPress={() => setReminderManagerOpen(false)}><Ionicons name="arrow-back" size={21} color={C.ink} /></TouchableOpacity>
             <View style={{ flex: 1 }}><Text style={s.eyebrow}>REDCOINS AUTOMATION</Text><Text style={s.reminderScreenTitle}>Reminders & Auto-log.</Text></View>
-            <TouchableOpacity style={s.reminderAdd} onPress={() => { setReminderManagerOpen(false); resetEntry('expense'); setAdvanced(true); }}><Ionicons name="add" size={20} color={C.white} /></TouchableOpacity>
+            <TouchableOpacity style={s.reminderAdd} onPress={() => { setReminderManagerOpen(false); createReminderSchedule(); }}><Ionicons name="add" size={20} color={C.white} /></TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={s.reminderScreenBody} showsVerticalScrollIndicator={false}>
             <View style={s.reminderExplainer}><Text style={s.reminderExplainerTitle}>One schedule, two behaviours.</Text><Text style={s.reminderExplainerCopy}>Reminder-only waits for your confirmation. Auto-log prepares the next transaction but keeps it outside balances and reports until its due date.</Text></View>
             {state.reminders.map((reminder) => {
               const nextDue = nextReminderOccurrence(reminder);
-              const templateEntry = state.entries.find((entry) => entry.reminderSeriesId === reminder.id && entry.repeat && entry.repeat !== 'none');
               const frequency = `${reminder.repeatEvery > 1 ? `Every ${reminder.repeatEvery} ` : 'Every '}${reminder.frequency.replace('daily', 'day').replace('weekly', 'week').replace('monthly', 'month').replace('yearly', 'year')}`;
               return <View key={reminder.id} style={s.reminderFullCard}>
                 <View style={s.reminderRow}>
@@ -1809,7 +1975,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                 <View style={s.reminderDue}><Text style={s.reminderDueLabel}>NEXT DUE</Text><Text style={s.reminderDueValue}>{nextDue ? nextDue.toLocaleString('en-MY', { dateStyle: 'medium', timeStyle: 'short' }) : 'Series complete'}</Text></View>
                 <View style={s.reminderControls}>
                   {!reminder.automaticLog && nextDue && nextDue.getTime() <= Date.now() && <TouchableOpacity style={s.reminderControlPrimary} onPress={() => logReminderNow(reminder)}><Text style={s.reminderControlPrimaryText}>LOG NOW</Text></TouchableOpacity>}
-                  {templateEntry && <TouchableOpacity style={s.reminderControl} onPress={() => { setReminderManagerOpen(false); editEntry(templateEntry); }}><Ionicons name="create-outline" size={14} color={C.ink} /><Text style={s.reminderControlText}>EDIT</Text></TouchableOpacity>}
+                  <TouchableOpacity style={s.reminderControl} onPress={() => { setReminderManagerOpen(false); editReminderSchedule(reminder); }}><Ionicons name="create-outline" size={14} color={C.ink} /><Text style={s.reminderControlText}>EDIT</Text></TouchableOpacity>
                   <TouchableOpacity style={s.reminderControl} onPress={() => toggleReminder(reminder)}><Ionicons name={reminder.enabled ? 'pause' : 'play'} size={14} color={C.ink} /><Text style={s.reminderControlText}>{reminder.enabled ? 'PAUSE' : 'RESUME'}</Text></TouchableOpacity>
                   <TouchableOpacity style={s.reminderControlDanger} onPress={() => deleteReminderSeries(reminder)}><Ionicons name="trash-outline" size={14} color={C.coral} /></TouchableOpacity>
                 </View>
@@ -1821,7 +1987,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       </Modal>
       <View style={s.nav}>
         {(['home', 'activity', 'accounts', 'plan', 'reports'] as Section[]).map((name) => (
-          <TouchableOpacity key={name} style={[s.navButton, section === name && s.navActive]} onPress={() => setSection(name)}>
+          <TouchableOpacity key={name} style={[s.navButton, section === name && s.navActive]} onPress={() => navigateSection(name)}>
             <Ionicons
               name={
                 (
@@ -1844,8 +2010,10 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       <EntryModal
         visible={entryOpen}
         editing={!!editingEntryId}
+        schedulingOnly={schedulingOnly}
+        editingSchedule={!!editingReminderId}
         onDelete={deleteEditingEntry}
-        close={() => setEntryOpen(false)}
+        close={() => { setEntryOpen(false); setSchedulingOnly(false); setEditingReminderId(null); }}
         {...{
           item,
           setItem,
@@ -1924,6 +2092,9 @@ export default function RedCoinsScreen({ navigation, route }: any) {
               ...c,
               subcategories: [...c.subcategories],
             })),
+            deletedAccountNames: [...(state.deletedAccountNames || [])],
+            deletedCategoryNames: [...(state.deletedCategoryNames || [])],
+            deletedSubcategories: Object.fromEntries(Object.entries(state.deletedSubcategories || {}).map(([key, values]) => [key, [...values]])),
           };
           if (manageOpen === 'account') {
             if (!draftName.trim()) return;
@@ -1932,13 +2103,16 @@ export default function RedCoinsScreen({ navigation, route }: any) {
               const oldName = existing.name;
               existing.name = draftName.trim(); existing.type = draftType; existing.balance = Number(draftBalance) || 0; existing.icon = draftIcon;
               next.entries = next.entries.map((entry) => ({ ...entry, account: entry.account === oldName ? existing.name : entry.account, toAccount: entry.toAccount === oldName ? existing.name : entry.toAccount }));
-            } else next.accounts.push({
-              id: `${Date.now()}`,
-              name: draftName.trim(),
-              type: draftType,
-              balance: Number(draftBalance) || 0,
-              icon: draftIcon,
-            });
+            } else {
+              next.accounts.push({
+                id: `${Date.now()}`,
+                name: draftName.trim(),
+                type: draftType,
+                balance: Number(draftBalance) || 0,
+                icon: draftIcon,
+              });
+              next.deletedAccountNames = next.deletedAccountNames.filter((name) => name.toLocaleLowerCase() !== draftName.trim().toLocaleLowerCase());
+            }
           } else if (manageOpen === 'category') {
             if (!draftCategory.trim() || (!editingCategoryId && !draftSub.trim())) return;
             const existing = next.categories.find((entry) => entry.id === editingCategoryId);
@@ -1948,13 +2122,16 @@ export default function RedCoinsScreen({ navigation, route }: any) {
               const budgets: Record<string, number> = {};
               Object.entries(next.subcategoryBudgets).forEach(([key, value]) => { const [cat, sub] = key.split('\u0000'); budgets[budgetKey(cat === oldName ? existing.name : cat, sub)] = value; });
               next.subcategoryBudgets = budgets;
-            } else next.categories.push({
-              id: `${Date.now()}`,
-              name: draftCategory.trim(),
-              icon: draftIcon,
-              subcategories: [draftSub.trim()],
-              subcategoryIcons: { [draftSub.trim()]: draftIcon },
-            });
+            } else {
+              next.categories.push({
+                id: `${Date.now()}`,
+                name: draftCategory.trim(),
+                icon: draftIcon,
+                subcategories: [draftSub.trim()],
+                subcategoryIcons: { [draftSub.trim()]: draftIcon },
+              });
+              next.deletedCategoryNames = next.deletedCategoryNames.filter((name) => name.toLocaleLowerCase() !== draftCategory.trim().toLocaleLowerCase());
+            }
           } else {
             const parent = next.categories.find((c) => c.name === draftParent);
             if (!parent || !draftSub.trim()) return;
@@ -1964,12 +2141,72 @@ export default function RedCoinsScreen({ navigation, route }: any) {
               const oldKey = budgetKey(parent.name, editingSubName); const newKey = budgetKey(parent.name, draftSub.trim());
               if (next.subcategoryBudgets[oldKey] != null) { next.subcategoryBudgets[newKey] = next.subcategoryBudgets[oldKey]; delete next.subcategoryBudgets[oldKey]; }
               const icons = { ...(parent.subcategoryIcons || {}) }; delete icons[editingSubName]; icons[draftSub.trim()] = draftIcon; parent.subcategoryIcons = icons;
-            } else if (!parent.subcategories.includes(draftSub.trim())) { parent.subcategories.push(draftSub.trim()); parent.subcategoryIcons = { ...(parent.subcategoryIcons || {}), [draftSub.trim()]: draftIcon }; }
+            } else if (!parent.subcategories.includes(draftSub.trim())) {
+              parent.subcategories.push(draftSub.trim()); parent.subcategoryIcons = { ...(parent.subcategoryIcons || {}), [draftSub.trim()]: draftIcon };
+              const categoryKey = parent.name.trim().toLocaleLowerCase();
+              next.deletedSubcategories[categoryKey] = (next.deletedSubcategories[categoryKey] || []).filter((name) => name.toLocaleLowerCase() !== draftSub.trim().toLocaleLowerCase());
+            }
           }
           await persist(next);
           setLedgerRevision((value) => value + 1);
           setManageOpen(null);
           setEditingAccountId(null); setEditingCategoryId(null); setEditingSubName(null);
+        }}
+        remove={async () => {
+          const account = manageOpen === 'account' ? state.accounts.find((item) => item.id === editingAccountId) : undefined;
+          const category = manageOpen === 'category' ? state.categories.find((item) => item.id === editingCategoryId) : undefined;
+          const parent = manageOpen === 'sub' ? state.categories.find((item) => item.name === draftParent) : undefined;
+          const label = account?.name || category?.name || editingSubName || '';
+          if (!label) return;
+          const usedBySchedules = state.reminders.some((reminder) => manageOpen === 'account'
+            ? reminder.template.account === label || reminder.template.toAccount === label
+            : manageOpen === 'category'
+              ? reminder.template.category === label
+              : reminder.template.category === parent?.name && reminder.template.subcategory === label);
+          if (usedBySchedules) {
+            Alert.alert(
+              `Can't delete ${manageOpen === 'sub' ? 'subcategory' : manageOpen}`,
+              `${label} is still used by a scheduled transaction. Edit or remove that automation first. Existing ledger history does not block deletion.`,
+            );
+            return;
+          }
+          Alert.alert(`Delete ${manageOpen === 'sub' ? 'subcategory' : manageOpen}?`, `${label} will be removed from future selection. Existing ledger transactions will remain intact.`, [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Delete', style: 'destructive', onPress: async () => {
+              const next: RedCoinsState = {
+                ...state,
+                accounts: state.accounts.map((item) => ({ ...item })),
+                categories: state.categories.map((item) => ({ ...item, subcategories: [...item.subcategories], subcategoryIcons: { ...(item.subcategoryIcons || {}) } })),
+                subcategoryBudgets: { ...state.subcategoryBudgets },
+                deletedAccountNames: [...(state.deletedAccountNames || [])],
+                deletedCategoryNames: [...(state.deletedCategoryNames || [])],
+                deletedSubcategories: Object.fromEntries(Object.entries(state.deletedSubcategories || {}).map(([key, values]) => [key, [...values]])),
+              };
+              if (manageOpen === 'account' && editingAccountId) {
+                next.accounts = next.accounts.filter((item) => item.id !== editingAccountId);
+                if (!next.deletedAccountNames!.some((name) => name.toLocaleLowerCase() === label.toLocaleLowerCase())) next.deletedAccountNames!.push(label);
+              } else if (manageOpen === 'category' && editingCategoryId) {
+                const removed = next.categories.find((item) => item.id === editingCategoryId);
+                next.categories = next.categories.filter((item) => item.id !== editingCategoryId);
+                if (!next.deletedCategoryNames!.some((name) => name.toLocaleLowerCase() === label.toLocaleLowerCase())) next.deletedCategoryNames!.push(label);
+                if (removed) Object.keys(next.subcategoryBudgets).forEach((key) => { if (key.startsWith(`${removed.name}\u0000`)) delete next.subcategoryBudgets[key]; });
+              } else if (manageOpen === 'sub' && parent && editingSubName) {
+                const target = next.categories.find((item) => item.id === parent.id);
+                if (target) {
+                  target.subcategories = target.subcategories.filter((item) => item !== editingSubName);
+                  delete target.subcategoryIcons?.[editingSubName];
+                  delete next.subcategoryBudgets[budgetKey(target.name, editingSubName)];
+                  const categoryKey = target.name.trim().toLocaleLowerCase();
+                  const deleted = next.deletedSubcategories![categoryKey] || [];
+                  if (!deleted.some((name) => name.toLocaleLowerCase() === editingSubName.toLocaleLowerCase())) next.deletedSubcategories![categoryKey] = [...deleted, editingSubName];
+                }
+              }
+              await persist(next);
+              setLedgerRevision((value) => value + 1);
+              setManageOpen(null);
+              setEditingAccountId(null); setEditingCategoryId(null); setEditingSubName(null);
+            } },
+          ]);
         }}
       />
       <GuardModal visible={guardEditorOpen} draft={guardDraft} setDraft={setGuardDraft} options={bluecoins?.guardOptions} close={() => setGuardEditorOpen(false)} remove={guardDraft.id ? async () => {
@@ -2074,8 +2311,9 @@ const transactionIcon = (entry: RedCoinsEntry): any => {
   if (/bill|utilities|electric|internet/.test(label)) return 'receipt';
   return 'wallet';
 };
-const EntryRow = memo(function EntryRow({ entry, icon, accountBalance, onLong, onPress, selected }: { entry: RedCoinsEntry; icon?: string; accountBalance?: number; onLong?: () => void; onPress?: () => void; selected?: boolean }) {
+const EntryRow = memo(function EntryRow({ entry, icon, accountBalance, onLong, onPress, selected }: { entry: RedCoinsEntry; icon?: string; accountBalance?: { source: number; destination?: number }; onLong?: () => void; onPress?: () => void; selected?: boolean }) {
   const color = entry.type === 'transfer' ? C.blue : entry.type === 'income' ? '#18A879' : C.coral;
+  const balanceLabel = (value: number) => `${value < 0 ? '− ' : ''}${money(value)}`;
   return (
     <TouchableOpacity onPress={onPress} onLongPress={onLong} delayLongPress={350} style={[s.entry, selected && s.entrySelected]}>
       <View style={[s.entryIcon, { backgroundColor: color }]}>{selected ? <Ionicons name="checkmark" size={15} color={C.white} /> : <Ionicons name={(icon || transactionIcon(entry)) as any} size={14} color={C.white} />}</View>
@@ -2092,10 +2330,16 @@ const EntryRow = memo(function EntryRow({ entry, icon, accountBalance, onLong, o
           {entry.type === 'income' ? '+' : entry.type === 'transfer' ? '⇄ ' : '− '}
           {money(entry.amount)}
         </Text>
-        <Text style={s.entryAccount} numberOfLines={1}>
-          {entry.account}
-          {accountBalance != null ? ` · ${accountBalance < 0 ? '− ' : ''}${money(accountBalance)}` : ''}
-        </Text>
+        {entry.type === 'transfer' ? (
+          <>
+            <Text style={s.entryAccount} numberOfLines={1}>From {entry.account}{accountBalance ? ` · ${balanceLabel(accountBalance.source)}` : ''}</Text>
+            <Text style={s.entryAccount} numberOfLines={1}>To {entry.toAccount || 'Unknown'}{accountBalance?.destination != null ? ` · ${balanceLabel(accountBalance.destination)}` : ''}</Text>
+          </>
+        ) : (
+          <Text style={s.entryAccount} numberOfLines={1}>
+            {entry.account}{accountBalance ? ` · ${balanceLabel(accountBalance.source)}` : ''}
+          </Text>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -2127,6 +2371,7 @@ const LedgerFilterModal = memo(function LedgerFilterModal({
   accounts,
   categories,
   subcategories,
+  salarySources,
   close,
   apply,
 }: {
@@ -2136,27 +2381,64 @@ const LedgerFilterModal = memo(function LedgerFilterModal({
     accounts: string[];
     categories: string[];
     subcategories: string[];
-    day: string;
+    dateMode: FilterDateMode;
+    startDay: string;
+    endDay: string;
+    dateLabel: string;
   };
   accounts: string[];
   categories: string[];
   subcategories: string[];
+  salarySources: SalarySource[];
   close: () => void;
-  apply: (next: { types: RedCoinsType[]; accounts: string[]; categories: string[]; subcategories: string[]; day: string }) => void;
+  apply: (next: { types: RedCoinsType[]; accounts: string[]; categories: string[]; subcategories: string[]; dateMode: FilterDateMode; startDay: string; endDay: string; dateLabel: string }) => void;
 }) {
   const [draft, setDraft] = useState(current);
+  const [dateOpen, setDateOpen] = useState(false);
+  const [datePicker, setDatePicker] = useState<'single' | 'start' | 'end' | null>(null);
+  const [salaryKey, setSalaryKey] = useState('');
+  const [cycleOffset, setCycleOffset] = useState(0);
   useEffect(() => {
-    if (visible) setDraft(current);
+    if (visible) {
+      setDraft(current);
+      setDateOpen(false);
+      setDatePicker(null);
+      setSalaryKey(salarySources[0]?.key || '');
+      setCycleOffset(0);
+    }
   }, [visible]);
-  const clear = () => setDraft({ types: [], accounts: [], categories: [], subcategories: [], day: '' });
+  const empty = { types: [] as RedCoinsType[], accounts: [], categories: [], subcategories: [], dateMode: 'all' as FilterDateMode, startDay: '', endDay: '', dateLabel: '' };
+  const clear = () => apply(empty);
   const toggle = (key: 'types' | 'accounts' | 'categories' | 'subcategories', value: string) => setDraft((row) => {
     const values = row[key] as string[];
     return { ...row, [key]: values.includes(value) ? values.filter((entry) => entry !== value) : [...values, value] };
   });
+  const setDateMode = (mode: FilterDateMode) => {
+    const today = dayKey(new Date().toISOString());
+    setDraft((row) => ({ ...row, dateMode: mode, startDay: mode === 'all' ? '' : row.startDay || today, endDay: mode === 'all' ? '' : row.endDay || today, dateLabel: mode === 'all' ? '' : row.dateLabel }));
+  };
+  const selectedSalary = salarySources.find((source) => source.key === salaryKey) || salarySources[0];
+  const selectCycle = (offset: number) => {
+    if (!selectedSalary?.entries.length) return;
+    const safeOffset = Math.max(0, Math.min(selectedSalary.entries.length - 1, offset));
+    const anchorIndex = selectedSalary.entries.length - 1 - safeOffset;
+    const anchor = selectedSalary.entries[anchorIndex];
+    const nextAnchor = selectedSalary.entries[anchorIndex + 1];
+    const end = nextAnchor ? new Date(nextAnchor.date) : new Date();
+    if (nextAnchor) end.setDate(end.getDate() - 1);
+    setCycleOffset(safeOffset);
+    setDraft((row) => ({
+      ...row,
+      dateMode: 'cycle',
+      startDay: dayKey(anchor.date),
+      endDay: dayKey(end.toISOString()),
+      dateLabel: `${selectedSalary.label} · ${new Date(anchor.date).toLocaleDateString('en-MY', { month: 'short', year: 'numeric' })}`,
+    }));
+  };
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={close}>
-      <View style={s.sheetShade}>
-        <View style={s.selectionSheet}>
+      <Pressable style={s.sheetShade} onPress={close}>
+        <Pressable style={s.selectionSheet} onPress={() => {}}>
           <View style={s.sheetGrab} />
           <View style={s.filterTitleRow}>
             <Text style={s.sheetTitle}>Filter transactions</Text>
@@ -2165,38 +2447,72 @@ const LedgerFilterModal = memo(function LedgerFilterModal({
             </TouchableOpacity>
           </View>
           <ScrollView style={s.filterListScroll} showsVerticalScrollIndicator={false}>
-            {draft.day ? (
-              <View style={s.filterGroup}>
-                <Text style={s.inputLabel}>DATE</Text>
-                <View style={[s.filterListRow, s.filterListRowActive]}>
-                  <Ionicons name="calendar-outline" size={18} color={C.coral} />
-                  <Text style={s.filterListText}>{draft.day}</Text>
-                  <TouchableOpacity onPress={() => setDraft((value) => ({ ...value, day: '' }))} hitSlop={8}>
-                    <Ionicons name="close-circle" size={20} color={C.coral} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : null}
+            <View style={s.filterGroup}>
+              <TouchableOpacity style={[s.filterDropdownHead, draft.dateMode !== 'all' && s.filterDropdownHeadActive]} onPress={() => setDateOpen((value) => !value)}>
+                <View style={{ flex: 1 }}><Text style={s.filterDropdownTitle}>DATE & CYCLE</Text><Text style={s.filterDropdownSummary}>{draft.dateMode === 'all' ? 'All dates' : draft.dateLabel || `${draft.startDay} → ${draft.endDay}`}</Text></View>
+                <Ionicons name={dateOpen ? 'chevron-up' : 'chevron-down'} size={18} color={C.ink} />
+              </TouchableOpacity>
+              {dateOpen && <View style={s.filterDropdownBody}>
+                {(['all', 'single', 'range', 'cycle'] as FilterDateMode[]).map((mode) => <TouchableOpacity key={mode} style={s.filterModeRow} onPress={() => { setDateMode(mode); if (mode === 'cycle') setTimeout(() => selectCycle(0), 0); }}>
+                  <Ionicons name={draft.dateMode === mode ? 'radio-button-on' : 'radio-button-off'} size={18} color={draft.dateMode === mode ? C.coral : C.muted} />
+                  <Text style={s.filterListText}>{mode === 'all' ? 'All dates' : mode === 'single' ? 'One date' : mode === 'range' ? 'Custom date range' : 'Salary cycle'}</Text>
+                </TouchableOpacity>)}
+                {draft.dateMode === 'single' && <TouchableOpacity style={s.filterDateButton} onPress={() => setDatePicker('single')}><Text style={s.inputLabel}>DATE</Text><Text style={s.periodDateValue}>{reportDate(localDay(draft.startDay))}</Text></TouchableOpacity>}
+                {draft.dateMode === 'range' && <View style={s.periodDatesRow}>
+                  <TouchableOpacity style={s.periodDateButton} onPress={() => setDatePicker('start')}><Text style={s.inputLabel}>FROM</Text><Text style={s.periodDateValue}>{reportDate(localDay(draft.startDay))}</Text></TouchableOpacity>
+                  <Ionicons name="arrow-forward" size={16} color={C.muted} />
+                  <TouchableOpacity style={s.periodDateButton} onPress={() => setDatePicker('end')}><Text style={s.inputLabel}>TO</Text><Text style={s.periodDateValue}>{reportDate(localDay(draft.endDay))}</Text></TouchableOpacity>
+                </View>}
+                {draft.dateMode === 'cycle' && <>
+                  <Text style={s.inputLabel}>SALARY ANCHOR</Text>
+                  {salarySources.map((source) => <TouchableOpacity key={source.key} style={[s.filterModeRow, selectedSalary?.key === source.key && s.filterListRowActive]} onPress={() => { setSalaryKey(source.key); setCycleOffset(0); const anchor = source.entries[source.entries.length - 1]; if (anchor) setDraft((row) => ({ ...row, dateMode: 'cycle', startDay: dayKey(anchor.date), endDay: dayKey(new Date().toISOString()), dateLabel: `${source.label} · ${new Date(anchor.date).toLocaleDateString('en-MY', { month: 'short', year: 'numeric' })}` })); }}><Ionicons name={selectedSalary?.key === source.key ? 'checkmark-circle' : 'ellipse-outline'} size={18} color={selectedSalary?.key === source.key ? '#168A65' : C.muted} /><Text style={s.filterListText}>{source.label}</Text></TouchableOpacity>)}
+                  {!salarySources.length && <Empty text="No salary income is available as a cycle anchor." />}
+                  {!!selectedSalary?.entries.length && <View style={s.filterCycleNav}>
+                    <TouchableOpacity disabled={cycleOffset >= selectedSalary.entries.length - 1} onPress={() => selectCycle(cycleOffset + 1)}><Ionicons name="chevron-back" size={20} color={cycleOffset >= selectedSalary.entries.length - 1 ? '#C8C1B5' : C.ink} /></TouchableOpacity>
+                    <Text style={s.filterCycleText}>{draft.dateLabel || 'Latest cycle'}</Text>
+                    <TouchableOpacity disabled={cycleOffset === 0} onPress={() => selectCycle(cycleOffset - 1)}><Ionicons name="chevron-forward" size={20} color={cycleOffset === 0 ? '#C8C1B5' : C.ink} /></TouchableOpacity>
+                  </View>}
+                </>}
+                {datePicker && <DateTimePicker value={localDay(datePicker === 'end' ? draft.endDay : draft.startDay)} mode="date" onChange={(_, selected) => {
+                  setDatePicker(null);
+                  if (!selected) return;
+                  const value = dayKey(selected.toISOString());
+                  setDraft((row) => datePicker === 'single'
+                    ? { ...row, startDay: value, endDay: value, dateLabel: reportDate(localDay(value)) }
+                    : datePicker === 'start'
+                      ? { ...row, startDay: value, dateLabel: `${reportDate(localDay(value))} → ${reportDate(localDay(row.endDay))}` }
+                      : { ...row, endDay: value, dateLabel: `${reportDate(localDay(row.startDay))} → ${reportDate(localDay(value))}` });
+                }} />}
+              </View>}
+            </View>
             <FilterList title="TYPE" values={['expense', 'income', 'transfer']} selected={draft.types} onSelect={(value) => toggle('types', value)} onAll={() => setDraft((row) => ({ ...row, types: [] }))} />
             <FilterList title="ACCOUNT" values={accounts} selected={draft.accounts} onSelect={(value) => toggle('accounts', value)} onAll={() => setDraft((row) => ({ ...row, accounts: [] }))} />
             <FilterList title="CATEGORY" values={categories} selected={draft.categories} onSelect={(value) => toggle('categories', value)} onAll={() => setDraft((row) => ({ ...row, categories: [] }))} />
             <FilterList title="SUBCATEGORY" values={subcategories} selected={draft.subcategories} onSelect={(value) => toggle('subcategories', value)} onAll={() => setDraft((row) => ({ ...row, subcategories: [] }))} />
           </ScrollView>
-          <TouchableOpacity style={s.sheetSave} onPress={() => apply(draft)}>
+          <TouchableOpacity style={s.sheetSave} onPress={() => {
+            if (draft.dateMode === 'range' && draft.startDay > draft.endDay) return Alert.alert('Invalid date range', 'The start date must be before the end date.');
+            if (draft.dateMode === 'cycle' && !draft.startDay) return Alert.alert('Salary cycle required', 'Choose a salary anchor and cycle first.');
+            apply(draft);
+          }}>
             <Text style={s.sheetSaveText}>APPLY FILTERS</Text>
           </TouchableOpacity>
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 });
 
 function FilterList({ title, values, selected, onSelect, onAll }: { title: string; values: readonly string[]; selected: string[]; onSelect: (value: string) => void; onAll: () => void }) {
+  const [open, setOpen] = useState(false);
   const rows = ['all', ...values];
   return (
     <View style={s.filterGroup}>
-      <Text style={s.inputLabel}>{title}</Text>
-      <View style={s.filterListBox}>
+      <TouchableOpacity style={[s.filterDropdownHead, selected.length > 0 && s.filterDropdownHeadActive]} onPress={() => setOpen((value) => !value)}>
+        <View style={{ flex: 1 }}><Text style={s.filterDropdownTitle}>{title}</Text><Text style={s.filterDropdownSummary}>{selected.length ? `${selected.length} selected · ${selected.slice(0, 2).join(', ')}${selected.length > 2 ? '…' : ''}` : `All ${title.toLowerCase()}`}</Text></View>
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={C.ink} />
+      </TouchableOpacity>
+      {open && <View style={s.filterListBox}>
         {rows.map((value, index) => {
           const active = value === 'all' ? selected.length === 0 : selected.includes(value);
           return (
@@ -2206,7 +2522,7 @@ function FilterList({ title, values, selected, onSelect, onAll }: { title: strin
             </TouchableOpacity>
           );
         })}
-      </View>
+      </View>}
     </View>
   );
 }
@@ -2327,8 +2643,8 @@ function EntryModal(p: any) {
           <TouchableOpacity onPress={p.close}>
             <Ionicons name="arrow-back" size={24} color={C.ink} />
           </TouchableOpacity>
-          <Text style={s.modalTitle}>{p.editing ? 'Edit entry' : 'New entry'}</Text>
-          <Text style={s.plusOne}>{p.editing ? 'EDIT' : '+1'}</Text>
+          <Text style={s.modalTitle}>{p.schedulingOnly ? (p.editingSchedule ? 'Edit schedule' : 'Create schedule') : p.editing ? 'Edit entry' : 'New entry'}</Text>
+          <Text style={s.plusOne}>{p.schedulingOnly ? 'AUTO' : p.editing ? 'EDIT' : '+1'}</Text>
         </View>
         <ScrollView contentContainerStyle={s.modalBody} keyboardShouldPersistTaps="handled">
           <View style={s.typeRow}>
@@ -2358,7 +2674,6 @@ function EntryModal(p: any) {
             onSubmitEditing={() => amountRef.current?.focus()}
             returnKeyType="next"
             autoFocus={!p.editing}
-            selectTextOnFocus
             placeholder="Name"
             placeholderTextColor="#AAA393"
           />
@@ -2379,6 +2694,7 @@ function EntryModal(p: any) {
               ))}
             </View>
           )}
+          {p.schedulingOnly && <Text style={s.inputLabel}>FIRST DUE · DATE & TIME</Text>}
           <TouchableOpacity style={s.entryDateButton} onPress={() => setDatePickerMode('date')} activeOpacity={0.75}>
             <Ionicons name="time-outline" size={15} color={C.ink} />
             <Text style={s.entryDateButtonText}>
@@ -2402,22 +2718,22 @@ function EntryModal(p: any) {
             >
               <Text style={s.amountSignText}>{p.type === 'expense' ? '−' : p.type === 'income' ? '+' : '⇄'}</Text>
             </View>
-            <TextInput ref={amountRef} style={s.amountBare} value={p.amount} onChangeText={p.setAmount} keyboardType="decimal-pad" returnKeyType="done" onSubmitEditing={p.saveEntry} selectTextOnFocus placeholder="0.00" placeholderTextColor="#AAA393" />
+            <TextInput ref={amountRef} style={s.amountBare} value={p.amount} onChangeText={p.setAmount} keyboardType="decimal-pad" returnKeyType="done" onSubmitEditing={p.saveEntry} placeholder="0.00" placeholderTextColor="#AAA393" />
             <Text style={s.currency}>MYR</Text>
           </View>
           {p.type !== 'transfer' && <PickerRow icon={ICON_LIBRARY.includes(cats.find((c: any) => c.name === p.category)?.icon) ? cats.find((c: any) => c.name === p.category).icon : 'grid-outline'} label="CATEGORY" value={p.subcategory || p.category} onPress={() => openPicker('category')} />}
           <PickerRow icon="wallet-outline" label={p.type === 'transfer' ? 'FROM ACCOUNT' : 'ACCOUNT'} value={p.account || 'Choose account'} onPress={() => openPicker('account')} />
           {p.type === 'transfer' && <PickerRow icon="arrow-forward-circle-outline" label="TRANSFER TO" value={p.toAccount || 'Choose destination'} onPress={() => openPicker('destination')} />}
-          <TouchableOpacity style={s.advancedButton} onPress={() => p.setAdvanced(!p.advanced)}>
+          {!p.schedulingOnly && <TouchableOpacity style={s.advancedButton} onPress={() => p.setAdvanced(!p.advanced)}>
             <Text style={s.advancedText}>Split · Status · Labels · Repeat</Text>
             <Ionicons name={p.advanced ? 'chevron-up' : 'chevron-down'} size={17} color={C.muted} />
-          </TouchableOpacity>
-          {p.advanced && (
+          </TouchableOpacity>}
+          {(p.schedulingOnly || p.advanced) && (
             <View style={s.advancedBox}>
               <Field label="LABELS" value={p.labels} onChange={p.setLabels} />
-              <Text style={s.inputLabel}>REPEAT</Text>
+              <Text style={s.inputLabel}>{p.schedulingOnly ? 'FREQUENCY' : 'REPEAT'}</Text>
               <View style={s.typeRow}>
-                {['none', 'daily', 'weekly', 'monthly', 'yearly', 'installment'].map((x) => (
+                {(p.schedulingOnly ? ['daily', 'weekly', 'monthly', 'yearly'] : ['none', 'daily', 'weekly', 'monthly', 'yearly', 'installment']).map((x) => (
                   <TouchableOpacity key={x} onPress={() => p.setRepeat(x)} style={[s.repeatButton, p.repeat === x && s.repeatActive]}>
                     <Text style={s.repeatText}>{x}</Text>
                   </TouchableOpacity>
@@ -2426,7 +2742,8 @@ function EntryModal(p: any) {
               {p.repeat && p.repeat !== 'none' && <>
                 {p.repeat === 'installment'
                   ? <Field label="TOTAL INSTALMENTS" value={p.installments} onChange={p.setInstallments} numeric />
-                  : <Field label={`REPEAT EVERY (${p.repeat.toUpperCase()})`} value={p.repeatEvery} onChange={p.setRepeatEvery} numeric />}
+                  : <Field label={`REPEAT EVERY (${({ daily: 'DAYS', weekly: 'WEEKS', monthly: 'MONTHS', yearly: 'YEARS' } as any)[p.repeat] || 'INTERVALS'})`} value={p.repeatEvery} onChange={p.setRepeatEvery} numeric />}
+                {p.schedulingOnly && <Text style={s.reminderExplainerCopy}>For every 22nd: set First due to the 22nd, choose Monthly, then enter 1 above.</Text>}
                 <Text style={s.inputLabel}>ENDING</Text>
                 <View style={s.typeRow}>
                   {['never', 'date', 'occurrences'].map((x) => <TouchableOpacity key={x} onPress={() => p.setReminderEndType(x)} style={[s.repeatButton, p.reminderEndType === x && s.repeatActive]}><Text style={s.repeatText}>{x}</Text></TouchableOpacity>)}
@@ -2450,7 +2767,7 @@ function EntryModal(p: any) {
           <TextInput style={s.noteInput} value={p.note} onChangeText={p.setNote} placeholder="Note" placeholderTextColor={C.muted} multiline />
         </ScrollView>
         <View style={s.entryFooter}>
-          {p.editing && (
+          {p.editing && !p.schedulingOnly && (
             <TouchableOpacity style={s.entryDelete} onPress={p.onDelete}>
               <Text style={s.entryDeleteText}>DELETE</Text>
             </TouchableOpacity>
@@ -2466,7 +2783,7 @@ function EntryModal(p: any) {
             onPress={p.saveEntry}
           >
             <Ionicons name="save-outline" size={19} color="#FFF" />
-            <Text style={s.entrySaveText}>{p.editing ? `UPDATE ${p.type.toUpperCase()}` : `SAVE ${p.type.toUpperCase()}`}</Text>
+            <Text style={s.entrySaveText}>{p.schedulingOnly ? (p.editingSchedule ? 'UPDATE SCHEDULE' : 'SAVE SCHEDULE') : p.editing ? `UPDATE ${p.type.toUpperCase()}` : `SAVE ${p.type.toUpperCase()}`}</Text>
           </TouchableOpacity>
         </View>
         {datePickerMode && (
@@ -2563,7 +2880,8 @@ function SelectionSheet({ visible, close, search, setSearch, title, children }: 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={close}>
       <KeyboardAvoidingView style={s.keyboardSheetShade} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
-        <View style={s.selectionSheet}>
+        <Pressable style={s.keyboardSheetFill} onPress={close}>
+        <Pressable style={s.selectionSheet} onPress={() => {}}>
           <View style={s.sheetGrab} />
           <View style={s.selectionTop}>
             <TextInput value={search} onChangeText={setSearch} placeholder={`Search ${title.toLowerCase()}…`} placeholderTextColor={C.muted} style={s.selectionSearch} />
@@ -2572,7 +2890,8 @@ function SelectionSheet({ visible, close, search, setSearch, title, children }: 
             </TouchableOpacity>
           </View>
           <ScrollView keyboardShouldPersistTaps="always" keyboardDismissMode="on-drag" contentContainerStyle={s.selectionResults}>{children}</ScrollView>
-        </View>
+        </Pressable>
+        </Pressable>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -2619,7 +2938,7 @@ function BudgetModal({ visible, target, value, setValue, allocated, total, curre
     </Modal>
   );
 }
-function ManageModal({ visible, mode, close, draft, save, editing }: any) {
+function ManageModal({ visible, mode, close, draft, save, remove, editing }: any) {
   const [iconSearch, setIconSearch] = useState('');
   useEffect(() => {
     if (visible) setIconSearch('');
@@ -2679,6 +2998,7 @@ function ManageModal({ visible, mode, close, draft, save, editing }: any) {
           <TouchableOpacity style={s.sheetSave} onPress={save}>
             <Text style={s.sheetSaveText}>SAVE</Text>
           </TouchableOpacity>
+          {editing && <TouchableOpacity style={s.guardDelete} onPress={remove}><Text style={s.guardDeleteText}>DELETE {mode === 'sub' ? 'SUBCATEGORY' : mode.toUpperCase()}</Text></TouchableOpacity>}
           </ScrollView>
           </Pressable>
         </Pressable>
@@ -3354,6 +3674,26 @@ const s = StyleSheet.create({
   selectionResults: { paddingBottom: 12 },
   filterListScroll: { maxHeight: 500, marginBottom: 12 },
   filterGroup: { marginBottom: 5 },
+  filterDropdownHead: {
+    minHeight: 57,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: '#DDD4C5',
+    borderRadius: 15,
+    paddingHorizontal: 13,
+    paddingVertical: 9,
+  },
+  filterDropdownHeadActive: { borderColor: '#F0A08F', backgroundColor: '#FFF7F2' },
+  filterDropdownTitle: { color: C.ink, fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
+  filterDropdownSummary: { color: C.muted, fontSize: 8, marginTop: 3 },
+  filterDropdownBody: { marginTop: 5, padding: 10, borderRadius: 15, borderWidth: 1, borderColor: '#DDD4C5', backgroundColor: C.white },
+  filterModeRow: { minHeight: 41, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 8, borderRadius: 10 },
+  filterDateButton: { marginTop: 8, borderRadius: 12, backgroundColor: C.cream, paddingHorizontal: 12, paddingVertical: 10 },
+  filterCycleNav: { marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 12, backgroundColor: C.cream, paddingHorizontal: 12, paddingVertical: 10 },
+  filterCycleText: { flex: 1, textAlign: 'center', color: C.ink, fontSize: 9, fontWeight: '900' },
   filterListBox: {
     overflow: 'hidden',
     borderWidth: 1,

@@ -112,7 +112,8 @@ export interface LedgerQuery {
   accounts: string[];
   categories: string[];
   subcategories: string[];
-  day: string;
+  startDay: string;
+  endDay: string;
   limit: number;
 }
 
@@ -157,7 +158,8 @@ const whereFor = (query: LedgerQuery) => {
     clauses.push(`subcategory IN (${query.subcategories.map(() => '?').join(',')})`);
     params.push(...query.subcategories);
   }
-  if (query.day) { clauses.push('substr(date,1,10) = ?'); params.push(query.day); }
+  if (query.startDay) { clauses.push('substr(date,1,10) >= ?'); params.push(query.startDay); }
+  if (query.endDay) { clauses.push('substr(date,1,10) <= ?'); params.push(query.endDay); }
   return { sql: clauses.length ? `WHERE ${clauses.join(' AND ')}` : '', params };
 };
 

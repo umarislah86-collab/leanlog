@@ -22,7 +22,7 @@ import {
   View,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useFocusEffect, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { runLeanLogAi } from '../services/ai';
@@ -63,6 +63,7 @@ const parseEntryDateTime = (dateStr: string, timeStr: string): Date => {
 
 export default function TodayScreen() {
   const { t } = useLanguage();
+  const navigation = useNavigation<any>();
 
   const MEAL_CATEGORIES: { key: MealCategory; label: string; emoji: string; subtitle: string }[] = [
     { key: 'sarapan', label: t('sarapan'), emoji: '🌅', subtitle: t('sarapanSub') },
@@ -215,19 +216,18 @@ export default function TodayScreen() {
 
   useEffect(() => {
     const params = route.params as { fabTrigger?: number; quickAction?: 'food' | 'activity' | 'weight' } | undefined;
-    if (!params?.fabTrigger) return;
+    if (!params?.fabTrigger && !params?.quickAction) return;
     if (params.quickAction === 'activity') {
       setShowActivitySourcePicker(true);
-      return;
-    }
-    if (params.quickAction === 'weight') {
+    } else if (params.quickAction === 'weight') {
       setNewWeight('70.0');
       setNewWeightDate(new Date());
       setShowWeightModal(true);
-      return;
+    } else {
+      setShowCategoryPicker(true);
     }
-    setShowCategoryPicker(true);
-  }, [(route.params as any)?.fabTrigger]);
+    navigation.setParams({ fabTrigger: undefined, quickAction: undefined });
+  }, [(route.params as any)?.fabTrigger, (route.params as any)?.quickAction, navigation]);
 
   const loadData = async () => {
     const todayKey = `sss_veg_${new Date().toLocaleDateString('ms-MY')}`;

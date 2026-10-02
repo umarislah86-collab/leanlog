@@ -6,6 +6,8 @@ import { materializeAutomaticReminders } from './redcoinsReminders';
 
 const STATE_KEY = 'redcoins_state_v1';
 const lookupKey = (value?: string) => (value || '').trim().toLocaleLowerCase();
+const SYSTEM_CATEGORY_KEYS = new Set(['(new account)', '(no category)', '(transfer)']);
+const isUserCategory = (name?: string) => !SYSTEM_CATEGORY_KEYS.has(lookupKey(name));
 
 export type RedCoinsType = 'expense' | 'income' | 'transfer';
 export type RedCoinsAccountType = 'Bank' | 'Cash' | 'Credit card' | 'Liability' | 'Investment';
@@ -91,6 +93,9 @@ export interface RedCoinsState {
   createdAt: string;
   exportBatches: RedCoinsExportBatch[];
   subcategoryBudgets: Record<string, number>;
+  deletedAccountNames?: string[];
+  deletedCategoryNames?: string[];
+  deletedSubcategories?: Record<string, string[]>;
   reportPreferences?: {
     mode: 'salary-cycle' | 'custom';
     salarySource: string;
@@ -142,7 +147,7 @@ function reconcileScheduledBalanceEffects(state: RedCoinsState) {
 export function freshRedCoinsState(summary?: BluecoinsSummary | null): RedCoinsState {
   const accountMap = new Map<string, RedCoinsAccount>();
   summary?.redcoins.accounts.forEach((a) => accountMap.set(a.name, { id: id(), ...a }));
-  const categories = (summary?.redcoins.categories || []).map(({ name, subcategories }, index) => ({
+  const categories = (summary?.redcoins.categories || []).filter(({ name }) => isUserCategory(name)).map(({ name, subcategories }, index) => ({
     id: id(),
     name,
     icon: ['▰', '●', '⛽', '🍴', '⌂', '♥', '✈', '⌁'][index % 8],
@@ -156,6 +161,9 @@ export function freshRedCoinsState(summary?: BluecoinsSummary | null): RedCoinsS
     deletedEntries: [],
     exportBatches: [],
     subcategoryBudgets: {},
+    deletedAccountNames: [],
+    deletedCategoryNames: [],
+    deletedSubcategories: {},
     entryDefaults: {},
     reportPreferences: undefined,
     payday: summary?.monthly.payday || 25,
@@ -170,6 +178,10 @@ export async function loadRedCoins(summary?: BluecoinsSummary | null) {
   const raw = await AsyncStorage.getItem(STATE_KEY);
   if (raw) {
     const saved = JSON.parse(raw) as RedCoinsState;
+    saved.categories = (saved.categories || []).filter((category) => isUserCategory(category.name));
+    saved.deletedAccountNames = saved.deletedAccountNames || [];
+    saved.deletedCategoryNames = saved.deletedCategoryNames || [];
+    saved.deletedSubcategories = saved.deletedSubcategories || {};
     saved.reminders = saved.reminders || [];
     const deletions = collectDeletions(saved);
     if (summary?.redcoins) {
@@ -180,6 +192,15 @@ export async function loadRedCoins(summary?: BluecoinsSummary | null) {
       const customAccounts = saved.accounts.filter((account) => !summary.redcoins.accounts.some((source) => lookupKey(source.name) === lookupKey(account.name)));
       const customCategories = saved.categories.filter((category) => !summary.redcoins.categories.some((source) => lookupKey(source.name) === lookupKey(category.name)));
       const refreshed = freshRedCoinsState(summary);
+      const deletedAccounts = new Set(saved.deletedAccountNames.map(lookupKey));
+      const deletedCategories = new Set(saved.deletedCategoryNames.map(lookupKey));
+      refreshed.accounts = refreshed.accounts.filter((account) => !deletedAccounts.has(lookupKey(account.name)));
+      refreshed.categories = refreshed.categories
+        .filter((category) => !deletedCategories.has(lookupKey(category.name)))
+        .map((category) => {
+          const deletedSubs = new Set((saved.deletedSubcategories?.[lookupKey(category.name)] || []).map(lookupKey));
+          return { ...category, subcategories: category.subcategories.filter((subcategory) => !deletedSubs.has(lookupKey(subcategory))) };
+        });
       const savedAccountIcons = new Map(saved.accounts.map((account) => [lookupKey(account.name), account.icon]).filter((entry): entry is [string, string] => !!entry[1]));
       refreshed.accounts.forEach((account) => { const icon = savedAccountIcons.get(lookupKey(account.name)); if (icon) account.icon = icon; });
       const savedCategoryIcons = new Map(saved.categories.map((category) => [lookupKey(category.name), category]));
@@ -232,6 +253,9 @@ export async function loadRedCoins(summary?: BluecoinsSummary | null) {
       refreshed.reminders = saved.reminders || [];
       refreshed.exportBatches = saved.exportBatches || [];
       refreshed.subcategoryBudgets = saved.subcategoryBudgets || {};
+      refreshed.deletedAccountNames = saved.deletedAccountNames;
+      refreshed.deletedCategoryNames = saved.deletedCategoryNames;
+      refreshed.deletedSubcategories = saved.deletedSubcategories;
       refreshed.entryDefaults = saved.entryDefaults || {};
       refreshed.reportPreferences = saved.reportPreferences;
       refreshed.payday = saved.payday || refreshed.payday;
@@ -250,6 +274,9 @@ export async function loadRedCoins(summary?: BluecoinsSummary | null) {
       deletedEntries: deletions,
       reminders: saved.reminders || [],
       subcategoryBudgets: saved.subcategoryBudgets || {},
+      deletedAccountNames: saved.deletedAccountNames || [],
+      deletedCategoryNames: saved.deletedCategoryNames || [],
+      deletedSubcategories: saved.deletedSubcategories || {},
       entryDefaults: saved.entryDefaults || {},
       reportPreferences: saved.reportPreferences,
     };

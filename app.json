@@ -3,7 +3,7 @@
     "name": "LeanLog",
     "slug": "umarcoc93",
     "scheme": "leanlog",
-    "version": "2.9.8",
+    "version": "2.9.9",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
@@ -29,6 +29,7 @@
       ]
     },
     "plugins": [
+      "./plugins/withLeanLogShortcuts",
       [
         "expo-image-picker",
         {
@@ -57,6 +58,51 @@
               "description": "Calories, steps, cash reality and quick logging at a glance.",
               "minWidth": "250dp",
               "minHeight": "110dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "LeanLogAccount",
+              "label": "LeanLog Account",
+              "description": "A live balance for one RedCoins account.",
+              "minWidth": "180dp",
+              "minHeight": "90dp",
+              "targetCellWidth": 3,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "widgetFeatures": "reconfigurable",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "LeanLogCashReality",
+              "label": "LeanLog Cash Reality",
+              "description": "True spendable cash, cards owed and selected cash.",
+              "minWidth": "250dp",
+              "minHeight": "90dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "LeanLogQuickLog",
+              "label": "LeanLog Quick Log",
+              "description": "Open food and RedCoins loggers from the home screen.",
+              "minWidth": "250dp",
+              "minHeight": "55dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 1,
+              "resizeMode": "horizontal",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "LeanLogAutomation",
+              "label": "LeanLog Bills & Automation",
+              "description": "Upcoming RedCoins reminders and auto-log transactions.",
+              "minWidth": "250dp",
+              "minHeight": "90dp",
               "targetCellWidth": 4,
               "targetCellHeight": 2,
               "resizeMode": "horizontal|vertical",

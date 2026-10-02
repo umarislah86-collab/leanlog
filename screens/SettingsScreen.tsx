@@ -368,17 +368,17 @@ export default function SettingsScreen() {
     }
   };
 
-  const addHomeWidget = async () => {
+  const addHomeWidget = async (widgetName = 'LeanLogDaily', label = 'LeanLog Daily') => {
     if (Platform.OS !== 'android') {
       Alert.alert('Android widget', 'The LeanLog home-screen widget is available on Android.');
       return;
     }
     try {
       await refreshLeanLogWidget();
-      const supported = await requestPinWidget({ widgetName: 'LeanLogDaily' });
-      if (!supported) Alert.alert('Add widget', 'Long-press your Android home screen, choose Widgets, then select LeanLog Daily.');
+      const supported = await requestPinWidget({ widgetName });
+      if (!supported) Alert.alert('Add widget', `Long-press your Android home screen, choose Widgets, then select ${label}.`);
     } catch {
-      Alert.alert('Add widget', 'Long-press your Android home screen, choose Widgets, then select LeanLog Daily.');
+      Alert.alert('Add widget', `Long-press your Android home screen, choose Widgets, then select ${label}.`);
     }
   };
 
@@ -452,11 +452,13 @@ export default function SettingsScreen() {
             <View style={styles.widgetPreviewTrack}><View style={styles.widgetPreviewFill} /></View>
             <View style={styles.widgetPreviewTiles}><Text style={styles.widgetPreviewTile}>4,892 steps · 2 meals{`\n`}TRUE CASH −RM 681</Text><Text style={[styles.widgetPreviewTile, styles.widgetPreviewGuard]}>📌 CIMB PLATINUM{`\n`}RM 1,686 / 1,400 · 120%</Text></View>
           </View>
-          <Text style={styles.widgetTitle}>Your day without opening the app.</Text>
-          <Text style={styles.widgetBody}>Calories, movement and your top-priority Spending Guard without opening LeanLog. Pin any account, category or subcategory from Budget Coach.</Text>
-          <TouchableOpacity style={styles.widgetButton} onPress={addHomeWidget}>
-            <Text style={styles.widgetButtonText}>＋ Add LeanLog widget</Text>
-          </TouchableOpacity>
+          <Text style={styles.widgetTitle}>Build your own home screen.</Text>
+          <Text style={styles.widgetBody}>Add Daily, a chosen RedCoins account, Cash Reality, Quick Log or upcoming bills. Account widgets can be added more than once with a different account for each instance.</Text>
+          <TouchableOpacity style={styles.widgetButton} onPress={() => addHomeWidget()}><Text style={styles.widgetButtonText}>＋ Daily overview</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.widgetButton} onPress={() => addHomeWidget('LeanLogAccount', 'LeanLog Account')}><Text style={styles.widgetButtonText}>＋ Account snapshot</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.widgetButton} onPress={() => addHomeWidget('LeanLogCashReality', 'LeanLog Cash Reality')}><Text style={styles.widgetButtonText}>＋ Cash Reality</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.widgetButton} onPress={() => addHomeWidget('LeanLogQuickLog', 'LeanLog Quick Log')}><Text style={styles.widgetButtonText}>＋ Quick Log</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.widgetButton} onPress={() => addHomeWidget('LeanLogAutomation', 'LeanLog Bills & Automation')}><Text style={styles.widgetButtonText}>＋ Automation & bills</Text></TouchableOpacity>
         </View>
 
         <Text style={styles.sectionLabel}>SUPER-KAREN COACH</Text>

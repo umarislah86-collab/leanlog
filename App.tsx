@@ -310,7 +310,11 @@ export default function App() {
           linking={{
             prefixes: ['leanlog://'],
             config: {
-              screens: { Home: 'home', RedCoins: { path: 'redcoins/:mode?' } },
+              screens: {
+                Home: 'home',
+                Log: { path: 'quick/:quickAction' },
+                RedCoins: { path: 'redcoins/:mode?' },
+              },
             },
           }}
         >
