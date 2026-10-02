@@ -12,11 +12,11 @@ export function AccountSnapshotWidget({ account, updated }: { account: WidgetAcc
       <TextWidget text="REDCOINS / ACCOUNT" style={{ color: '#EF3F43', fontSize: 9, fontWeight: '700' }} />
       <TextWidget text={updated} style={{ color: '#7C756B', fontSize: 7, fontWeight: '700' }} />
     </FlexWidget>
-    {account ? <>
+    {account ? <FlexWidget style={{ width: 'match_parent', flexDirection: 'column' }}>
       <TextWidget text={account.name} maxLines={1} style={{ color: '#172033', fontSize: 15, fontWeight: '700', marginTop: 10 }} />
       <TextWidget text={money(account.balance)} maxLines={1} style={{ color: account.balance < 0 ? '#D4422B' : '#315F50', fontSize: 25, fontWeight: '700', marginTop: 3 }} />
       <TextWidget text={`${account.type.toUpperCase()} · TAP TO VIEW ACCOUNTS`} maxLines={1} style={{ color: '#7C756B', fontSize: 7, fontWeight: '700', marginTop: 7 }} />
-    </> : <TextWidget text="Choose an account while adding this widget." style={{ color: '#172033', fontSize: 11, fontWeight: '700', marginTop: 14 }} />}
+    </FlexWidget> : <TextWidget text="Choose an account while adding this widget." style={{ color: '#172033', fontSize: 11, fontWeight: '700', marginTop: 14 }} />}
   </FlexWidget>;
 }
 

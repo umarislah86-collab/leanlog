@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { WidgetConfigurationScreenProps } from 'react-native-android-widget';
 import { AccountSnapshotWidget, type WidgetAccount } from './RedCoinsWidgets';
 import { getWidgetAccounts, saveWidgetAccount, widgetUpdatedTime } from './redcoins-widget-data';
@@ -8,18 +8,27 @@ export function WidgetConfigurationScreen({ widgetInfo, renderWidget, setResult 
   const [accounts, setAccounts] = useState<WidgetAccount[]>([]);
   const [selected, setSelected] = useState('');
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   useEffect(() => {
     getWidgetAccounts().then((rows) => {
       setAccounts(rows);
       setSelected(rows[0]?.name || '');
-    }).finally(() => setLoading(false));
+    }).catch(() => Alert.alert('Accounts unavailable', 'Unable to load RedCoins accounts. Open LeanLog and try again.')).finally(() => setLoading(false));
   }, []);
   const save = async () => {
-    if (!selected) return;
-    await saveWidgetAccount(widgetInfo.widgetId, selected);
-    const account = accounts.find((row) => row.name === selected) || null;
-    renderWidget(<AccountSnapshotWidget account={account} updated={widgetUpdatedTime()} />);
-    setResult('ok');
+    if (!selected || saving) return;
+    setSaving(true);
+    try {
+      await saveWidgetAccount(widgetInfo.widgetId, selected);
+      const account = accounts.find((row) => row.name === selected) || null;
+      renderWidget(<AccountSnapshotWidget account={account} updated={widgetUpdatedTime()} />);
+      setResult('ok');
+    } catch (error) {
+      console.error('Account widget configuration failed', error);
+      Alert.alert('Widget could not be added', 'Please try adding the account widget again.');
+    } finally {
+      setSaving(false);
+    }
   };
   return <View style={s.screen}>
     <Text style={s.eyebrow}>LEANLOG / WIDGET</Text>
@@ -32,7 +41,7 @@ export function WidgetConfigurationScreen({ widgetInfo, renderWidget, setResult 
       </TouchableOpacity>)}
       {!accounts.length && <Text style={s.empty}>Open RedCoins and sync your accounts first.</Text>}
     </ScrollView>}
-    <View style={s.actions}><TouchableOpacity style={s.cancel} onPress={() => setResult('cancel')}><Text style={s.cancelText}>CANCEL</Text></TouchableOpacity><TouchableOpacity disabled={!selected} style={[s.save, !selected && { opacity: 0.4 }]} onPress={save}><Text style={s.saveText}>ADD WIDGET</Text></TouchableOpacity></View>
+    <View style={s.actions}><TouchableOpacity disabled={saving} style={s.cancel} onPress={() => setResult('cancel')}><Text style={s.cancelText}>CANCEL</Text></TouchableOpacity><TouchableOpacity disabled={!selected || saving} style={[s.save, (!selected || saving) && { opacity: 0.4 }]} onPress={save}><Text style={s.saveText}>{saving ? 'ADDING…' : 'ADD WIDGET'}</Text></TouchableOpacity></View>
   </View>;
 }
 

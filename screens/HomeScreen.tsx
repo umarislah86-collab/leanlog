@@ -652,7 +652,7 @@ export default function HomeScreen({ navigation }: any) {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.moneyCard} onPress={bluecoinsConnected && bluecoins ? openBudgetCoach : () => connectBluecoins(false)} activeOpacity={0.9}>
+          <TouchableOpacity style={styles.moneyCard} onPress={bluecoinsConnected && bluecoins ? openBudgetCoach : () => navigation.navigate('Settings')} activeOpacity={0.9}>
             <View style={styles.moneyTop}>
               <Text style={styles.moneyEyebrow}>BUDGET COACH · LAST 7 DAYS</Text>
               <Ionicons name="wallet-outline" size={22} color={colors.text} />
@@ -721,25 +721,6 @@ export default function HomeScreen({ navigation }: any) {
             )}
           </TouchableOpacity>
 
-          {bluecoinsConnected && (
-            <View style={styles.bluecoinsActions}>
-              <TouchableOpacity style={styles.bluecoinsSyncButton} onPress={() => loadBluecoins(false)} disabled={bluecoinsLoading} activeOpacity={0.82}>
-                {bluecoinsLoading ? <ActivityIndicator size="small" color={colors.oat} /> : <Ionicons name="cloud-download-outline" size={19} color={colors.oat} />}
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.bluecoinsSyncTitle}>{bluecoinsLoading ? 'READING QUICKSYNC…' : 'SYNC FROM BLUECOINS DRIVE'}</Text>
-                  <Text style={styles.bluecoinsSyncMeta}>{bluecoins ? `${bluecoins.sourceName} · reads newest .fydb` : 'Read the newest .fydb in your selected folder'}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={17} color="#AAB5C7" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.bluecoinsSourceButton} onPress={() => connectBluecoins(true)} disabled={bluecoinsLoading} activeOpacity={0.82}>
-                <Ionicons name="folder-open-outline" size={18} color={colors.ink} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.bluecoinsSourceTitle}>CHANGE SOURCE</Text>
-                  <Text style={styles.bluecoinsSourceMeta}>Pick Phone storage or Google Drive &gt; Bluecoins &gt; Quicksync</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-          )}
 
           {bluecoins && (
             <TouchableOpacity style={[styles.realityCard, bluecoins.cashReality.trueSpendable < 0 && styles.realityCardDanger]} onPress={openBudgetCoach} activeOpacity={0.88}>

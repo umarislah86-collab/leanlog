@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as BackgroundTask from 'expo-background-task';
 import * as TaskManager from 'expo-task-manager';
-import { getBluecoinsFolder, refreshBluecoinsSummary } from './bluecoins';
+import { bluecoinsAutoSyncEnabled, getBluecoinsFolder, refreshBluecoinsSummary } from './bluecoins';
 import { mergeRedCoinsIntoBudgetCoach } from './redcoins';
 import { syncPinnedGuardSnapshot } from './spendingGuards';
 import { refreshLeanLogWidget } from './widget';
@@ -12,6 +12,7 @@ export const BLUECOINS_BACKGROUND_STATUS_KEY = 'bluecoins_background_sync_status
 if (!TaskManager.isTaskDefined(BLUECOINS_BACKGROUND_TASK)) {
   TaskManager.defineTask(BLUECOINS_BACKGROUND_TASK, async () => {
     try {
+      if (!await bluecoinsAutoSyncEnabled()) return BackgroundTask.BackgroundTaskResult.Success;
       const folder = await getBluecoinsFolder();
       if (!folder) return BackgroundTask.BackgroundTaskResult.Success;
 
@@ -37,6 +38,10 @@ if (!TaskManager.isTaskDefined(BLUECOINS_BACKGROUND_TASK)) {
 }
 
 export async function ensureBluecoinsBackgroundSync() {
+  if (!await bluecoinsAutoSyncEnabled()) {
+    if (await TaskManager.isTaskRegisteredAsync(BLUECOINS_BACKGROUND_TASK)) await BackgroundTask.unregisterTaskAsync(BLUECOINS_BACKGROUND_TASK);
+    return false;
+  }
   const status = await BackgroundTask.getStatusAsync();
   if (status !== BackgroundTask.BackgroundTaskStatus.Available) return false;
   await BackgroundTask.registerTaskAsync(BLUECOINS_BACKGROUND_TASK, { minimumInterval: 15 });

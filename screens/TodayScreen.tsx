@@ -11,6 +11,7 @@ import {
   Alert,
   Animated,
   Image,
+  InteractionManager,
   LayoutAnimation,
   Modal,
   ScrollView,
@@ -64,6 +65,7 @@ const parseEntryDateTime = (dateStr: string, timeStr: string): Date => {
 export default function TodayScreen() {
   const { t } = useLanguage();
   const navigation = useNavigation<any>();
+  const launchedFromShortcut = useRef(false);
 
   const MEAL_CATEGORIES: { key: MealCategory; label: string; emoji: string; subtitle: string }[] = [
     { key: 'sarapan', label: t('sarapan'), emoji: '🌅', subtitle: t('sarapanSub') },
@@ -217,14 +219,22 @@ export default function TodayScreen() {
   useEffect(() => {
     const params = route.params as { fabTrigger?: number; quickAction?: 'food' | 'activity' | 'weight' } | undefined;
     if (!params?.fabTrigger && !params?.quickAction) return;
-    if (params.quickAction === 'activity') {
-      setShowActivitySourcePicker(true);
-    } else if (params.quickAction === 'weight') {
-      setNewWeight('70.0');
-      setNewWeightDate(new Date());
-      setShowWeightModal(true);
+    launchedFromShortcut.current = !!params.quickAction && !params.fabTrigger;
+    const openLogger = () => {
+      if (params.quickAction === 'activity') {
+        setShowActivitySourcePicker(true);
+      } else if (params.quickAction === 'weight') {
+        setNewWeight('70.0');
+        setNewWeightDate(new Date());
+        setShowWeightModal(true);
+      } else {
+        setShowCategoryPicker(true);
+      }
+    };
+    if (launchedFromShortcut.current) {
+      InteractionManager.runAfterInteractions(() => setTimeout(openLogger, 250));
     } else {
-      setShowCategoryPicker(true);
+      openLogger();
     }
     navigation.setParams({ fabTrigger: undefined, quickAction: undefined });
   }, [(route.params as any)?.fabTrigger, (route.params as any)?.quickAction, navigation]);
@@ -365,7 +375,7 @@ export default function TodayScreen() {
       setTimeout(() => setShowTextModal(true), 300);
     } else {
       setPendingImageFor('food');
-      setTimeout(() => pickImage(src === 'camera'), 300);
+      launchNativeImagePicker(src === 'camera');
     }
   };
 
@@ -379,8 +389,27 @@ export default function TodayScreen() {
       setTimeout(() => setShowActivityModal(true), 300);
     } else {
       setPendingImageFor('activity');
-      setTimeout(() => pickImage(src === 'camera'), 300);
+      launchNativeImagePicker(src === 'camera');
     }
+  };
+
+  const launchNativeImagePicker = (useCamera: boolean) => {
+    // A launcher shortcut can cold-start MainActivity through a deep link.
+    // Android may ignore the next native activity while that navigation and the
+    // source sheet are still settling, so give shortcut launches extra room.
+    const delay = launchedFromShortcut.current ? 750 : 450;
+    InteractionManager.runAfterInteractions(() => {
+      setTimeout(() => {
+        launchedFromShortcut.current = false;
+        void pickImage(useCamera).catch((error) => {
+          console.error('Unable to open image picker', error);
+          Alert.alert(
+            useCamera ? 'Camera tak dapat dibuka' : 'Gallery tak dapat dibuka',
+            'LeanLog tak berjaya membuka pemilih gambar. Cuba lagi atau semak permission aplikasi dalam Android Settings.',
+          );
+        });
+      }, delay);
+    });
   };
 
   const pickImage = async (useCamera: boolean) => {

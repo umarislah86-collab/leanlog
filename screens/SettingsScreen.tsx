@@ -28,6 +28,9 @@ import { requestPinWidget } from 'react-native-android-widget';
 import { refreshLeanLogWidget } from '../services/widget';
 import { getNagDays, getNagTimes, isNagModeEnabled, setNagDays, setNagModeEnabled, setNagTimes } from '../services/nagging';
 import LeanLogChronicle from '../components/LeanLogChronicle';
+import { BLUECOINS_AUTO_SYNC_KEY, bluecoinsAutoSyncEnabled, chooseBluecoinsFolder, getBluecoinsSourceMetadata, refreshBluecoinsSummary } from '../services/bluecoins';
+import { loadRedCoins, mergeRedCoinsIntoBudgetCoach } from '../services/redcoins';
+import { ensureBluecoinsBackgroundSync } from '../services/bluecoinsBackground';
 
 const formatPickerTime = (d: Date) =>
   `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -40,6 +43,43 @@ const timeStrToDate = (timeStr: string): Date => {
 };
 
 const REMINDER_KEY = 'reminders';
+
+function BluecoinsImportSettings() {
+  const [auto, setAuto] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [source, setSource] = useState<Awaited<ReturnType<typeof getBluecoinsSourceMetadata>>>(null);
+  useEffect(() => { bluecoinsAutoSyncEnabled().then(setAuto); getBluecoinsSourceMetadata().then(setSource); }, []);
+  const importBackup = (changeSource: boolean) => Alert.alert('Import Bluecoins backup?', 'This updates the imported baseline and account balances. Local RedCoins entries are reconciled with the backup.', [
+    { text: 'Cancel', style: 'cancel' },
+    { text: 'Import', onPress: async () => {
+      setBusy(true);
+      try {
+        const folder = changeSource ? await chooseBluecoinsFolder() : undefined;
+        if (changeSource && !folder) return;
+        const baseline = await refreshBluecoinsSummary(folder, true);
+        await loadRedCoins(baseline);
+        await mergeRedCoinsIntoBudgetCoach(baseline);
+        await refreshLeanLogWidget();
+        setSource(await getBluecoinsSourceMetadata());
+        Alert.alert('Import complete', baseline.sourceName);
+      } catch (error) { Alert.alert('Import failed', error instanceof Error ? error.message : String(error)); }
+      finally { setBusy(false); }
+    } },
+  ]);
+  return <View style={styles.card}>
+    <Text style={styles.actionSub}>{source ? `${source.name}\nLast sync: ${new Date(source.syncedAt).toLocaleString('en-MY')}` : 'Optional Bluecoins backup import. Your existing history stays available in RedCoins.'}</Text>
+    <TouchableOpacity disabled={busy} style={styles.actionRow} onPress={() => importBackup(false)}><View style={styles.actionIcon}><Ionicons name="cloud-download-outline" size={19} color="#101A2B" /></View><Text style={styles.actionTitle}>{busy ? 'Importing…' : 'Sync latest backup'}</Text></TouchableOpacity>
+    <View style={styles.divider} />
+    <TouchableOpacity disabled={busy} style={styles.actionRow} onPress={() => importBackup(true)}><View style={styles.actionIcon}><Ionicons name="folder-open-outline" size={19} color="#101A2B" /></View><Text style={styles.actionTitle}>Change source</Text></TouchableOpacity>
+    <View style={styles.divider} />
+    <View style={styles.accountRow}><View style={{ flex: 1 }}><Text style={styles.actionTitle}>Automatic sync</Text><Text style={styles.actionSub}>Read new Bluecoins backups automatically</Text></View><Switch disabled={busy} value={auto} onValueChange={async (value) => {
+      setBusy(true);
+      try { await AsyncStorage.setItem(BLUECOINS_AUTO_SYNC_KEY, String(value)); setAuto(value); await ensureBluecoinsBackgroundSync(); }
+      catch (error) { Alert.alert('Sync setting failed', String(error)); }
+      finally { setBusy(false); }
+    }} /></View>
+  </View>;
+}
 
 // Back up durable LeanLog state, while excluding device permissions, caches,
 // notification IDs and Firebase's own persisted authentication session.
@@ -535,6 +575,8 @@ export default function SettingsScreen() {
         </View>
 
         {/* Account */}
+        <Text style={styles.sectionLabel}>Bluecoins import</Text>
+        <BluecoinsImportSettings />
         <Text style={styles.sectionLabel}>{t('account')}</Text>
         <View style={styles.card}>
           <View style={styles.accountRow}>

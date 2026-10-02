@@ -23,7 +23,8 @@ import type { FoodEntry, ActivityEntry, WeightEntry, UserProfile, GymSession } f
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
+import { deliverExport } from '../services/exportFile';
+import { buildProgressReport, progressReportData } from '../services/progressReport';
 import * as FileSystem from 'expo-file-system/legacy';
 import WeightAreaChart from '../components/WeightAreaChart';
 import { Ionicons } from '@expo/vector-icons';
@@ -523,118 +524,44 @@ export default function ProgressScreen() {
   };
 
   const exportPDF = async () => {
-    if (!allFood.length && !allActivities.length && !weightEntries.length) {
-      Alert.alert(t('noData'), t('noDataToExport')); return;
-    }
+    if (exportLoading) return;
     setExportLoading(true);
     try {
-      const today = new Date().toLocaleDateString('ms-MY');
-      const catMap: Record<string, string> = { sarapan: 'Sarapan', tengahari: 'Tengah Hari', malam: 'Malam', snek: 'Snek' };
-
-      const last14 = Array.from({ length: 14 }, (_, i) => {
-        const d = new Date(); d.setDate(d.getDate() - i);
-        return d.toLocaleDateString('ms-MY');
-      });
-
-      const summaryRows = last14.map(date => {
-        const c = allFood.filter(e => e.date === date).reduce((s, e) => s + e.calories, 0);
-        const b = allActivities.filter(e => e.date === date).reduce((s, e) => s + e.caloriesBurned, 0);
-        const net = c - b;
-        const diff = net - goal;
-        const color = net > goal ? '#e53935' : net > goal * 0.8 ? '#f57c00' : '#388e3c';
-        return `<tr><td>${date}</td><td>${c}</td><td>${b}</td><td style="color:${color};font-weight:600">${net}</td><td>${diff > 0 ? '+' + diff : diff}</td></tr>`;
-      }).join('');
-
-      const foodRows = allFood.slice(0, 60).map(e =>
-        `<tr><td>${e.date}</td><td>${e.time || ''}</td><td>${e.name || ''}</td><td>${catMap[e.category] || e.category}</td><td>${e.calories}</td></tr>`
-      ).join('');
-
-      const actRows = allActivities.slice(0, 40).map(a =>
-        `<tr><td>${a.date}</td><td>${a.time || ''}</td><td>${a.name || ''}</td><td>${a.duration || 0} min</td><td>${a.caloriesBurned}</td></tr>`
-      ).join('');
-
-      const wtRows = weightEntries.map(w => {
-        const bmiVal = userProfile?.height ? (w.weight / Math.pow(userProfile.height / 100, 2)).toFixed(1) : '-';
-        return `<tr><td>${w.date}</td><td>${w.weight} kg</td><td>${bmiVal}</td></tr>`;
-      }).join('');
-
-      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
-        <style>
-          body{font-family:sans-serif;padding:24px;color:#222;font-size:12px}
-          h1{color:#2e7d32;font-size:18px;margin-bottom:4px}
-          h2{color:#2e7d32;font-size:13px;margin:20px 0 6px;border-bottom:1px solid #e0e0e0;padding-bottom:4px}
-          .meta{color:#AAB3C2;font-size:11px;margin-bottom:20px}
-          table{width:100%;border-collapse:collapse;margin-bottom:8px}
-          th{background:#f5f5f5;text-align:left;padding:6px 8px;font-size:10px;text-transform:uppercase;color:#8D97A8}
-          td{padding:5px 8px;border-bottom:1px solid #f0f0f0;font-size:11px}
-        </style></head><body>
-        <h1>CalorieTracker — Laporan Eksport</h1>
-        <p class="meta">Tarikh: ${today} &nbsp;|&nbsp; Sasaran: ${goal} kcal/hari</p>
-
-        <h2>Ringkasan 14 Hari Terkini</h2>
-        <table><tr><th>Tarikh</th><th>Dimakan (kcal)</th><th>Dibakar (kcal)</th><th>Bersih (kcal)</th><th>vs Sasaran</th></tr>
-        ${summaryRows}</table>
-
-        <h2>Rekod Makanan (${allFood.length} rekod)</h2>
-        <table><tr><th>Tarikh</th><th>Masa</th><th>Makanan</th><th>Kategori</th><th>Kalori</th></tr>
-        ${foodRows}</table>
-
-        <h2>Rekod Aktiviti (${allActivities.length} rekod)</h2>
-        <table><tr><th>Tarikh</th><th>Masa</th><th>Aktiviti</th><th>Tempoh</th><th>Dibakar (kcal)</th></tr>
-        ${actRows}</table>
-
-        <h2>Rekod Berat Badan (${weightEntries.length} rekod)</h2>
-        <table><tr><th>Tarikh</th><th>Berat</th><th>BMI</th></tr>
-        ${wtRows}</table>
-      </body></html>`;
-
-      const { uri } = await Print.printToFileAsync({ html });
-      await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
-    } catch (e) {
-      Alert.alert(t('error'), t('failExportPdf') + (e instanceof Error ? e.message : String(e)));
-    } finally {
-      setExportLoading(false);
-    }
+      const data = progressReportData(allFood, allActivities, weightEntries, period);
+      if (!data.meals.length && !data.movement.length && !data.body.length) {
+        Alert.alert(t('noData'), t('noDataToExport')); return;
+      }
+      const html = buildProgressReport(data, goal);
+      const result = await Print.printToFileAsync({ html, width: 595, height: 842 });
+      const name = `LeanLog-Progress-${period}-${new Date().toISOString().slice(0, 10)}.pdf`;
+      const destination = `${FileSystem.cacheDirectory}${name}`;
+      await FileSystem.copyAsync({ from: result.uri, to: destination });
+      await deliverExport(destination, name, 'application/pdf');
+    } catch (error) {
+      Alert.alert(t('error'), t('failExportPdf') + (error instanceof Error ? error.message : String(error)));
+    } finally { setExportLoading(false); }
   };
 
   const exportCSV = async () => {
-    if (!allFood.length && !allActivities.length && !weightEntries.length) {
-      Alert.alert(t('noData'), t('noDataToExport')); return;
-    }
+    if (exportLoading) return;
     setExportLoading(true);
     try {
-      const today = new Date().toLocaleDateString('ms-MY').replace(/\//g, '-');
-      const esc = (s: string | number) => `"${String(s).replace(/"/g, '""')}"`;
-
-      let csv = 'CALORIE TRACKER EXPORT\n\n';
-
-      csv += 'MAKANAN\n';
-      csv += 'Tarikh,Masa,Nama Makanan,Kategori,Kalori (kcal)\n';
-      allFood.forEach(e => {
-        csv += `${esc(e.date)},${esc(e.time || '')},${esc(e.name || '')},${esc(e.category || '')},${e.calories}\n`;
-      });
-
-      csv += '\nAKTIVITI\n';
-      csv += 'Tarikh,Masa,Aktiviti,Tempoh (min),Kalori Dibakar (kcal)\n';
-      allActivities.forEach(a => {
-        csv += `${esc(a.date)},${esc(a.time || '')},${esc(a.name || '')},${a.duration || 0},${a.caloriesBurned}\n`;
-      });
-
-      csv += '\nBERAT BADAN\n';
-      csv += 'Tarikh,Berat (kg),BMI\n';
-      weightEntries.forEach(w => {
-        const bmiVal = userProfile?.height ? (w.weight / Math.pow(userProfile.height / 100, 2)).toFixed(1) : '';
-        csv += `${esc(w.date)},${w.weight},${bmiVal}\n`;
-      });
-
-      const fileUri = `${FileSystem.documentDirectory}CalorieTracker_${today}.csv`;
-      await FileSystem.writeAsStringAsync(fileUri, csv, { encoding: FileSystem.EncodingType.UTF8 });
-      await Sharing.shareAsync(fileUri, { mimeType: 'text/csv', dialogTitle: 'Eksport CSV' });
-    } catch (e) {
-      Alert.alert(t('error'), t('failExportCsv') + (e instanceof Error ? e.message : String(e)));
-    } finally {
-      setExportLoading(false);
-    }
+      const data = progressReportData(allFood, allActivities, weightEntries, period);
+      if (!data.meals.length && !data.movement.length && !data.body.length) {
+        Alert.alert(t('noData'), t('noDataToExport')); return;
+      }
+      const esc = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+      const rows: unknown[][] = [['Type', 'Date', 'Time', 'Name', 'Category', 'Intake kcal', 'Burned kcal', 'Minutes', 'Weight kg', 'Note']];
+      data.meals.forEach((r) => rows.push(['Food', r.date, r.time, r.name, r.category, r.calories, '', '', '', '']));
+      data.movement.forEach((r) => rows.push(['Activity', r.date, r.time, r.name, '', '', r.caloriesBurned, r.duration, '', '']));
+      data.body.forEach((r) => rows.push(['Weight', r.date, '', '', '', '', '', '', r.weight, r.note || '']));
+      const name = `LeanLog-Progress-${period}-${new Date().toISOString().slice(0, 10)}.csv`;
+      const uri = `${FileSystem.cacheDirectory}${name}`;
+      await FileSystem.writeAsStringAsync(uri, '\ufeff' + rows.map((row) => row.map(esc).join(',')).join('\r\n'));
+      await deliverExport(uri, name, 'text/csv');
+    } catch (error) {
+      Alert.alert(t('error'), t('failExportCsv') + (error instanceof Error ? error.message : String(error)));
+    } finally { setExportLoading(false); }
   };
 
   const getAIFeedback = async () => {

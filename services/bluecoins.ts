@@ -11,6 +11,13 @@ import {
 
 const FOLDER_KEY = 'bluecoins_folder_uri_v1';
 const CACHE_NAME = 'bluecoins-dashboard-cache.fydb';
+const SOURCE_META_KEY = 'bluecoins_source_metadata_v1';
+export const BLUECOINS_AUTO_SYNC_KEY = 'bluecoins_auto_sync_v1';
+export const bluecoinsAutoSyncEnabled = async () => (await AsyncStorage.getItem(BLUECOINS_AUTO_SYNC_KEY)) === 'true';
+export const getBluecoinsSourceMetadata = async () => {
+  const raw = await AsyncStorage.getItem(SOURCE_META_KEY);
+  return raw ? JSON.parse(raw) as { name: string; sourceDate: string; syncedAt: string } : null;
+};
 const AMOUNT_SCALE = 1_000_000;
 const MONTHLY_BUDGET_KEY = 'bluecoins_monthly_budget_v1';
 const PAYDAY_KEY = 'bluecoins_payday_v1';
@@ -207,11 +214,19 @@ export async function chooseBluecoinsFolder() {
   return result.directoryUri;
 }
 
-export async function refreshBluecoinsSummary(folderUri?: string | null): Promise<BluecoinsSummary> {
+export async function refreshBluecoinsSummary(folderUri?: string | null, forceImport = false): Promise<BluecoinsSummary> {
   const directoryUri = folderUri || await getBluecoinsFolder();
   if (!directoryUri) throw new Error('BLUECOINS_FOLDER_NOT_CONNECTED');
 
   let backups: Array<{ uri: string; name: string; lastModified: number }>;
+  const localUri = `${FileSystem.documentDirectory}${CACHE_NAME}`;
+  const cachedSource = await getBluecoinsSourceMetadata();
+  const useLocal = !forceImport && !await bluecoinsAutoSyncEnabled() && (await FileSystem.getInfoAsync(localUri)).exists;
+  if (useLocal) {
+    const raw = await AsyncStorage.getItem('redcoins_state_v1');
+    const previousName = raw ? JSON.parse(raw).importedSource : null;
+    backups = [{ uri: localUri, name: cachedSource?.name || previousName || 'Imported Bluecoins backup', lastModified: 0 }];
+  } else {
   try {
     if (directoryUri.startsWith('content://') && BluecoinsDriveReader) {
       backups = (await BluecoinsDriveReader.listFydbFilesAsync(directoryUri))
@@ -227,15 +242,17 @@ export async function refreshBluecoinsSummary(folderUri?: string | null): Promis
     throw new Error(`BLUECOINS_PROVIDER_LIST_FAILED|${detail}`);
   }
   backups.sort((a, b) => b.lastModified - a.lastModified || b.name.localeCompare(a.name));
+  }
 
   if (!backups.length) throw new Error('NO_BLUECOINS_BACKUP');
 
   const sourceUri = backups[0].uri;
   const sourceName = backups[0].name;
   const sourceDate = backupDateFromName(sourceName);
-  const localUri = `${FileSystem.documentDirectory}${CACHE_NAME}`;
-
-  await copyProviderFileToLocal(sourceUri, localUri);
+  if (!useLocal) {
+    await copyProviderFileToLocal(sourceUri, localUri);
+    await AsyncStorage.setItem(SOURCE_META_KEY, JSON.stringify({ name: sourceName, sourceDate, syncedAt: new Date().toISOString() }));
+  }
 
   let db: SQLite.SQLiteDatabase;
   try {

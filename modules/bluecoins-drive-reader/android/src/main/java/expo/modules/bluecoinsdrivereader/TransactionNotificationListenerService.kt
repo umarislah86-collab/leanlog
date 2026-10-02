@@ -22,7 +22,9 @@ class TransactionNotificationListenerService : NotificationListenerService() {
     private const val DUPLICATE_WINDOW_MS = 120_000L
     private val amountPattern = Regex("(?i)(?:RM|MYR)\\s*([0-9][0-9,]*(?:\\.[0-9]{1,2})?)")
     private val transactionWords = Regex("(?i)paid|payment|purchase|spent|debit|charged|transaction|card|wallet|qr|merchant|bayaran|pembayaran|dibayar|transaksi|successful|approved")
-    private val ignoredWords = Regex("(?i)otp|tac|verification|securetac|login|sign.in|received|credited|refund")
+    // Match security/incoming-payment words, not substrings such as conTACt
+    // in AEON's standard card-payment notification footer.
+    private val ignoredWords = Regex("(?i)\\b(?:otp|tac|verification|securetac|login|sign[ .-]?in|received|credited|refund)\\b")
   }
 
   override fun onNotificationPosted(sbn: StatusBarNotification) {
