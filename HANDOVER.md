@@ -2,14 +2,14 @@
 
 Updated: 5 October 2026 (Asia/Kuala_Lumpur).
 
-## Latest unreleased feedback fixes (5 October)
+## Latest released feedback fixes — v2.9.11 (5 October)
 
 - Bluecoins account rename now follows source account IDs; legacy migration uses matching, unedited imported transaction IDs and refuses ambiguous matches. Preserves local account IDs/icons and rewrites confirmed references in entries, reminders, defaults, cash selections, guards and widget preferences. Source-ID deletion tombstones prevent renamed deleted accounts resurfacing. Implementation: `services/redcoinsAccountIdentity.ts`.
 - Fixed repeated import replay of effects onto custom accounts whose saved balances already included those effects. Regression syncs the edited-import/local-transfer/dividend case three times without balance growth. This prevents further inflation; it does NOT infer or repair previously inflated balances. User's read-only 5 October backup has Pot aeon RM6,358.38, versus approximately RM1.8k reported externally; exact reconciliation needs a confirmed balance. Do not overwrite the original backup or guess a correction. An orphan transfer reminder still targets the deleted Savings POT Aeon: missing-account auto-log is blocked and UI requests repair.
 - Ledger TOTALS summarizes the complete live search/filter set and manual selections (Income/Expense/Transfer/Net); Select All is no longer limited by pagination. Future rows included in the visible list are disclosed. `services/redcoinsLedgerSummary.ts` is the shared filter/summary source.
 - User-approved Bluecoins-style batch actions now live in `components/RedCoinsBatchModal.tsx` and `services/redcoinsBatch.ts`: title/date/amount/accounts/category/labels/status/copy-paste/delete. All mutations validate the complete set and confirm before save. No Void status. Paste detaches schedules/exports and records `duplicateOfId`, so source reconciliation cannot swallow an intentional copy. Reconciled local edits suppress their old source row; edited imports are reflected in Home coach deltas. See `docs/bluecoins-multiselect-audit.md`. Batch UI still unverified on a phone.
 - Daily widget is now configurable per instance: existing Spending Guards or up to four selected accounts, in selection order, in the same compact 2x2 slots. Preferences use stable account IDs; import refresh now preserves those IDs. Daily `widgetFeatures: reconfigurable` requires the next native APK. Tests exercise instance isolation, current balances/renames/deletion and the actual widget tree builder; launcher/device verification still pending.
-- Last actual release is v2.9.10 (`c1142a1`), code 15, EAS `3a1f7b7c-b6db-4000-9a6f-8f5eb80a14e5`, ARM64 42,708,431 bytes. Older release metadata below is historical.
+- Latest release is v2.9.11, code 16, source commit `abe3f4f0f3e756d85c69e4f0c3a8a52fea837e0b`, EAS `81bdabaf-11a8-41fc-9b55-567c43b5485f`. ARM64-only APK 42,776,303 bytes (40.80 MiB), SHA-256 `3bbfa96c4774fdce863a84d49d359ddcf17d2bf545857aa2d5f6cd63025d4ee4`. Published on GitHub; 60 tests, TypeScript, Metro export and EAS Android build passed. APK v2 signature verified with the same signer as v2.9.10. Real-device behavior still pending. Older release metadata below is historical.
 - Guard evaluations now load live configurations, evaluate active state.entries, and publish local state/guard changes to mounted RedCoins/Home screens. No new build/push requested yet.
 - Bluecoins `CATEGORYGROUPTABLE` verified read-only: group 2 Income, 3 Expense. Import carries per-subcategory type arrays (Bank/People/Others can exist on both sides). Logger uses these declarations, legacy ledger evidence as fallback, and hides unknown pairs. Custom subcategory type can be set in Manage; saved declarations survive source refresh.
 - Logger suggestions show the most recent amount for the same transaction type, exclude future rows, and focus amount without prefilling it. Ledger displays live state immediately; regular saves use a SQLite upsert instead of full rebuild and never wait for notification scheduling.
@@ -30,11 +30,11 @@ User speaks casually in Malay/English. Match that tone, give concrete progress u
 - Existing checkout: `C:\Users\C5407836\CalorieTracker`. Use the actual clone path on the new PC, not this old absolute path.
 - Repository: https://github.com/umarislah86-collab/leanlog
 - Working branch: `github-release-v221` (historical name; still the current development/release branch).
-- Last released commit: `4174b7a41a6231b83e9825fd3b22c3013041998a`.
-- Last release: `v2.9.9`, Android versionCode `14`.
-- APK: https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.9/leanlog-V2.9.9.apk
-- ARM64-only, 42,692,655 bytes / 40.71 MiB.
-- SHA-256: `69e5c627c416537aa51115d68ddb69ea4d58e86c4da92bcf5c61856c8a27c95f`.
+- Last released source commit: `abe3f4f0f3e756d85c69e4f0c3a8a52fea837e0b`.
+- Last release: `v2.9.11`, Android versionCode `16`.
+- APK: https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.11/leanlog-V2.9.11.apk
+- ARM64-only, 42,776,303 bytes / 40.80 MiB.
+- SHA-256: `3bbfa96c4774fdce863a84d49d359ddcf17d2bf545857aa2d5f6cd63025d4ee4`.
 - EAS build: `a0daa4ec-bcfd-41d7-96ed-d205e4e45c2b`.
 - That build was submitted before the release commit, from a dirty tree containing the release changes. EAS metadata therefore says previous commit `13006a9`; this is not evidence that the APK omitted v2.9.9 changes.
 
