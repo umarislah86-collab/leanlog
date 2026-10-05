@@ -1,6 +1,22 @@
 # LeanLog — Codex handover
 
-Updated: 2 October 2026 (Asia/Kuala_Lumpur).
+Updated: 5 October 2026 (Asia/Kuala_Lumpur).
+
+## Latest unreleased feedback fixes (5 October)
+
+- Bluecoins account rename now follows source account IDs; legacy migration uses matching, unedited imported transaction IDs and refuses ambiguous matches. Preserves local account IDs/icons and rewrites confirmed references in entries, reminders, defaults, cash selections, guards and widget preferences. Source-ID deletion tombstones prevent renamed deleted accounts resurfacing. Implementation: `services/redcoinsAccountIdentity.ts`.
+- Fixed repeated import replay of effects onto custom accounts whose saved balances already included those effects. Regression syncs the edited-import/local-transfer/dividend case three times without balance growth. This prevents further inflation; it does NOT infer or repair previously inflated balances. User's read-only 5 October backup has Pot aeon RM6,358.38, versus approximately RM1.8k reported externally; exact reconciliation needs a confirmed balance. Do not overwrite the original backup or guess a correction. An orphan transfer reminder still targets the deleted Savings POT Aeon: missing-account auto-log is blocked and UI requests repair.
+- Ledger TOTALS summarizes the complete live search/filter set and manual selections (Income/Expense/Transfer/Net); Select All is no longer limited by pagination. Future rows included in the visible list are disclosed. `services/redcoinsLedgerSummary.ts` is the shared filter/summary source.
+- User-approved Bluecoins-style batch actions now live in `components/RedCoinsBatchModal.tsx` and `services/redcoinsBatch.ts`: title/date/amount/accounts/category/labels/status/copy-paste/delete. All mutations validate the complete set and confirm before save. No Void status. Paste detaches schedules/exports and records `duplicateOfId`, so source reconciliation cannot swallow an intentional copy. Reconciled local edits suppress their old source row; edited imports are reflected in Home coach deltas. See `docs/bluecoins-multiselect-audit.md`. Batch UI still unverified on a phone.
+- Daily widget is now configurable per instance: existing Spending Guards or up to four selected accounts, in selection order, in the same compact 2x2 slots. Preferences use stable account IDs; import refresh now preserves those IDs. Daily `widgetFeatures: reconfigurable` requires the next native APK. Tests exercise instance isolation, current balances/renames/deletion and the actual widget tree builder; launcher/device verification still pending.
+- Last actual release is v2.9.10 (`c1142a1`), code 15, EAS `3a1f7b7c-b6db-4000-9a6f-8f5eb80a14e5`, ARM64 42,708,431 bytes. Older release metadata below is historical.
+- Guard evaluations now load live configurations, evaluate active state.entries, and publish local state/guard changes to mounted RedCoins/Home screens. No new build/push requested yet.
+- Bluecoins `CATEGORYGROUPTABLE` verified read-only: group 2 Income, 3 Expense. Import carries per-subcategory type arrays (Bank/People/Others can exist on both sides). Logger uses these declarations, legacy ledger evidence as fallback, and hides unknown pairs. Custom subcategory type can be set in Manage; saved declarations survive source refresh.
+- Logger suggestions show the most recent amount for the same transaction type, exclude future rows, and focus amount without prefilling it. Ledger displays live state immediately; regular saves use a SQLite upsert instead of full rebuild and never wait for notification scheduling.
+- Android reminders use `RedCoinsAlarmScheduler.kt`, exact/inexact AlarmManager scheduling, reboot/package/time-change restoration, due notifications, and `RedCoinsAutoLogService` short foreground Headless JS task. `redcoinsRuntime.ts` registers the task and catches up on app resume/start. Native module has an explicit React Android dependency.
+- Exact access is user-controlled (SCHEDULE_EXACT_ALARM, not USE_EXACT_ALARM). Without it, notifications can be inexact and auto-log catches up on app resume. UI shows precise alarm and notification access, plus actual `loggedAt` versus scheduled due time. Force-stopping and OEM battery restrictions still require device verification; do not promise exact timing universally.
+- State writes are serialized with only pending-write cache, preserving external backup/cloud restores. Tests cover ordering, due idempotence, future/deleted/paused/manual exclusion and correct balance application.
+- Native Kotlin/Android compilation and real Doze/locked/closed app behavior have NOT been verified locally (no Android SDK/device). Before release validate native build, first-time permissions, denied notification access, exact-alarm grant/revoke, due task, cancel/edit/pause, reboot, no duplicates, and normal/shortcut camera flows.
 
 ## Read this first
 
@@ -50,9 +66,9 @@ File: `screens/TodayScreen.tsx`.
 
 User clarified Camera/Gallery work after opening the app normally, but fail when entering via app-icon quick action. Feature and native permission/plugin were still present.
 
-Current mitigation adds `launchedFromShortcut` ref and `InteractionManager` waits: delay opening logger after a deep-link launch, then give native picker additional time after source modal dismissal (750ms for shortcut, 450ms otherwise). Catches picker errors and shows an alert. Shared food/activity picker path benefits.
+The v2.9.10 delay mitigation failed on the user's phone. New unreleased change removes shortcut-specific delays/InteractionManager. Quick actions wait for a focused Log screen and active app. Native picker requests are queued until the source dialogs have unmounted, then launched with a busy guard. Camera checks existing permission first instead of always opening a redundant permission request; gallery uses the system photo picker without a broad library permission request. Picker failures display their actual error rather than only a generic permissions message. Food and activity share this path.
 
-**Cause remains a lifecycle/timing hypothesis, not confirmed on the phone.** Earlier assistant overstated confirmation. TypeScript passed; test cold launch AND warm launch via shortcut, Camera AND Gallery, normal launch, cancel and retry. If timing workaround fails, inspect Android activity/deep-link lifecycle and real logs; do not just keep lengthening timeouts.
+**Cause remains unconfirmed on the phone.** Earlier assistant overstated confirmation. Test cold launch AND warm launch via shortcut, Camera AND Gallery, normal launch, cancel and retry, first-time permissions and denied permissions. Do not equate TypeScript success with device verification. No phone is connected locally; if this still fails collect Android logcat around the tap and permission/activity transitions.
 
 ### 2. AEON Bank notification missed
 

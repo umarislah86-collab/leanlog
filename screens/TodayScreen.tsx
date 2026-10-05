@@ -10,8 +10,8 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  AppState,
   Image,
-  InteractionManager,
   LayoutAnimation,
   Modal,
   ScrollView,
@@ -23,7 +23,7 @@ import {
   View,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { runLeanLogAi } from '../services/ai';
@@ -32,6 +32,7 @@ import { useLanguage } from '../context/LanguageContext';
 import type { FoodEntry, FoodItem, ActivityEntry, MealCategory, UserProfile, ActivityLevel } from '../types';
 import MacroRings from '../components/MacroRings';
 import { refreshLeanLogWidget } from '../services/widget';
+import { openNativeImagePicker } from '../services/mediaPicker';
 
 const WEIGHT_KEY = 'weight_entries';
 const PROFILE_PHOTO_KEY = 'profile_photo';
@@ -65,7 +66,15 @@ const parseEntryDateTime = (dateStr: string, timeStr: string): Date => {
 export default function TodayScreen() {
   const { t } = useLanguage();
   const navigation = useNavigation<any>();
-  const launchedFromShortcut = useRef(false);
+  const isFocused = useIsFocused();
+  const [appActive, setAppActive] = useState(AppState.currentState === 'active');
+  const [pendingPicker, setPendingPicker] = useState<boolean | null>(null);
+  const pickerBusy = useRef(false);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => setAppActive(state === 'active'));
+    return () => subscription.remove();
+  }, []);
 
   const MEAL_CATEGORIES: { key: MealCategory; label: string; emoji: string; subtitle: string }[] = [
     { key: 'sarapan', label: t('sarapan'), emoji: '🌅', subtitle: t('sarapanSub') },
@@ -219,7 +228,7 @@ export default function TodayScreen() {
   useEffect(() => {
     const params = route.params as { fabTrigger?: number; quickAction?: 'food' | 'activity' | 'weight' } | undefined;
     if (!params?.fabTrigger && !params?.quickAction) return;
-    launchedFromShortcut.current = !!params.quickAction && !params.fabTrigger;
+    if (!isFocused || !appActive) return;
     const openLogger = () => {
       if (params.quickAction === 'activity') {
         setShowActivitySourcePicker(true);
@@ -231,13 +240,9 @@ export default function TodayScreen() {
         setShowCategoryPicker(true);
       }
     };
-    if (launchedFromShortcut.current) {
-      InteractionManager.runAfterInteractions(() => setTimeout(openLogger, 250));
-    } else {
-      openLogger();
-    }
+    openLogger();
     navigation.setParams({ fabTrigger: undefined, quickAction: undefined });
-  }, [(route.params as any)?.fabTrigger, (route.params as any)?.quickAction, navigation]);
+  }, [(route.params as any)?.fabTrigger, (route.params as any)?.quickAction, navigation, isFocused, appActive]);
 
   const loadData = async () => {
     const todayKey = `sss_veg_${new Date().toLocaleDateString('ms-MY')}`;
@@ -394,35 +399,32 @@ export default function TodayScreen() {
   };
 
   const launchNativeImagePicker = (useCamera: boolean) => {
-    // A launcher shortcut can cold-start MainActivity through a deep link.
-    // Android may ignore the next native activity while that navigation and the
-    // source sheet are still settling, so give shortcut launches extra room.
-    const delay = launchedFromShortcut.current ? 750 : 450;
-    InteractionManager.runAfterInteractions(() => {
-      setTimeout(() => {
-        launchedFromShortcut.current = false;
-        void pickImage(useCamera).catch((error) => {
-          console.error('Unable to open image picker', error);
-          Alert.alert(
-            useCamera ? 'Camera tak dapat dibuka' : 'Gallery tak dapat dibuka',
-            'LeanLog tak berjaya membuka pemilih gambar. Cuba lagi atau semak permission aplikasi dalam Android Settings.',
-          );
-        });
-      }, delay);
-    });
+    if (!pickerBusy.current) setPendingPicker(useCamera);
   };
 
+  // Launch only after React has removed both native source dialogs, with the
+  // Log screen focused and MainActivity active. Do not depend on a global
+  // InteractionManager queue or on whether this was a cold/warm shortcut.
+  useEffect(() => {
+    if (pendingPicker === null || showSourcePicker || showActivitySourcePicker || !isFocused || !appActive) return;
+    const timer = setTimeout(() => {
+      if (pickerBusy.current) return;
+      pickerBusy.current = true;
+      setPendingPicker(null);
+      void pickImage(pendingPicker).catch((error) => {
+        console.error('Unable to open image picker', error);
+        Alert.alert(
+          pendingPicker ? 'Camera tak dapat dibuka' : 'Gallery tak dapat dibuka',
+          error instanceof Error ? error.message : String(error),
+        );
+      }).finally(() => { pickerBusy.current = false; });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [pendingPicker, showSourcePicker, showActivitySourcePicker, isFocused, appActive]);
+
   const pickImage = async (useCamera: boolean) => {
-    let result;
-    if (useCamera) {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') { Alert.alert(t('permRequired'), t('permCameraMsg')); return; }
-      result = await ImagePicker.launchCameraAsync({ mediaTypes: 'images', quality: 0.8 });
-    } else {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') { Alert.alert(t('permRequired'), t('permGalleryMsg')); return; }
-      result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', quality: 0.8 });
-    }
+    const result = await openNativeImagePicker(ImagePicker, useCamera);
+    if (!result) { Alert.alert(t('permRequired'), t('permCameraMsg')); return; }
     if (!result.canceled && result.assets[0]?.uri) {
       const uri = result.assets[0].uri;
       const compressed = await ImageManipulator.manipulateAsync(
@@ -1100,7 +1102,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
       </Modal>
 
       {/* ── Source Picker ── */}
-      <Modal visible={showSourcePicker} transparent animationType="slide">
+      {showSourcePicker && <Modal visible transparent animationType="slide" onRequestClose={() => setShowSourcePicker(false)}>
         <TouchableOpacity style={styles.sheetOverlay} activeOpacity={1} onPress={() => setShowSourcePicker(false)}>
           <View style={styles.categorySheet}>
             <View style={styles.sheetHandle} />
@@ -1131,10 +1133,10 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
-      </Modal>
+      </Modal>}
 
       {/* ── Activity Source Picker ── */}
-      <Modal visible={showActivitySourcePicker} transparent animationType="slide">
+      {showActivitySourcePicker && <Modal visible transparent animationType="slide" onRequestClose={() => setShowActivitySourcePicker(false)}>
         <TouchableOpacity style={styles.sheetOverlay} activeOpacity={1} onPress={() => setShowActivitySourcePicker(false)}>
           <View style={styles.categorySheet}>
             <View style={styles.sheetHandle} />
@@ -1165,7 +1167,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
-      </Modal>
+      </Modal>}
 
       {/* ── Text Food Modal ── */}
       <Modal visible={showTextModal} transparent animationType="fade">

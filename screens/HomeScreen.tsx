@@ -2,7 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { useFocusEffect } from '@react-navigation/native';
-import React, { useCallback, useMemo, useState } from 'react';
+import { subscribeRedCoinsChanges } from '../services/redcoinsEvents';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth, fsFetchAll, fsFetchSettings } from '../firebase';
@@ -142,13 +143,16 @@ export default function HomeScreen({ navigation }: any) {
     }
   }, []);
 
+  const bluecoinsRequest = useRef(0);
   const loadBluecoins = useCallback(async (quiet = false) => {
+    const request = ++bluecoinsRequest.current;
     const folder = await getBluecoinsFolder();
     setBluecoinsConnected(!!folder);
     if (!folder) return;
     if (!quiet) setBluecoinsLoading(true);
     try {
       const summary = await mergeRedCoinsIntoBudgetCoach(await refreshBluecoinsSummary(folder));
+      if (request !== bluecoinsRequest.current) return;
       setBluecoins(summary);
       await notifySpendingGuardChanges(summary.spendingGuards);
       await notifyCashRealityRisk(summary.cashReality, summary.sourceDate);
@@ -158,9 +162,11 @@ export default function HomeScreen({ navigation }: any) {
     } catch (error: any) {
       if (!quiet) Alert.alert('Bluecoins sync failed', bluecoinsReadError(error));
     } finally {
-      setBluecoinsLoading(false);
+      if (request === bluecoinsRequest.current) setBluecoinsLoading(false);
     }
   }, []);
+
+  useEffect(() => subscribeRedCoinsChanges(() => { void loadBluecoins(true); }), [loadBluecoins]);
 
   const loadHealth = useCallback(async (showResult = false) => {
     if (showResult) setHealthLoading(true);

@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { emitRedCoinsChange } from './redcoinsEvents';
 
 let Notifications: any = null;
 try { Notifications = require('expo-notifications'); } catch {}
@@ -84,6 +85,7 @@ export async function saveSpendingGuards(guards: SpendingGuard[]) {
     AsyncStorage.setItem(GUARDS_KEY, JSON.stringify(guards)),
     AsyncStorage.setItem(GUARDS_INITIALISED_KEY, 'true'),
   ]);
+  emitRedCoinsChange('guards');
 }
 
 export async function ensureDefaultCreditCardGuard(accountNames: string[]) {

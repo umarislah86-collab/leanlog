@@ -8,10 +8,9 @@ import { getAccountWidgetData, getAutomationWidgetData, getCashWidgetData, widge
 
 export async function refreshLeanLogWidget() {
   if (Platform.OS !== 'android') return;
-  const data = await getWidgetData();
   await requestWidgetUpdate({
     widgetName: 'LeanLogDaily',
-    renderWidget: () => <LeanLogWidget {...data} />,
+    renderWidget: async (widgetInfo) => <LeanLogWidget {...await getWidgetData(widgetInfo.widgetId)} />,
   }).catch(() => {});
   await requestWidgetUpdate({ widgetName: 'LeanLogAccount', renderWidget: async (widgetInfo) => <AccountSnapshotWidget account={await getAccountWidgetData(widgetInfo.widgetId)} updated={widgetUpdatedTime()} /> }).catch(() => {});
   await requestWidgetUpdate({ widgetName: 'LeanLogCashReality', renderWidget: async () => <CashRealityWidget cash={await getCashWidgetData()} updated={widgetUpdatedTime()} /> }).catch(() => {});

@@ -1,6 +1,10 @@
 import { requireOptionalNativeModule } from 'expo';
 
 type BluecoinsDriveReaderModule = {
+  replaceRedCoinsAlarmsAsync(json: string): Promise<boolean>;
+  canScheduleRedCoinsExactAlarmsAsync(): Promise<boolean>;
+  redCoinsNotificationsEnabledAsync(): Promise<boolean>;
+  openRedCoinsAlarmSettingsAsync(): Promise<void>;
   listFydbFilesAsync(treeUri: string): Promise<Array<{
     uri: string;
     name: string;

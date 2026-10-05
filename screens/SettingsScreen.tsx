@@ -493,7 +493,7 @@ export default function SettingsScreen() {
             <View style={styles.widgetPreviewTiles}><Text style={styles.widgetPreviewTile}>4,892 steps · 2 meals{`\n`}TRUE CASH −RM 681</Text><Text style={[styles.widgetPreviewTile, styles.widgetPreviewGuard]}>📌 CIMB PLATINUM{`\n`}RM 1,686 / 1,400 · 120%</Text></View>
           </View>
           <Text style={styles.widgetTitle}>Build your own home screen.</Text>
-          <Text style={styles.widgetBody}>Add Daily, a chosen RedCoins account, Cash Reality, Quick Log or upcoming bills. Account widgets can be added more than once with a different account for each instance.</Text>
+          <Text style={styles.widgetBody}>Daily can show Spending Guards or up to four chosen account balances in its compact slots. Choose when adding it, or long-press the widget and use your launcher's Edit option. Each widget keeps its own settings.</Text>
           <TouchableOpacity style={styles.widgetButton} onPress={() => addHomeWidget()}><Text style={styles.widgetButtonText}>＋ Daily overview</Text></TouchableOpacity>
           <TouchableOpacity style={styles.widgetButton} onPress={() => addHomeWidget('LeanLogAccount', 'LeanLog Account')}><Text style={styles.widgetButtonText}>＋ Account snapshot</Text></TouchableOpacity>
           <TouchableOpacity style={styles.widgetButton} onPress={() => addHomeWidget('LeanLogCashReality', 'LeanLog Cash Reality')}><Text style={styles.widgetButtonText}>＋ Cash Reality</Text></TouchableOpacity>

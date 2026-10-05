@@ -94,9 +94,9 @@ export interface BluecoinsSummary {
     alerts: string[];
   };
   redcoins: {
-    accounts: { name: string; type: 'Bank' | 'Cash' | 'Credit card' | 'Liability' | 'Investment'; balance: number; limit: number }[];
-    categories: { name: string; subcategories: string[] }[];
-    entries: { id: string; type: 'expense' | 'income' | 'transfer'; item: string; amount: number; date: string; account: string; toAccount?: string; category: string; subcategory: string; note: string; status: 'cleared' | 'pending'; origin: 'bluecoins' }[];
+    accounts: { name: string; sourceAccountId?: string; type: 'Bank' | 'Cash' | 'Credit card' | 'Liability' | 'Investment'; balance: number; limit: number }[];
+    categories: { name: string; subcategories: string[]; subcategoryTypes?: Record<string, Array<'income' | 'expense'>> }[];
+    entries: { id: string; type: 'expense' | 'income' | 'transfer'; item: string; amount: number; date: string; account: string; toAccount?: string; sourceAccountId?: string; sourceToAccountId?: string; category: string; subcategory: string; note: string; status: 'cleared' | 'pending' | 'reconciled'; origin: 'bluecoins' }[];
   };
 }
 
@@ -331,17 +331,18 @@ export async function refreshBluecoinsSummary(folderUri?: string | null, forceIm
        WHERE accountsTableID > 0 AND accountName NOT LIKE '(No Account)'
        ORDER BY accountName`,
     );
-    const categoryOptions = await db.getAllAsync<{ category: string; subcategory: string }>(
+    const categoryOptions = await db.getAllAsync<{ category: string; subcategory: string; groupId: number }>(
       `SELECT DISTINCT COALESCE(pc.parentCategoryName, cc.childCategoryName, 'Uncategorised') AS category,
-              COALESCE(cc.childCategoryName, pc.parentCategoryName, 'Uncategorised') AS subcategory
+              COALESCE(cc.childCategoryName, pc.parentCategoryName, 'Uncategorised') AS subcategory,
+              pc.categoryGroupID AS groupId
        FROM CHILDCATEGORYTABLE cc
        LEFT JOIN PARENTCATEGORYTABLE pc ON pc.parentCategoryTableID = cc.parentCategoryID
        ORDER BY category, subcategory`,
     );
     const accountBalances = await db.getAllAsync<{
-      name: string; accountType: number; balanceRaw: number; creditLimitRaw: number; cutOffDay: number; dueDay: number;
+      sourceAccountId: number; name: string; accountType: number; balanceRaw: number; creditLimitRaw: number; cutOffDay: number; dueDay: number;
     }>(
-      `SELECT a.accountName AS name, a.accountTypeID AS accountType,
+      `SELECT a.accountsTableID AS sourceAccountId, a.accountName AS name, a.accountTypeID AS accountType,
               COALESCE(SUM(CASE WHEN t.deletedTransaction = 6 AND t.reminderTransaction IS NULL AND substr(t.date, 1, 10) <= ? THEN t.amount ELSE 0 END), 0) AS balanceRaw,
               COALESCE(a.creditLimit, 0) AS creditLimitRaw,
               COALESCE(a.cutOffDa, 0) AS cutOffDay,
@@ -355,13 +356,13 @@ export async function refreshBluecoinsSummary(folderUri?: string | null, forceIm
     );
     const ledgerRows = await db.getAllAsync<{
       id: number; transactionType: number; rawAmount: number; date: string; item: string; account: string;
-      toAccount: string; category: string; subcategory: string; note: string; status: number;
+      toAccount: string; sourceAccountId: number; sourceToAccountId: number | null; category: string; subcategory: string; note: string; status: number;
     }>(
       `SELECT t.transactionsTableID AS id, t.transactionTypeID AS transactionType,
               ABS(t.amount) AS rawAmount, t.date AS date,
               COALESCE(NULLIF(TRIM(i.itemName), ''), 'Unnamed transaction') AS item,
-              COALESCE(a.accountName, '(No Account)') AS account,
-              COALESCE(pair.accountName, '') AS toAccount,
+              COALESCE(a.accountName, '(No Account)') AS account, t.accountID AS sourceAccountId,
+              COALESCE(pair.accountName, '') AS toAccount, t.accountPairID AS sourceToAccountId,
               COALESCE(pc.parentCategoryName, cc.childCategoryName, 'Uncategorised') AS category,
               COALESCE(cc.childCategoryName, pc.parentCategoryName, 'Uncategorised') AS subcategory,
               COALESCE(t.notes, '') AS note, COALESCE(t.status, 1) AS status
@@ -847,6 +848,7 @@ export async function refreshBluecoinsSummary(folderUri?: string | null, forceIm
     const redcoins = {
       accounts: accountBalances.map((account) => ({
         name: account.name,
+        sourceAccountId: String(account.sourceAccountId),
         type: redcoinsAccountType(account),
         balance: account.balanceRaw / AMOUNT_SCALE,
         limit: account.creditLimitRaw / AMOUNT_SCALE,
@@ -856,7 +858,13 @@ export async function refreshBluecoinsSummary(folderUri?: string | null, forceIm
         if (!values.includes(row.subcategory)) values.push(row.subcategory);
         map.set(row.category, values);
         return map;
-      }, new Map<string, string[]>())].map(([name, subcategories]) => ({ name, subcategories })),
+      }, new Map<string, string[]>())].map(([name, subcategories]) => ({
+        name, subcategories,
+        subcategoryTypes: Object.fromEntries(subcategories.map((sub) => [sub,
+          [...new Set(categoryOptions.filter((row) => row.category === name && row.subcategory === sub)
+            .flatMap((row): Array<'income' | 'expense'> => row.groupId === 2 ? ['income'] : row.groupId === 3 ? ['expense'] : []))],
+        ])),
+      })),
       entries: ledgerRows.map((row) => ({
         id: `bluecoins-${row.id}`,
         type: row.transactionType === 5 ? 'transfer' as const : row.transactionType === 4 ? 'income' as const : 'expense' as const,
@@ -864,7 +872,9 @@ export async function refreshBluecoinsSummary(folderUri?: string | null, forceIm
         amount: row.rawAmount / AMOUNT_SCALE,
         date: row.date.replace(' ', 'T'),
         account: row.account,
+        sourceAccountId: String(row.sourceAccountId),
         toAccount: row.transactionType === 5 ? row.toAccount : undefined,
+        sourceToAccountId: row.transactionType === 5 && row.sourceToAccountId ? String(row.sourceToAccountId) : undefined,
         category: row.transactionType === 5 ? '(Transfer)' : row.category,
         subcategory: row.transactionType === 5 ? '(Transfer)' : row.subcategory,
         note: row.note,

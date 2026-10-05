@@ -16,6 +16,26 @@ class BluecoinsDriveReaderModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("BluecoinsDriveReader")
 
+    AsyncFunction("replaceRedCoinsAlarmsAsync") { json: String ->
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      RedCoinsAlarmScheduler.replace(context, json)
+      RedCoinsAlarmScheduler.exactAllowed(context)
+    }
+    AsyncFunction("canScheduleRedCoinsExactAlarmsAsync") {
+      RedCoinsAlarmScheduler.exactAllowed(appContext.reactContext ?: throw Exceptions.ReactContextLost())
+    }
+    AsyncFunction("redCoinsNotificationsEnabledAsync") {
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      val manager = context.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+      androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled() &&
+        manager.getNotificationChannel(RedCoinsAlarmScheduler.CHANNEL)?.importance != android.app.NotificationManager.IMPORTANCE_NONE
+    }
+    AsyncFunction("openRedCoinsAlarmSettingsAsync") {
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      if (android.os.Build.VERSION.SDK_INT >= 31) context.startActivity(
+        Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
     AsyncFunction("isNotificationAccessEnabledAsync") {
       val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
       val listeners = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners") ?: ""

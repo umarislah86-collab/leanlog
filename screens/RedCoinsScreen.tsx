@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, BackHandler, InteractionManager, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, SectionList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, AppState, BackHandler, InteractionManager, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, SectionList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -13,7 +13,13 @@ import type { TransactionDetection } from 'bluecoins-drive-reader';
 import { refreshBluecoinsSummary, setBluecoinsFixedCommitments, setBluecoinsMonthlyBudget, setBluecoinsPayday, setCashRealityAccounts, setCashRealitySafetyBuffer, type BluecoinsSummary } from '../services/bluecoins';
 import { applyEntryBalance, confirmRedCoinsExport, createRedCoinsDeletion, exportRedCoinsBackup, exportRedCoinsCsv, loadRedCoins, mergeRedCoinsIntoBudgetCoach, saveRedCoins, type RedCoinsAccountType, type RedCoinsEntry, type RedCoinsReminder, type RedCoinsReminderEndType, type RedCoinsState, type RedCoinsType, type RedCoinsWeekendMove } from '../services/redcoins';
 import { aggregateCycleSpending } from '../services/redcoinsBudget';
-import { advanceReminderDate, materializeAutomaticReminders, nextReminderOccurrence, syncReminderNotifications } from '../services/redcoinsReminders';
+import { loggerCategories, loggerSuggestions } from '../services/redcoinsLogger';
+import { filterLedgerEntries, summarizeLedgerEntries } from '../services/redcoinsLedgerSummary';
+import { applyRedCoinsBatch, copyRedCoinsEntries, pasteRedCoinsEntries, readRedCoinsClipboard, type BatchAction } from '../services/redcoinsBatch';
+import { RedCoinsBatchModal } from '../components/RedCoinsBatchModal';
+import { migrateAccountPreferences } from '../services/redcoinsAccountIdentity';
+import { subscribeRedCoinsChanges } from '../services/redcoinsEvents';
+import { advanceReminderDate, materializeAutomaticReminders, missingReminderAccounts, nextReminderOccurrence, requestReminderAccess, syncReminderNotifications } from '../services/redcoinsReminders';
 import { deleteRedCoinsLedgerEntry, queryRedCoinsLedger, syncRedCoinsLedger, upsertRedCoinsLedgerEntry } from '../services/redcoinsLedger';
 import { saveSpendingGuards, type GuardScope, type SpendingGuard } from '../services/spendingGuards';
 import { refreshLeanLogWidget } from '../services/widget';
@@ -93,6 +99,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const [editingSubName, setEditingSubName] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
+  const [ledgerSummaryScope, setLedgerSummaryScope] = useState<'filtered' | 'selected' | null>(null);
   const [filterTypes, setFilterTypes] = useState<RedCoinsType[]>([]);
   const [filterAccounts, setFilterAccounts] = useState<string[]>([]);
   const [filterCategories, setFilterCategories] = useState<string[]>([]);
@@ -105,6 +112,10 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const [collapsedCards, setCollapsedCards] = useState<string[]>([]);
   const [expandedBudgetCategories, setExpandedBudgetCategories] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [batchOpen, setBatchOpen] = useState<'selection' | 'paste' | null>(null);
+  const [batchBusy, setBatchBusy] = useState(false);
+  const batchLock = useRef(false);
+  const [copiedEntries, setCopiedEntries] = useState<RedCoinsEntry[]>([]);
   const [visibleLedgerCount, setVisibleLedgerCount] = useState(LEDGER_PAGE_SIZE);
   const [ledgerEntries, setLedgerEntries] = useState<RedCoinsEntry[]>([]);
   const [ledgerTotal, setLedgerTotal] = useState(0);
@@ -135,6 +146,9 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const [draftType, setDraftType] = useState<RedCoinsAccountType>('Bank');
   const [draftBalance, setDraftBalance] = useState('0');
   const [draftCategory, setDraftCategory] = useState('');
+  const [draftCategoryTypes, setDraftCategoryTypes] = useState<Array<'income' | 'expense'>>(['expense']);
+  const [exactAlarmsAllowed, setExactAlarmsAllowed] = useState(false);
+  const [reminderNotificationsAllowed, setReminderNotificationsAllowed] = useState(false);
   const [draftSub, setDraftSub] = useState('');
   const [draftParent, setDraftParent] = useState('');
   const [draftIcon, setDraftIcon] = useState('wallet');
@@ -220,41 +234,15 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     })();
   }, []);
 
+  const matchingLedgerEntries = useMemo(() => filterLedgerEntries(state?.entries || [], {
+    search, types: filterTypes, accounts: filterAccounts, categories: filterCategories,
+    subcategories: filterSubcategories, startDay: filterStartDay, endDay: filterEndDay,
+  }), [state?.entries, search, filterTypes, filterAccounts, filterCategories, filterSubcategories, filterStartDay, filterEndDay]);
   useEffect(() => {
     if (section !== 'activity') return;
-    if (!ledgerReady || ledgerFallback) {
-      if (!state) return;
-      const needle = search.trim().toLocaleLowerCase('en-MY');
-      const filtered = state.entries.filter((entry) => {
-        const entryDay = dayKey(entry.date);
-        return (!needle || [entry.item, entry.category, entry.subcategory, entry.account, entry.toAccount, entry.note].filter(Boolean).join(' ').toLocaleLowerCase('en-MY').includes(needle)) && (!filterTypes.length || filterTypes.includes(entry.type)) && (!filterAccounts.length || filterAccounts.includes(entry.account) || !!entry.toAccount && filterAccounts.includes(entry.toAccount)) && (!filterCategories.length || filterCategories.includes(entry.category)) && (!filterSubcategories.length || filterSubcategories.includes(entry.subcategory)) && (!filterStartDay || entryDay >= filterStartDay) && (!filterEndDay || entryDay <= filterEndDay);
-      });
-      setLedgerEntries(filtered.slice(0, visibleLedgerCount));
-      setLedgerTotal(filtered.length);
-      return;
-    }
-    const requestId = ++ledgerQueryId.current;
-    queryRedCoinsLedger({
-      search,
-      types: filterTypes,
-      accounts: filterAccounts,
-      categories: filterCategories,
-      subcategories: filterSubcategories,
-      startDay: filterStartDay,
-      endDay: filterEndDay,
-      limit: visibleLedgerCount,
-    })
-      .then((result) => {
-        if (requestId === ledgerQueryId.current) {
-          setLedgerEntries(result.entries);
-          setLedgerTotal(result.total);
-        }
-      })
-      .catch((error) => {
-        console.warn('RedCoins ledger query failed', error);
-        setLedgerFallback(true);
-      });
-  }, [ledgerReady, ledgerFallback, ledgerRevision, section, search, filterTypes, filterAccounts, filterCategories, filterSubcategories, filterStartDay, filterEndDay, visibleLedgerCount, state]);
+    setLedgerEntries(matchingLedgerEntries.slice(0, visibleLedgerCount));
+    setLedgerTotal(matchingLedgerEntries.length);
+  }, [section, matchingLedgerEntries, visibleLedgerCount]);
 
   useEffect(() => {
     const refreshDetector = () => {
@@ -311,10 +299,99 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     else if (bluecoinsBase) setBluecoins(await mergeRedCoinsIntoBudgetCoach(bluecoinsBase));
     refreshLeanLogWidget().catch(() => {});
   };
+  useEffect(() => { void readRedCoinsClipboard().then(setCopiedEntries).catch(console.warn); }, []);
+  const releaseBatch = () => { batchLock.current = false; setBatchBusy(false); };
+  const runConfirmedBatch = (message: string, mutation: (current: RedCoinsState) => RedCoinsState, destructive = false) => {
+    if (batchLock.current) return;
+    batchLock.current = true;
+    setBatchBusy(true);
+    Alert.alert(destructive ? 'Delete permanently?' : 'Apply to all these transactions?', message, [
+      { text: 'Cancel', style: 'cancel', onPress: releaseBatch },
+      { text: destructive ? 'Delete' : 'Apply', style: destructive ? 'destructive' : 'default', onPress: () => {
+        void (async () => {
+          try {
+            const current = await loadRedCoins();
+            const next = mutation(current);
+            await persist(next);
+            setBatchOpen(null);
+            setSelectedIds([]);
+            // Local state is already live. Index repair must not roll back a
+            // successfully persisted batch or hold up its visual result.
+            void syncRedCoinsLedger(next.entries).then(() => setLedgerRevision(value => value + 1)).catch(error => console.warn('Batch ledger indexing failed', error));
+          } catch (error) {
+            void loadRedCoins().then(setState).catch(console.warn);
+            Alert.alert('Batch change failed', error instanceof Error ? error.message : 'Please try again.');
+          } finally { releaseBatch(); }
+        })();
+      } },
+    ], { cancelable: false });
+  };
+  const reviewBatch = (action: BatchAction) => {
+    if (!state || batchLock.current) return;
+    const ids = [...selectedIds];
+    try { applyRedCoinsBatch(state, ids, action); }
+    catch (error) { Alert.alert('Cannot apply change', error instanceof Error ? error.message : 'Please check the selection.'); return; }
+    const detail = action.kind === 'name' ? `Set title to “${action.value.trim()}”.`
+      : action.kind === 'amount' ? `Set EACH transaction to ${money(action.value)}.`
+      : action.kind === 'date' ? `Move to ${action.day}, keeping each transaction's time.`
+      : action.kind === 'account' ? `${action.account ? `Source account: ${action.account}.` : 'Source accounts stay unchanged.'}${action.toAccount ? ` Transfer destination: ${action.toAccount}.` : ' Transfer destinations stay unchanged.'}`
+      : action.kind === 'category' ? `Set category to ${action.category} / ${action.subcategory}.`
+      : action.kind === 'status' ? `Set status to ${action.value}. No additional payment is recorded.`
+      : action.kind === 'labels' ? `${action.mode === 'clear' ? 'Remove ALL labels.' : `${action.mode} labels: ${action.labels.join(', ')}.`}`
+      : 'This cannot be restored. Account balances will be adjusted. Recurring schedules are not cancelled.';
+    runConfirmedBatch(`${ids.length} transactions.\n\n${detail}`, current => applyRedCoinsBatch(current, ids, action), action.kind === 'delete');
+  };
+  const copyBatchSelection = async () => {
+    if (batchLock.current) return;
+    batchLock.current = true; setBatchBusy(true);
+    try {
+      const current = await loadRedCoins();
+      const rows = current.entries.filter(entry => selectedIds.includes(entry.id));
+      if (rows.length !== new Set(selectedIds).size) throw new Error('Selection changed. Select transactions again.');
+      await copyRedCoinsEntries(rows);
+      setCopiedEntries(await readRedCoinsClipboard());
+      setBatchOpen(null);
+      Alert.alert('Copied', `${rows.length} transactions. Use PASTE under the ledger search to create copies.`);
+    } catch (error) { Alert.alert('Copy failed', error instanceof Error ? error.message : 'Please try again.'); }
+    finally { releaseBatch(); }
+  };
+  const reviewPaste = (day: string | null) => {
+    if (!state || batchLock.current) return;
+    const copied = copiedEntries.map(entry => ({ ...entry, labels: [...(entry.labels || [])] }));
+    try { pasteRedCoinsEntries(state, copied, day); }
+    catch (error) { Alert.alert('Cannot paste', error instanceof Error ? error.message : 'Please check the copied transactions.'); return; }
+    runConfirmedBatch(`Create ${copied.length} NEW transactions ${day ? `dated ${day}` : 'with their original dates'}?\n\nThis affects balances and budgets. Reminder schedules will not be copied.`, current => pasteRedCoinsEntries(current, copied, day));
+  };
   const refreshLiveBluecoins = async () => {
     const refreshed = await refreshBluecoinsSummary();
     setBluecoinsBase(refreshed);
     setBluecoins(await mergeRedCoinsIntoBudgetCoach(refreshed));
+  };
+  useEffect(() => subscribeRedCoinsChanges(({ kind }) => {
+    if (kind === 'state') void loadRedCoins().then(setState).catch(console.warn);
+    if (bluecoinsBase) {
+      void mergeRedCoinsIntoBudgetCoach(bluecoinsBase).then(setBluecoins).catch(console.warn);
+    }
+  }), [bluecoinsBase]);
+  useEffect(() => {
+    const check = () => {
+      void BluecoinsDriveReader?.canScheduleRedCoinsExactAlarmsAsync?.().then(setExactAlarmsAllowed).catch(console.warn);
+      void BluecoinsDriveReader?.redCoinsNotificationsEnabledAsync?.().then(setReminderNotificationsAllowed).catch(console.warn);
+    };
+    check();
+    const subscription = AppState.addEventListener('change', (status) => { if (status === 'active') check(); });
+    return () => subscription.remove();
+  }, []);
+  const syncScheduleAccess = async (reminders: RedCoinsReminder[]) => {
+    await requestReminderAccess();
+    await syncReminderNotifications(reminders);
+    if (BluecoinsDriveReader?.redCoinsNotificationsEnabledAsync) setReminderNotificationsAllowed(await BluecoinsDriveReader.redCoinsNotificationsEnabledAsync());
+    if (Platform.OS === 'android' && BluecoinsDriveReader?.canScheduleRedCoinsExactAlarmsAsync && !await BluecoinsDriveReader.canScheduleRedCoinsExactAlarmsAsync()) {
+      Alert.alert('Allow precise reminders', 'Enable LeanLog under Alarms & reminders. Without this access Android may delay notifications, and auto-log syncs when you reopen the app.', [
+        { text: 'Later', style: 'cancel' },
+        { text: 'Open settings', onPress: () => { void BluecoinsDriveReader?.openRedCoinsAlarmSettingsAsync(); } },
+      ]);
+    }
   };
   useEffect(() => {
     if (!state) return;
@@ -337,6 +414,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const resetEntry = (initialType: RedCoinsType = 'expense') => {
     if (!state) return;
     const recent = state.entries.find((entry) => entry.type === initialType);
+    const available = loggerCategories(state.categories, state.entries, initialType);
     const defaults = state.entryDefaults?.[initialType];
     setEditingEntryId(null);
     setSchedulingOnly(false);
@@ -348,8 +426,9 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setType(initialType);
     setAccount(defaults?.account || recent?.account || state.accounts.find((a) => a.type === 'Credit card')?.name || state.accounts[0]?.name || '');
     setToAccount(defaults?.toAccount || recent?.toAccount || '');
-    setCategory(defaults?.category || recent?.category || state.categories[0]?.name || 'General');
-    setSubcategory(defaults?.subcategory || recent?.subcategory || state.categories[0]?.subcategories[0] || 'General');
+    const chosen = available.find((group) => group.name === (defaults?.category || recent?.category)) || available[0];
+    setCategory(chosen?.name || '');
+    setSubcategory(chosen?.subcategories.includes(defaults?.subcategory || recent?.subcategory || '') ? (defaults?.subcategory || recent!.subcategory) : chosen?.subcategories[0] || '');
     setNote('');
     setLabels('');
     setRepeat('none');
@@ -371,26 +450,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setAdvanced(true);
   };
   const suggestions = useMemo(() => {
-    const query = item.trim().toLowerCase();
-    if (!query) return [];
-    const stats = new Map<string, { entry: RedCoinsEntry; count: number; lastIndex: number }>();
-    (state?.entries || []).filter((entry) => !entry.autoGenerated).forEach((entry, index) => {
-      const key = entry.item.trim().toLowerCase();
-      if (!key) return;
-      const current = stats.get(key);
-      if (current) current.count += 1;
-      else stats.set(key, { entry, count: 1, lastIndex: index });
-    });
-    const own = [...stats.values()]
-      .filter(({ entry }) => entry.item.toLowerCase().includes(query))
-      .sort((a, b) => {
-        const score = (name: string) => (name === query ? 4 : name.startsWith(query) ? 3 : name.split(/\s+/).some((word) => word.startsWith(query)) ? 2 : 1);
-        return score(b.entry.item.toLowerCase()) - score(a.entry.item.toLowerCase()) || b.count - a.count || a.lastIndex - b.lastIndex;
-      })
-      .slice(0, 6)
-      .map(({ entry, count }) => ({ ...entry, usageCount: count }));
-    return own;
-  }, [item, state?.entries]);
+    return loggerSuggestions(state?.entries || [], item, type);
+  }, [item, state?.entries, type]);
   const applyEntryType = (nextType: RedCoinsType) => {
     setType(nextType);
     const defaults = state?.entryDefaults?.[nextType];
@@ -398,8 +459,11 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     if (defaults?.account || recent?.account) setAccount(defaults?.account || recent!.account);
     setToAccount(defaults?.toAccount || recent?.toAccount || '');
     if (nextType !== 'transfer') {
-      setCategory(defaults?.category || recent?.category || category);
-      setSubcategory(defaults?.subcategory || recent?.subcategory || subcategory);
+      const available = loggerCategories(state?.categories || [], state?.entries || [], nextType);
+      const chosen = available.find((group) => group.name === (defaults?.category || recent?.category)) || available[0];
+      setCategory(chosen?.name || '');
+      const preferred = defaults?.subcategory || recent?.subcategory || '';
+      setSubcategory(chosen?.subcategories.includes(preferred) ? preferred : chosen?.subcategories[0] || '');
     }
   };
   const chooseSuggestion = (entry: any) => {
@@ -514,8 +578,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       setSchedulingOnly(false);
       setEditingReminderId(null);
       setReminderManagerOpen(true);
-      await syncReminderNotifications(next.reminders);
       await Promise.all([persist(next), syncRedCoinsLedger(next.entries)]);
+      void syncScheduleAccess(next.reminders).catch(console.warn);
       setLedgerRevision((value) => value + 1);
       return;
     }
@@ -546,6 +610,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       reminderSeriesId,
       reminderOccurrenceKey: original?.reminderOccurrenceKey,
       autoGenerated: original?.autoGenerated,
+      loggedAt: original?.loggedAt,
       origin: original?.origin || 'redcoins',
       exportedAt: original?.exportedAt,
       editedAt: original?.origin === 'bluecoins' ? new Date().toISOString() : original?.editedAt,
@@ -610,16 +675,13 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     applyEntryBalance(next, entry, 1);
     setEntryOpen(false);
     if (reviewingDetectionId) dismissDetection(reviewingDetectionId).catch(() => {});
-    InteractionManager.runAfterInteractions(() => {
-      navigateSection('activity');
-      syncRedCoinsLedger(next.entries)
+    navigateSection('activity');
+    void persist(next).catch(() => Alert.alert('Save failed', 'LeanLog could not write this change to local storage. Please try again.'));
+    const indexWrite = hasReminder || editingSeriesTemplate ? syncRedCoinsLedger(next.entries) : upsertRedCoinsLedgerEntry(entry);
+    void indexWrite
         .then(() => setLedgerRevision((value) => value + 1))
         .catch((error) => console.warn('RedCoins ledger upsert failed', error));
-      syncReminderNotifications(next.reminders)
-        .then(() => persist(next))
-        .catch(() => persist(next))
-        .catch(() => Alert.alert('Save failed', 'The transaction is still visible, but LeanLog could not write it to local storage. Please try again.'));
-    });
+    if (hasReminder || editingSeriesTemplate) void syncScheduleAccess(next.reminders).catch(console.warn);
   };
   const deleteEditingEntry = () => {
     if (!state || !editingEntryId) return;
@@ -703,6 +765,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   ]);
   const logReminderNow = async (reminder: RedCoinsReminder) => {
     if (!state) return;
+    const missing = missingReminderAccounts(reminder, state.accounts);
+    if (missing.length) return Alert.alert('Fix reminder accounts first', `Missing: ${missing.join(', ')}. Edit this schedule and choose existing accounts.`);
     const now = new Date();
     const entry: RedCoinsEntry = {
       ...reminder.template,
@@ -734,7 +798,6 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setLedgerRevision((value) => value + 1);
   };
 
-  const filtered = ledgerEntries;
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const iconLookupKey = useCallback((value?: string) => (value || '').trim().toLocaleLowerCase(), []);
   const categoryIcons = useMemo(() => {
@@ -814,13 +877,13 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       data,
     }));
   }, [ledgerEntries]);
-  const selectedTotal = useMemo(() => {
-    if (!state || selectedSet.size === 0) return 0;
-    return state.entries.reduce((sum, entry) => (selectedSet.has(entry.id) ? sum + (entry.type === 'expense' ? -entry.amount : entry.type === 'income' ? entry.amount : 0) : sum), 0);
-  }, [state, selectedSet]);
+  const filteredLedgerSummary = useMemo(() => summarizeLedgerEntries(matchingLedgerEntries), [matchingLedgerEntries]);
+  const selectedLedgerSummary = useMemo(() => summarizeLedgerEntries((state?.entries || []).filter((entry) => selectedSet.has(entry.id))), [state?.entries, selectedSet]);
+  const selectedTotal = selectedLedgerSummary.net;
   const toggleSelected = useCallback((entry: RedCoinsEntry) => setSelectedIds((ids) => (ids.includes(entry.id) ? ids.filter((id) => id !== entry.id) : [...ids, entry.id])), []);
   const updateLedgerSearch = useCallback((value: string) => {
     setVisibleLedgerCount(LEDGER_PAGE_SIZE);
+    setSelectedIds([]);
     setSearch(value);
   }, []);
   const openDashboardFilter = (kind: 'day' | 'category' | 'account', value: string) => {
@@ -838,6 +901,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   };
   const applyLedgerFilters = useCallback((next: { types: RedCoinsType[]; accounts: string[]; categories: string[]; subcategories: string[]; dateMode: FilterDateMode; startDay: string; endDay: string; dateLabel: string }) => {
     setVisibleLedgerCount(LEDGER_PAGE_SIZE);
+    setSelectedIds([]);
     setFilterTypes(next.types);
     setFilterAccounts(next.accounts);
     setFilterCategories(next.categories);
@@ -1311,13 +1375,13 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const activityHeader = (
     <View style={s.activityHeader}>
       {selectedIds.length > 0 && (
-        <View style={s.selectedTotal}>
+        <TouchableOpacity style={s.selectedTotal} onPress={() => setLedgerSummaryScope('selected')} accessibilityLabel="Show selected transaction totals">
           <Text style={s.selectedTotalText}>
             {selectedTotal < 0 ? '− ' : '+ '}
             {money(selectedTotal)}
           </Text>
-          <Text style={s.selectedTotalMeta}>{selectedIds.length} selected</Text>
-        </View>
+          <Text style={s.selectedTotalMeta}>{selectedIds.length} selected · TOTALS →</Text>
+        </TouchableOpacity>
       )}
       <View style={s.ledgerTools}>
         <LedgerSearch value={search} onChange={updateLedgerSearch} />
@@ -1328,10 +1392,18 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           )}
         </TouchableOpacity>
       </View>
+      <View style={s.ledgerSummaryLinkRow}>
+        <Text style={[s.selectedTotalMeta, { flex: 1 }]}>{matchingLedgerEntries.length} matching transactions{filterDateLabel ? ` · ${filterDateLabel}` : ''}</Text>
+        <TouchableOpacity onPress={() => setLedgerSummaryScope('filtered')} style={s.ledgerSummaryButton} accessibilityLabel="Show totals for all matching transactions">
+          <Ionicons name="calculator-outline" size={13} color={C.ink} /><Text style={s.ledgerSummaryButtonText}>TOTALS</Text>
+        </TouchableOpacity>
+        {copiedEntries.length > 0 && <TouchableOpacity onPress={() => { Keyboard.dismiss(); setBatchOpen('paste'); }} style={s.ledgerSummaryButton} accessibilityLabel="Paste copied transactions"><Ionicons name="duplicate-outline" size={13} color={C.ink} /><Text style={s.ledgerSummaryButtonText}>PASTE ({copiedEntries.length})</Text></TouchableOpacity>}
+      </View>
       {selectedIds.length > 0 && (
         <View style={s.selectionBar}>
           <Text style={s.selectionCount}>{selectedIds.length} selected</Text>
-          <TouchableOpacity onPress={() => setSelectedIds(filtered.map((e) => e.id))}>
+          <TouchableOpacity onPress={() => { Keyboard.dismiss(); setBatchOpen('selection'); }}><Text style={s.selectionLink}>ACTIONS</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => setSelectedIds(matchingLedgerEntries.map((e) => e.id))}>
             <Text style={s.selectionLink}>SELECT ALL</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setSelectedIds([])}>
@@ -1445,6 +1517,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           action="＋ Category"
           onAction={() => {
             setEditingCategoryId(null);
+            setDraftCategoryTypes(['expense']);
             setDraftCategory('');
             setDraftSub('');
             setDraftIcon('grid');
@@ -1468,6 +1541,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
               {c.subcategories.map((sub) => <TouchableOpacity key={sub} style={s.subcategoryManageRow} onPress={() => {
                 setDraftParent(c.name);
                 setEditingSubName(sub);
+                setDraftCategoryTypes(c.subcategoryTypes?.[sub] || [...new Set(state.entries.filter((entry) => entry.category === c.name && entry.subcategory === sub && entry.type !== 'transfer').map((entry) => entry.type as 'income' | 'expense'))]);
                 setDraftSub(sub);
                 setDraftIcon(c.subcategoryIcons?.[sub] || inferFinanceIcon(sub, c.name));
                 setManageOpen('sub');
@@ -1477,6 +1551,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
               onPress={() => {
                 setDraftParent(c.name);
                 setEditingSubName(null);
+                setDraftCategoryTypes(['expense']);
                 setDraftSub('');
                 setDraftIcon('grid');
                 setManageOpen('sub');
@@ -1950,6 +2025,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         </ScrollView>
       )}
       {filterModal}
+      <RedCoinsBatchModal visible={batchOpen !== null} state={state} entries={state.entries.filter(entry => selectedSet.has(entry.id))} copiedCount={copiedEntries.length} pasteOnly={batchOpen === 'paste'} busy={batchBusy} close={() => { if (!batchLock.current) setBatchOpen(null); }} apply={reviewBatch} copy={() => { void copyBatchSelection(); }} paste={reviewPaste} />
+      <LedgerTotalsModal visible={ledgerSummaryScope !== null} scope={ledgerSummaryScope === 'selected' ? 'Selected transactions' : 'Matching transactions'} summary={ledgerSummaryScope === 'selected' ? selectedLedgerSummary : filteredLedgerSummary} close={() => setLedgerSummaryScope(null)} />
       {reportPeriodModal}
       <Modal visible={reminderManagerOpen} animationType="slide" onRequestClose={() => setReminderManagerOpen(false)}>
         <SafeAreaView style={s.reminderScreen}>
@@ -1959,8 +2036,12 @@ export default function RedCoinsScreen({ navigation, route }: any) {
             <TouchableOpacity style={s.reminderAdd} onPress={() => { setReminderManagerOpen(false); createReminderSchedule(); }}><Ionicons name="add" size={20} color={C.white} /></TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={s.reminderScreenBody} showsVerticalScrollIndicator={false}>
-            <View style={s.reminderExplainer}><Text style={s.reminderExplainerTitle}>One schedule, two behaviours.</Text><Text style={s.reminderExplainerCopy}>Reminder-only waits for your confirmation. Auto-log prepares the next transaction but keeps it outside balances and reports until its due date.</Text></View>
+            <View style={s.reminderExplainer}><Text style={s.reminderExplainerTitle}>One schedule, two behaviours.</Text><Text style={s.reminderExplainerCopy}>Reminder-only waits for your confirmation. Auto-log records the transaction when due. Both notify you.</Text>
+              {Platform.OS === 'android' && <TouchableOpacity onPress={() => { void BluecoinsDriveReader?.openRedCoinsAlarmSettingsAsync?.(); }}><Text style={s.reminderExplainerCopy}>{exactAlarmsAllowed ? 'Precise alarms enabled' : 'Precise alarms disabled — tap to enable. Notifications may be delayed; auto-log syncs on reopen.'}</Text></TouchableOpacity>}
+              {Platform.OS === 'android' && <TouchableOpacity onPress={() => { void Linking.openSettings(); }}><Text style={s.reminderExplainerCopy}>{reminderNotificationsAllowed ? 'Notifications enabled' : 'Notifications disabled — tap to allow in app settings.'}</Text></TouchableOpacity>}
+            </View>
             {state.reminders.map((reminder) => {
+              const missing = missingReminderAccounts(reminder, state.accounts);
               const nextDue = nextReminderOccurrence(reminder);
               const frequency = `${reminder.repeatEvery > 1 ? `Every ${reminder.repeatEvery} ` : 'Every '}${reminder.frequency.replace('daily', 'day').replace('weekly', 'week').replace('monthly', 'month').replace('yearly', 'year')}`;
               return <View key={reminder.id} style={s.reminderFullCard}>
@@ -1970,6 +2051,11 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                   <View style={[s.reminderState, !reminder.enabled && s.reminderStatePaused]}><Text style={s.reminderStateText}>{reminder.enabled ? 'ACTIVE' : 'PAUSED'}</Text></View>
                 </View>
                 <View style={s.reminderDue}><Text style={s.reminderDueLabel}>NEXT DUE</Text><Text style={s.reminderDueValue}>{nextDue ? nextDue.toLocaleString('en-MY', { dateStyle: 'medium', timeStyle: 'short' }) : 'Series complete'}</Text></View>
+                {missing.length > 0 && <Text style={[s.reminderMeta, { color: C.coral }]}>Needs repair: missing {missing.join(', ')}. Auto-log is blocked until you edit the accounts.</Text>}
+                {(() => {
+                  const last = state.entries.filter((entry) => entry.reminderSeriesId === reminder.id && entry.loggedAt).sort((a, b) => b.loggedAt!.localeCompare(a.loggedAt!))[0];
+                  return last ? <Text style={s.reminderMeta}>Last auto-log: {new Date(last.loggedAt!).toLocaleString('en-MY')} · scheduled {new Date(last.date).toLocaleString('en-MY')}</Text> : null;
+                })()}
                 <View style={s.reminderControls}>
                   {!reminder.automaticLog && nextDue && nextDue.getTime() <= Date.now() && <TouchableOpacity style={s.reminderControlPrimary} onPress={() => logReminderNow(reminder)}><Text style={s.reminderControlPrimaryText}>LOG NOW</Text></TouchableOpacity>}
                   <TouchableOpacity style={s.reminderControl} onPress={() => { setReminderManagerOpen(false); editReminderSchedule(reminder); }}><Ionicons name="create-outline" size={14} color={C.ink} /><Text style={s.reminderControlText}>EDIT</Text></TouchableOpacity>
@@ -2075,6 +2161,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           setDraftBalance,
           draftCategory,
           setDraftCategory,
+          draftCategoryTypes,
+          setDraftCategoryTypes,
           draftSub,
           setDraftSub,
           draftParent,
@@ -2084,7 +2172,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         save={async () => {
           const next = {
             ...state,
-            accounts: [...state.accounts],
+            accounts: state.accounts.map(account => ({ ...account })),
             categories: state.categories.map((c) => ({
               ...c,
               subcategories: [...c.subcategories],
@@ -2100,6 +2188,9 @@ export default function RedCoinsScreen({ navigation, route }: any) {
               const oldName = existing.name;
               existing.name = draftName.trim(); existing.type = draftType; existing.balance = Number(draftBalance) || 0; existing.icon = draftIcon;
               next.entries = next.entries.map((entry) => ({ ...entry, account: entry.account === oldName ? existing.name : entry.account, toAccount: entry.toAccount === oldName ? existing.name : entry.toAccount }));
+              next.reminders = next.reminders.map(reminder => ({ ...reminder, template: { ...reminder.template, account: reminder.template.account === oldName ? existing.name : reminder.template.account, toAccount: reminder.template.toAccount === oldName ? existing.name : reminder.template.toAccount } }));
+              next.entryDefaults = Object.fromEntries(Object.entries(next.entryDefaults || {}).map(([type, defaults]) => [type, { ...defaults, account: defaults?.account === oldName ? existing.name : defaults?.account, toAccount: defaults?.toAccount === oldName ? existing.name : defaults?.toAccount }]));
+              await migrateAccountPreferences({ [oldName.trim().toLocaleLowerCase()]: existing.name }, {});
             } else {
               next.accounts.push({
                 id: `${Date.now()}`,
@@ -2112,6 +2203,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
             }
           } else if (manageOpen === 'category') {
             if (!draftCategory.trim() || (!editingCategoryId && !draftSub.trim())) return;
+            if (!editingCategoryId && !draftCategoryTypes.length) return Alert.alert('Choose a type', 'Select expense, income, or both.');
             const existing = next.categories.find((entry) => entry.id === editingCategoryId);
             if (existing) {
               const oldName = existing.name; existing.name = draftCategory.trim(); existing.icon = draftIcon;
@@ -2126,12 +2218,18 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                 icon: draftIcon,
                 subcategories: [draftSub.trim()],
                 subcategoryIcons: { [draftSub.trim()]: draftIcon },
+                subcategoryTypes: { [draftSub.trim()]: draftCategoryTypes },
               });
               next.deletedCategoryNames = next.deletedCategoryNames.filter((name) => name.toLocaleLowerCase() !== draftCategory.trim().toLocaleLowerCase());
             }
           } else {
             const parent = next.categories.find((c) => c.name === draftParent);
             if (!parent || !draftSub.trim()) return;
+            if (!draftCategoryTypes.length) return Alert.alert('Choose a type', 'Select expense, income, or both for this subcategory.');
+            const types = { ...parent.subcategoryTypes };
+            if (editingSubName) delete types[editingSubName];
+            types[draftSub.trim()] = draftCategoryTypes;
+            parent.subcategoryTypes = types;
             if (editingSubName) {
               parent.subcategories = parent.subcategories.map((sub) => sub === editingSubName ? draftSub.trim() : sub);
               next.entries = next.entries.map((entry) => entry.category === parent.name && entry.subcategory === editingSubName ? { ...entry, subcategory: draftSub.trim() } : entry);
@@ -2167,7 +2265,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
             );
             return;
           }
-          Alert.alert(`Delete ${manageOpen === 'sub' ? 'subcategory' : manageOpen}?`, `${label} will be removed from future selection. Existing ledger transactions will remain intact.`, [
+          const historyCount = account ? state.entries.filter(entry => entry.account === label || entry.toAccount === label).length : 0;
+          Alert.alert(`Delete ${manageOpen === 'sub' ? 'subcategory' : manageOpen}?`, `${label} will be removed from future selection. ${account ? `${historyCount} linked ledger transactions will NOT be deleted. Delete those separately in Activity if intended.` : 'Existing ledger transactions will remain intact.'}`, [
             { text: 'Cancel', style: 'cancel' },
             { text: 'Delete', style: 'destructive', onPress: async () => {
               const next: RedCoinsState = {
@@ -2176,10 +2275,12 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                 categories: state.categories.map((item) => ({ ...item, subcategories: [...item.subcategories], subcategoryIcons: { ...(item.subcategoryIcons || {}) } })),
                 subcategoryBudgets: { ...state.subcategoryBudgets },
                 deletedAccountNames: [...(state.deletedAccountNames || [])],
+                deletedSourceAccountIds: [...(state.deletedSourceAccountIds || [])],
                 deletedCategoryNames: [...(state.deletedCategoryNames || [])],
                 deletedSubcategories: Object.fromEntries(Object.entries(state.deletedSubcategories || {}).map(([key, values]) => [key, [...values]])),
               };
               if (manageOpen === 'account' && editingAccountId) {
+                if (account?.sourceAccountId && !next.deletedSourceAccountIds!.includes(account.sourceAccountId)) next.deletedSourceAccountIds!.push(account.sourceAccountId);
                 next.accounts = next.accounts.filter((item) => item.id !== editingAccountId);
                 if (!next.deletedAccountNames!.some((name) => name.toLocaleLowerCase() === label.toLocaleLowerCase())) next.deletedAccountNames!.push(label);
               } else if (manageOpen === 'category' && editingCategoryId) {
@@ -2321,6 +2422,8 @@ const EntryRow = memo(function EntryRow({ entry, icon, accountBalance, onLong, o
         <Text style={s.entryMeta} numberOfLines={1}>
           {entryTime(entry.date)} · {entry.type === 'transfer' ? `From ${entry.account} → ${entry.toAccount || 'Unknown'}` : entry.subcategory}
         </Text>
+        {entry.status === 'reconciled' && <Text style={[s.entryMeta, { color: '#168A65' }]}>RECONCILED</Text>}
+        {entry.status === 'pending' && <Text style={s.entryMeta}>PENDING</Text>}
       </View>
       <View style={s.entryRight}>
         <Text style={[s.entryAmount, { color }]}>
@@ -2361,6 +2464,21 @@ const LedgerSearch = memo(function LedgerSearch({ value, onChange }: { value: st
   };
   return <TextInput value={draft} onChangeText={update} placeholder="Search item, category, account…" placeholderTextColor={C.muted} autoCorrect={false} autoCapitalize="none" returnKeyType="search" style={[s.search, { flex: 1 }]} />;
 });
+
+function LedgerTotalsModal({ visible, scope, summary, close }: { visible: boolean; scope: string; summary: ReturnType<typeof summarizeLedgerEntries>; close: () => void }) {
+  return <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
+    <Pressable style={s.sheetShade} onPress={close}><Pressable style={s.selectionSheet} onPress={() => {}}>
+      <View style={s.sheetGrab} />
+      <View style={s.filterTitleRow}><Text style={s.sheetTitle}>Ledger totals</Text><TouchableOpacity onPress={close} accessibilityLabel="Close totals"><Ionicons name="close" size={23} color={C.ink} /></TouchableOpacity></View>
+      <Text style={s.reportSectionHint}>{scope} · {summary.count} entries</Text>
+      {([
+        ['Income', summary.income, '#168A65'], ['Expense', summary.expense, C.coral],
+        ['Transfer', summary.transfer, C.blue], ['Net · income − expense', summary.net, C.ink],
+      ] as const).map(([label, value, color]) => <View key={label} style={s.ledgerTotalRow}><Text style={s.reportName}>{label}</Text><Text style={[s.reportSubAmount, { color }]}>{value < 0 ? '− ' : ''}{money(value)}</Text></View>)}
+      <Text style={s.reportSectionHint}>Totals include every matching entry, not just the rows currently loaded. Transfers are counted once and excluded from net.{summary.futureCount ? ` Includes ${summary.futureCount} future-dated entries visible in this list.` : ''}</Text>
+    </Pressable></Pressable>
+  </Modal>;
+}
 
 const LedgerFilterModal = memo(function LedgerFilterModal({
   visible,
@@ -2623,7 +2741,7 @@ function EntryModal(p: any) {
   useEffect(() => {
     if (p.visible) setSuggestionOpen(true);
   }, [p.visible]);
-  const cats = p.state.categories;
+  const cats = useMemo(() => loggerCategories(p.state.categories, p.state.entries, p.type), [p.state.categories, p.state.entries, p.type]);
   const openPicker = (value: typeof picker) => {
     setPickerSearch('');
     setPicker(value);
@@ -2631,7 +2749,7 @@ function EntryModal(p: any) {
   const chooseTemplate = (entry: any) => {
     p.chooseSuggestion(entry);
     setSuggestionOpen(false);
-    setTimeout(() => amountRef.current?.focus(), 60);
+    requestAnimationFrame(() => amountRef.current?.focus());
   };
   return (
     <Modal visible={p.visible} animationType="slide" onRequestClose={p.close}>
@@ -2685,6 +2803,7 @@ function EntryModal(p: any) {
                       {x.category} · {x.subcategory} · {x.account}
                       {x.usageCount > 1 ? ` · used ${x.usageCount}×` : ''}
                     </Text>
+                    <Text style={s.suggestionMeta}>Last amount logged · {money(x.amount)}</Text>
                   </View>
                   <Ionicons name="arrow-forward" size={16} color={C.muted} />
                 </TouchableOpacity>
@@ -2718,7 +2837,7 @@ function EntryModal(p: any) {
             <TextInput ref={amountRef} style={s.amountBare} value={p.amount} onChangeText={p.setAmount} keyboardType="decimal-pad" returnKeyType="done" onSubmitEditing={p.saveEntry} placeholder="0.00" placeholderTextColor="#AAA393" />
             <Text style={s.currency}>MYR</Text>
           </View>
-          {p.type !== 'transfer' && <PickerRow icon={ICON_LIBRARY.includes(cats.find((c: any) => c.name === p.category)?.icon) ? cats.find((c: any) => c.name === p.category).icon : 'grid-outline'} label="CATEGORY" value={p.subcategory || p.category} onPress={() => openPicker('category')} />}
+          {p.type !== 'transfer' && <PickerRow icon={ICON_LIBRARY.includes(cats.find((c) => c.name === p.category)?.icon || '') ? cats.find((c) => c.name === p.category)!.icon : 'grid-outline'} label="CATEGORY" value={p.subcategory || p.category || 'Choose category'} onPress={() => openPicker('category')} />}
           <PickerRow icon="wallet-outline" label={p.type === 'transfer' ? 'FROM ACCOUNT' : 'ACCOUNT'} value={p.account || 'Choose account'} onPress={() => openPicker('account')} />
           {p.type === 'transfer' && <PickerRow icon="arrow-forward-circle-outline" label="TRANSFER TO" value={p.toAccount || 'Choose destination'} onPress={() => openPicker('destination')} />}
           {!p.schedulingOnly && <TouchableOpacity style={s.advancedButton} onPress={() => p.setAdvanced(!p.advanced)}>
@@ -2823,7 +2942,7 @@ function EntryModal(p: any) {
                             setPicker(null);
                           }}
                         >
-                          <View style={s.categoryIcon}>
+                          <View style={[s.categoryIcon, { backgroundColor: p.type === 'income' ? '#379B73' : C.coral }]}>
                             {ICON_LIBRARY.includes(group.subcategoryIcons?.[sub] || group.icon) ? <Ionicons name={(group.subcategoryIcons?.[sub] || group.icon) as any} size={17} color={C.ink} /> : <Text>{group.subcategoryIcons?.[sub] || group.icon}</Text>}
                           </View>
                           <Text style={s.categoryChoiceText}>{sub}</Text>
@@ -2975,6 +3094,14 @@ function ManageModal({ visible, mode, close, draft, save, remove, editing }: any
             <Field label="SUBCATEGORY" value={draft.draftSub} onChange={draft.setDraftSub} />
           )}
           <Text style={s.inputLabel}>ICON</Text>
+          {mode !== 'account' && (mode === 'sub' || !editing) && <>
+            <Text style={s.inputLabel}>TRANSACTION TYPE</Text>
+            <View style={s.typeRow}>{(['expense', 'income'] as const).map((entryType) => <TouchableOpacity key={entryType}
+              style={[s.typeButton, draft.draftCategoryTypes.includes(entryType) && { backgroundColor: entryType === 'income' ? '#379B73' : C.coral }]}
+              onPress={() => draft.setDraftCategoryTypes(draft.draftCategoryTypes.includes(entryType) ? draft.draftCategoryTypes.filter((value: string) => value !== entryType) : [...draft.draftCategoryTypes, entryType])}>
+              <Text style={[s.typeText, draft.draftCategoryTypes.includes(entryType) && { color: C.white }]}>{entryType.toUpperCase()}</Text>
+            </TouchableOpacity>)}</View>
+          </>}
           <View style={s.iconSearchWrap}>
             <Ionicons name="search" size={17} color={C.muted} />
             <TextInput
@@ -3808,6 +3935,10 @@ const s = StyleSheet.create({
   },
   selectedTotalText: { color: C.ink, fontSize: 18, fontWeight: '900' },
   selectedTotalMeta: { color: C.muted, fontSize: 8, fontWeight: '800' },
+  ledgerSummaryLinkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingTop: 5 },
+  ledgerSummaryButton: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 7, backgroundColor: C.cream, borderRadius: 8 },
+  ledgerSummaryButtonText: { color: C.ink, fontSize: 8, fontWeight: '900' },
+  ledgerTotalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#E2D9C8' },
   ledgerTools: { flexDirection: 'row', gap: 7 },
   filterButton: {
     width: 43,
