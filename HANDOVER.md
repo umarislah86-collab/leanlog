@@ -2,12 +2,14 @@
 
 Updated: 6 October 2026 (Asia/Kuala_Lumpur).
 
-## Current release work — v2.9.13 (6 October)
+## Latest published release — v2.9.13 (6 October)
 
-- User requested ARM64 APK + commit/push + GitHub release. Build metadata will be updated after verification. Previous published release is v2.9.12 below.
+- Published ARM64 APK v2.9.13 / versionCode 18. Source commit `5098cd6b1d0cc7927e43bbe029f84cc6daa3f9e3`; EAS `01d81985-d151-478f-aef2-46ec0b13a259` FINISHED. 42,849,967 bytes (40.86 MiB). Manifest/version/package, ARM64-only libraries, ZIP integrity and APK v2 signing verified; signer unchanged (`62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c`). 86 tests, TypeScript, Android Metro and EAS native build passed. Phone testing remains pending.
+- APK: https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.13/leanlog-V2.9.13.apk
+- SHA-256: `ad32ebf776cffe58bfee17f113bd0a5aa0fcbd527609600ebb693a5b27b0d02c`.
 - Fix in `services/redcoins.ts`: custom-account balance rebuild skipped locally logged transfers matched to imports whose destination still named the deleted old account. Opening the app can replay cached FYDB even with auto-sync OFF; no new Drive sync was needed to trigger the bug.
 - Source-backed balances now reverse matched raw imports and apply effective local replacements; custom balances replay the complete effective live ledger once, including matched transfers. No double source debit; future rows excluded; deletion suppression retained.
-- Read-only actual backup `C:\\Users\\C5407836\\Downloads\\RedCoins-backup-2026-10-06.json` + reconstructed cached summary: before fix RM1,556.97 -> RM1,256.97 -> RM956.97; after fix RM1,856.97 remains unchanged for ten replays. Original backup bytes unchanged. Not a fresh FYDB or phone test.
+- Read-only actual backup `C:\Users\C5407836\Downloads\RedCoins-backup-2026-10-06.json` + reconstructed cached summary: before fix RM1,556.97 -> RM1,256.97 -> RM956.97; after fix RM1,856.97 remains unchanged for ten replays. Original backup bytes unchanged. Not a fresh FYDB or phone test.
 - Relevant local transfer `1790685244309` (Aeon -> Pot aeon, RM300) matches imported `bluecoins-1790685319967` targeting deleted `Saving POT `. Edited RM1,500 transfer also targets custom Pot aeon.
 - Added four regressions in `tests/redcoinsAccountIdentity.test.cjs`; 86 tests pass, TypeScript passes. Covers matched custom/unchanged/rerouted transfer, repeated replay, future exclusion, no double debit and user adjustment preservation.
 - Do NOT remove the user's historic RM600 Adjustment, add more compensating entries, or hardcode RM1,856.97. Fix preserves the current saved balance; already-drifted balances need explicit user confirmation to correct. Test repeated reopen on the new APK.
@@ -51,16 +53,16 @@ User speaks casually in Malay/English. Match that tone, give concrete progress u
 - Existing checkout: `C:\Users\C5407836\CalorieTracker`. Use the actual clone path on the new PC, not this old absolute path.
 - Repository: https://github.com/umarislah86-collab/leanlog
 - Working branch: `github-release-v221` (historical name; still the current development/release branch).
-- Last released source commit: `678f649d9751acc4f0ef32e12ad25ae421496e86`.
-- Last release: `v2.9.12`, Android versionCode `17`.
-- APK: https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.12/leanlog-V2.9.12.apk
-- ARM64-only, 42,848,687 bytes / 40.86 MiB.
-- SHA-256: `848b09f9e494bc28b4c5dd35c0465a8704356ee35619e3569135cc4e6a725372`.
-- EAS build: `1e8aaeff-db80-4c06-a6a2-7353fe694e85`.
+- Last released source commit: `5098cd6b1d0cc7927e43bbe029f84cc6daa3f9e3`.
+- Last release: `v2.9.13`, Android versionCode `18`.
+- APK: https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.13/leanlog-V2.9.13.apk
+- ARM64-only, 42,849,967 bytes / 40.86 MiB.
+- SHA-256: `ad32ebf776cffe58bfee17f113bd0a5aa0fcbd527609600ebb693a5b27b0d02c`.
+- EAS build: `01d81985-d151-478f-aef2-46ec0b13a259`.
 
 ## Migration
 
-Clone the GitHub branch after the requested release is pushed. Prior camera/parser/budget/widget/export files below are already tracked and released; no special untracked-file transfer is needed. Phone records and local credentials are separate from source migration.
+Clone the GitHub branch; release source and handover are pushed. Prior camera/parser/budget/widget/export files below are already tracked and released; no special untracked-file transfer is needed. Phone records and local credentials are separate from source migration.
 
 On the new PC:
 
@@ -165,14 +167,14 @@ Stack: Expo SDK 57, React 19.2.3, React Native 0.86.2, TypeScript, React Navigat
 - Filter has multi-choice dropdowns for type/account/category/subcategory, date and salary cycle. Clear All applies immediately.
 - Reports supports salary cycles based on salary entries and custom ranges, with styled PDF export.
 - Search/picker results must stay above the keyboard. Modal outside-tap and Android Back should dismiss; RedCoins Back traverses internal tab history before exiting.
-- Reminder Save creates a schedule, not an immediate ledger row. Auto-log materializes once when due. Both reminder and auto-log send notifications. When app is closed, transaction creation currently occurs when app resumes; do not promise guaranteed background creation.
+- Reminder Save creates a schedule, not an immediate ledger row. Auto-log materializes once when due. Both modes request notifications. Native AlarmManager/Headless JS supports closed-app processing, with resume catch-up; exact permission, force-stop and OEM restrictions mean universal exact delivery is not guaranteed.
 - Widgets: Daily, Account Snapshot (per-instance account), Cash Reality, Quick Log, Automation & Bills. No agenda in Daily widget. Widgets require native build for launcher verification.
 - Health Connect workout import removed by request; user logs workouts manually. Keep steps/sleep/heart-rate features. Barcode engine was removed; do not reintroduce it.
 - UI: use established LeanLog cream/navy/mint/coral aesthetic, serif editorial headings and clean standard icons. Avoid emoji-heavy generic cards/pills. Body Timeline and monthly mirror photos are merged; photo-less weight logs collapsed by default.
 
 ## Build and GitHub release convention
 
-When user says **build**, they mean build AND commit/push AND GitHub release with APK. Do not stop after EAS submission unless user explicitly says they will follow up when ready. Current instruction is to build and push v2.9.13.
+When user says **build**, they mean build AND commit/push AND GitHub release with APK. Do not stop after EAS submission unless user explicitly says they will follow up when ready. The v2.9.13 request is complete; do not start another build without a new request.
 
 1. Inspect git status and relevant diffs. Preserve unrelated changes.
 2. Bump `expo.version` in `app.json` to the next agreed version and add a factual narrative chapter to `components/LeanLogChronicle.tsx`.
