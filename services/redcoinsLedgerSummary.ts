@@ -3,6 +3,7 @@ import type { RedCoinsEntry, RedCoinsType } from './redcoins';
 export type LedgerFilters = {
   search: string; types: RedCoinsType[]; accounts: string[]; categories: string[];
   subcategories: string[]; startDay: string; endDay: string;
+  reportWindow?: { start: number; endExclusive: number; actualThrough: number } | null;
 };
 const localDayKey = (value: string) => {
   const date = new Date(value);
@@ -15,6 +16,9 @@ export function filterLedgerEntries(entries: RedCoinsEntry[], filters: LedgerFil
   const needle = filters.search.trim().toLocaleLowerCase('en-MY');
   return entries.filter((entry) => {
     const day = localDayKey(entry.date);
+    const time = new Date(entry.date).getTime();
+    const window = filters.reportWindow;
+    if (window && !(time >= window.start && time < window.endExclusive && time <= window.actualThrough)) return false;
     return (!needle || [entry.item, entry.category, entry.subcategory, entry.account, entry.toAccount, entry.note].filter(Boolean).join(' ').toLocaleLowerCase('en-MY').includes(needle))
       && (!filters.types.length || filters.types.includes(entry.type))
       && (!filters.accounts.length || filters.accounts.includes(entry.account) || !!entry.toAccount && filters.accounts.includes(entry.toAccount))

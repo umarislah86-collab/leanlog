@@ -1,5 +1,6 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, BackHandler, InteractionManager, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, SectionList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Alert, AppState, BackHandler, InteractionManager, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -10,20 +11,22 @@ import Svg, { Circle } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BluecoinsDriveReader from 'bluecoins-drive-reader';
 import type { TransactionDetection } from 'bluecoins-drive-reader';
-import { refreshBluecoinsSummary, setBluecoinsFixedCommitments, setBluecoinsMonthlyBudget, setBluecoinsPayday, setCashRealityAccounts, setCashRealitySafetyBuffer, type BluecoinsSummary } from '../services/bluecoins';
-import { applyEntryBalance, confirmRedCoinsExport, createRedCoinsDeletion, exportRedCoinsBackup, exportRedCoinsCsv, loadRedCoins, mergeRedCoinsIntoBudgetCoach, saveRedCoins, type RedCoinsAccountType, type RedCoinsEntry, type RedCoinsReminder, type RedCoinsReminderEndType, type RedCoinsState, type RedCoinsType, type RedCoinsWeekendMove } from '../services/redcoins';
+import { setBluecoinsFixedCommitments, setBluecoinsMonthlyBudget, setBluecoinsPayday, setCashRealityAccounts, setCashRealitySafetyBuffer, type BluecoinsSummary } from '../services/bluecoins';
+import { applyEntryBalance, confirmRedCoinsExport, createRedCoinsDeletion, exportRedCoinsBackup, exportRedCoinsCsv, getRedCoinsSummary, loadRedCoins, saveRedCoins, type RedCoinsAccountType, type RedCoinsEntry, type RedCoinsReminder, type RedCoinsReminderEndType, type RedCoinsState, type RedCoinsType, type RedCoinsWeekendMove } from '../services/redcoins';
 import { aggregateCycleSpending } from '../services/redcoinsBudget';
 import { loggerCategories, loggerSuggestions } from '../services/redcoinsLogger';
 import { filterLedgerEntries, summarizeLedgerEntries } from '../services/redcoinsLedgerSummary';
+import { SALARY_FILTER_SOURCE_KEY, salaryFilterSources, visibleSalarySources, preferredSalarySource, salaryFilterCycle, salaryCycleOffset, ledgerMonthPeriod, type SalaryFilterSource } from '../services/redcoinsSalaryFilter';
 import { applyRedCoinsBatch, copyRedCoinsEntries, pasteRedCoinsEntries, readRedCoinsClipboard, type BatchAction } from '../services/redcoinsBatch';
 import { RedCoinsBatchModal } from '../components/RedCoinsBatchModal';
+import { RedCoinsLedgerList } from '../components/RedCoinsLedgerList';
 import { RedCoinsAiPromptModal } from '../components/RedCoinsAiPromptModal';
 import { RedCoinsAnalysis } from '../components/RedCoinsAnalysis';
 import { migrateAccountPreferences } from '../services/redcoinsAccountIdentity';
 import { subscribeRedCoinsChanges } from '../services/redcoinsEvents';
-import { advanceReminderDate, materializeAutomaticReminders, missingReminderAccounts, nextReminderOccurrence, requestReminderAccess, syncReminderNotifications } from '../services/redcoinsReminders';
+import { advanceReminderDate, materializeAutomaticReminders, missingReminderAccounts, nextReminderOccurrence, pendingReminderOccurrence, logReminderOccurrenceNow, requestReminderAccess, syncReminderNotifications } from '../services/redcoinsReminders';
 import { projectRedCoinsReminders } from '../services/redcoinsReminderProjection';
-import { deleteRedCoinsLedgerEntry, queryRedCoinsLedger, syncRedCoinsLedger, upsertRedCoinsLedgerEntry } from '../services/redcoinsLedger';
+import { deleteRedCoinsLedgerEntry, syncRedCoinsLedger, upsertRedCoinsLedgerEntry } from '../services/redcoinsLedger';
 import { saveSpendingGuards, type GuardScope, type SpendingGuard } from '../services/spendingGuards';
 import { refreshLeanLogWidget } from '../services/widget';
 
@@ -65,9 +68,8 @@ const entryTime = (value: string) => {
 const budgetKey = (category: string, subcategory: string) => `${category}\u0000${subcategory}`;
 type Section = 'home' | 'activity' | 'accounts' | 'plan' | 'reports';
 type ReportMode = 'salary-cycle' | 'custom';
-type FilterDateMode = 'all' | 'single' | 'range' | 'cycle';
+type FilterDateMode = 'all' | 'single' | 'range' | 'cycle' | 'month';
 type SalarySource = { key: string; label: string; entries: RedCoinsEntry[]; average: number };
-const LEDGER_PAGE_SIZE = 120;
 // Curated from the Ionicons set bundled by @expo/vector-icons. Keeping a curated
 // catalogue gives broad coverage without mounting the entire font map at once.
 const ICON_LIBRARY = [
@@ -88,7 +90,7 @@ const ICON_LIBRARY = [
 export default function RedCoinsScreen({ navigation, route }: any) {
   const [state, setState] = useState<RedCoinsState | null>(null);
   const [bluecoins, setBluecoins] = useState<BluecoinsSummary | null>(null);
-  const [bluecoinsBase, setBluecoinsBase] = useState<BluecoinsSummary | null>(null);
+  const summaryRequest = useRef(0);
   const [section, setSection] = useState<Section>('home');
   const sectionHistory = useRef<Section[]>([]);
   const [entryOpen, setEntryOpen] = useState(false);
@@ -111,6 +113,14 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const [filterStartDay, setFilterStartDay] = useState('');
   const [filterEndDay, setFilterEndDay] = useState('');
   const [filterDateLabel, setFilterDateLabel] = useState('');
+  const [reportLedgerWindow, setReportLedgerWindow] = useState<{ start: number; endExclusive: number; actualThrough: number } | null>(null);
+  const [filterSalaryKey, setFilterSalaryKey] = useState('');
+  const salarySelectionTouched = useRef(false);
+  useEffect(() => {
+    void AsyncStorage.getItem(SALARY_FILTER_SOURCE_KEY).then(key => {
+      if (!salarySelectionTouched.current) setFilterSalaryKey(key || '');
+    }).catch(console.warn);
+  }, []);
   const [calendarCursor, setCalendarCursor] = useState(() => new Date());
   const [collapsedCards, setCollapsedCards] = useState<string[]>([]);
   const [expandedBudgetCategories, setExpandedBudgetCategories] = useState<string[]>([]);
@@ -119,11 +129,6 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const [batchBusy, setBatchBusy] = useState(false);
   const batchLock = useRef(false);
   const [copiedEntries, setCopiedEntries] = useState<RedCoinsEntry[]>([]);
-  const [visibleLedgerCount, setVisibleLedgerCount] = useState(LEDGER_PAGE_SIZE);
-  const [ledgerEntries, setLedgerEntries] = useState<RedCoinsEntry[]>([]);
-  const [ledgerTotal, setLedgerTotal] = useState(0);
-  const [ledgerReady, setLedgerReady] = useState(false);
-  const [ledgerFallback, setLedgerFallback] = useState(false);
   const [ledgerRevision, setLedgerRevision] = useState(0);
   const ledgerQueryId = useRef(0);
   const [item, setItem] = useState('');
@@ -205,16 +210,9 @@ export default function RedCoinsScreen({ navigation, route }: any) {
 
   useEffect(() => {
     (async () => {
-      let summary: BluecoinsSummary | null = null;
-      try {
-        summary = await refreshBluecoinsSummary();
-        setBluecoinsBase(summary);
-      } catch {}
-      const loaded = await loadRedCoins(summary);
-      if (summary) setBluecoins(await mergeRedCoinsIntoBudgetCoach(summary));
+      const loaded = await loadRedCoins();
       setState(loaded);
-      setLedgerEntries(loaded.entries.slice(0, LEDGER_PAGE_SIZE));
-      setLedgerTotal(loaded.entries.length);
+      void refreshLiveBluecoins(loaded).catch(console.warn);
       setCycleBudgetDraft(String(loaded.monthlyBudget));
       setPaydayDraft(String(loaded.payday));
       setSafetyBufferDraft(String(loaded.safetyBuffer));
@@ -231,23 +229,23 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       if (latest) setCalendarCursor(new Date(latest.getFullYear(), latest.getMonth(), 1));
       try {
         await syncRedCoinsLedger(loaded.entries);
-        setLedgerReady(true);
       } catch (error) {
         console.warn('RedCoins SQLite migration failed', error);
-        setLedgerFallback(true);
       }
     })();
   }, []);
 
+  const salaryLedgerWindow = useMemo(() => {
+    if (filterDateMode !== 'cycle') return null;
+    const source = preferredSalarySource(salaryFilterSources(state?.entries || []), filterSalaryKey);
+    const cycle = source ? salaryFilterCycle(source, salaryCycleOffset(source, filterStartDay)) : null;
+    return cycle ? { start: cycle.startInstant, endExclusive: cycle.endExclusive, actualThrough: Date.now() } : null;
+  }, [state?.entries, filterDateMode, filterSalaryKey, filterStartDay]);
   const matchingLedgerEntries = useMemo(() => filterLedgerEntries(state?.entries || [], {
     search, types: filterTypes, accounts: filterAccounts, categories: filterCategories,
-    subcategories: filterSubcategories, startDay: filterStartDay, endDay: filterEndDay,
-  }), [state?.entries, search, filterTypes, filterAccounts, filterCategories, filterSubcategories, filterStartDay, filterEndDay]);
-  useEffect(() => {
-    if (section !== 'activity') return;
-    setLedgerEntries(matchingLedgerEntries.slice(0, visibleLedgerCount));
-    setLedgerTotal(matchingLedgerEntries.length);
-  }, [section, matchingLedgerEntries, visibleLedgerCount]);
+    subcategories: filterSubcategories, startDay: filterStartDay, endDay: filterEndDay, reportWindow: salaryLedgerWindow || reportLedgerWindow,
+  }), [state?.entries, search, filterTypes, filterAccounts, filterCategories, filterSubcategories, filterStartDay, filterEndDay, reportLedgerWindow, salaryLedgerWindow]);
+  const ledgerFilterKey = JSON.stringify([search, filterTypes, filterAccounts, filterCategories, filterSubcategories, filterStartDay, filterEndDay, reportLedgerWindow]);
 
   useEffect(() => {
     const refreshDetector = () => {
@@ -300,8 +298,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const persist = async (next: RedCoinsState, refreshSource = false) => {
     setState({ ...next });
     await saveRedCoins(next);
-    if (refreshSource) await refreshLiveBluecoins();
-    else if (bluecoinsBase) setBluecoins(await mergeRedCoinsIntoBudgetCoach(bluecoinsBase));
+    await refreshLiveBluecoins(next);
     refreshLeanLogWidget().catch(() => {});
   };
   useEffect(() => { void readRedCoinsClipboard().then(setCopiedEntries).catch(console.warn); }, []);
@@ -367,17 +364,18 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     catch (error) { Alert.alert('Cannot paste', error instanceof Error ? error.message : 'Please check the copied transactions.'); return; }
     runConfirmedBatch(`Create ${copied.length} NEW transactions ${day ? `dated ${day}` : 'with their original dates'}?\n\nThis affects balances and budgets. Reminder schedules will not be copied.`, current => pasteRedCoinsEntries(current, copied, day));
   };
-  const refreshLiveBluecoins = async () => {
-    const refreshed = await refreshBluecoinsSummary();
-    setBluecoinsBase(refreshed);
-    setBluecoins(await mergeRedCoinsIntoBudgetCoach(refreshed));
+  const refreshLiveBluecoins = async (current?: RedCoinsState) => {
+    const request = ++summaryRequest.current;
+    const summary = await getRedCoinsSummary(current);
+    if (request === summaryRequest.current) setBluecoins(summary);
   };
   useEffect(() => subscribeRedCoinsChanges(({ kind }) => {
-    if (kind === 'state') void loadRedCoins().then(setState).catch(console.warn);
-    if (bluecoinsBase) {
-      void mergeRedCoinsIntoBudgetCoach(bluecoinsBase).then(setBluecoins).catch(console.warn);
-    }
-  }), [bluecoinsBase]);
+    void (async () => {
+      const current = await loadRedCoins();
+      if (kind === 'state') setState(current);
+      await refreshLiveBluecoins(current);
+    })().catch(console.warn);
+  }), []);
   useEffect(() => {
     const check = () => {
       void BluecoinsDriveReader?.canScheduleRedCoinsExactAlarmsAsync?.().then(setExactAlarmsAllowed).catch(console.warn);
@@ -412,10 +410,10 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       setState(refreshed);
       await syncRedCoinsLedger(refreshed.entries);
       setLedgerRevision((value) => value + 1);
-      if (bluecoinsBase) setBluecoins(await mergeRedCoinsIntoBudgetCoach(bluecoinsBase));
+      await refreshLiveBluecoins(refreshed);
     }, Math.min(delay, 2_147_000_000));
     return () => clearTimeout(timer);
-  }, [state?.reminders, bluecoinsBase]);
+  }, [state?.reminders]);
   const resetEntry = (initialType: RedCoinsType = 'expense') => {
     if (!state) return;
     const recent = state.entries.find((entry) => entry.type === initialType);
@@ -768,39 +766,31 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       setLedgerRevision((value) => value + 1);
     } },
   ]);
-  const logReminderNow = async (reminder: RedCoinsReminder) => {
-    if (!state) return;
+  const reminderLogLock = useRef(false);
+  const logReminderNow = (reminder: RedCoinsReminder) => {
+    if (!state || reminderLogLock.current) return;
+    const due = pendingReminderOccurrence(state, reminder);
+    if (!due) return Alert.alert('Nothing to log', 'This schedule is paused, completed or its occurrence has already been logged.');
     const missing = missingReminderAccounts(reminder, state.accounts);
-    if (missing.length) return Alert.alert('Fix reminder accounts first', `Missing: ${missing.join(', ')}. Edit this schedule and choose existing accounts.`);
-    const now = new Date();
-    const entry: RedCoinsEntry = {
-      ...reminder.template,
-      id: `reminder-manual-${reminder.id}-${now.getTime()}`,
-      date: now.toISOString(),
-      repeat: 'none',
-      status: 'cleared',
-      origin: 'redcoins',
-      balanceEffectApplied: true,
-      reminderSeriesId: reminder.id,
-      reminderOccurrenceKey: `${reminder.id}:${reminder.startDate}`,
-    };
-    let nextStart = new Date(reminder.startDate);
-    while (nextStart.getTime() <= now.getTime()) nextStart = advanceReminderDate(nextStart, reminder.frequency, reminder.repeatEvery);
-    const next: RedCoinsState = {
-      ...state,
-      reminders: state.reminders.map((item) => {
-        if (item.id !== reminder.id) return item;
-        const occurrences = item.endType === 'occurrences' ? Math.max(0, (item.occurrences || 1) - 1) : item.occurrences;
-        const pastEnd = item.endType === 'date' && item.endDate ? nextStart.getTime() > new Date(item.endDate).getTime() : false;
-        return { ...item, startDate: nextStart.toISOString(), occurrences, enabled: pastEnd || (item.endType === 'occurrences' && occurrences === 0) ? false : item.enabled };
-      }),
-      entries: [entry, ...state.entries],
-      accounts: state.accounts.map((account) => ({ ...account })),
-    };
-    applyEntryBalance(next, entry, 1);
-    await syncReminderNotifications(next.reminders);
-    await Promise.all([persist(next), upsertRedCoinsLedgerEntry(entry)]);
-    setLedgerRevision((value) => value + 1);
+    if (missing.length) return Alert.alert('Fix reminder accounts first', `Missing: ${missing.join(', ')}.`);
+    reminderLogLock.current = true;
+    let confirmed = false;
+    Alert.alert('Log this occurrence now?', `${reminder.template.item} · ${money(reminder.template.amount)}\nScheduled: ${due.toLocaleString('en-MY')}\n\nRecords it at the current time and marks this occurrence paid/logged. It will not auto-log again at its original due time. The next recurring date stays unchanged.`, [
+      { text: 'Cancel', style: 'cancel', onPress: () => { reminderLogLock.current = false; } },
+      { text: 'Log now', onPress: () => {
+        confirmed = true;
+        void (async () => {
+          try {
+            const current = await loadRedCoins();
+            const result = logReminderOccurrenceNow(current, reminder.id, due.toISOString());
+            await persist(result.state);
+            void upsertRedCoinsLedgerEntry(result.entry).then(() => setLedgerRevision(value => value + 1)).catch(console.warn);
+            void syncReminderNotifications(result.state.reminders).catch(console.warn);
+          } catch (error) { Alert.alert('Could not log occurrence', error instanceof Error ? error.message : String(error)); }
+          finally { reminderLogLock.current = false; }
+        })();
+      } },
+    ], { cancelable: true, onDismiss: () => { if (!confirmed) reminderLogLock.current = false; } });
   };
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
@@ -860,38 +850,16 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       });
     return result;
   }, [state]);
-  const activitySections = useMemo(() => {
-    const groups = new Map<string, RedCoinsEntry[]>();
-    ledgerEntries.forEach((entry) => {
-      const key = dayKey(entry.date);
-      const rows = groups.get(key);
-      if (rows) rows.push(entry);
-      else groups.set(key, [entry]);
-    });
-    return [...groups].map(([date, data]) => ({
-      date,
-      title: new Date(`${date}T12:00:00`)
-        .toLocaleDateString('en-MY', {
-          weekday: 'short',
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric',
-        })
-        .toUpperCase(),
-      total: data.reduce((sum, entry) => sum + (entry.type === 'expense' ? -entry.amount : entry.type === 'income' ? entry.amount : 0), 0),
-      data,
-    }));
-  }, [ledgerEntries]);
   const filteredLedgerSummary = useMemo(() => summarizeLedgerEntries(matchingLedgerEntries), [matchingLedgerEntries]);
   const selectedLedgerSummary = useMemo(() => summarizeLedgerEntries((state?.entries || []).filter((entry) => selectedSet.has(entry.id))), [state?.entries, selectedSet]);
   const selectedTotal = selectedLedgerSummary.net;
   const toggleSelected = useCallback((entry: RedCoinsEntry) => setSelectedIds((ids) => (ids.includes(entry.id) ? ids.filter((id) => id !== entry.id) : [...ids, entry.id])), []);
   const updateLedgerSearch = useCallback((value: string) => {
-    setVisibleLedgerCount(LEDGER_PAGE_SIZE);
     setSelectedIds([]);
     setSearch(value);
   }, []);
   const openDashboardFilter = (kind: 'day' | 'category' | 'account', value: string) => {
+    setReportLedgerWindow(null);
     setSearch('');
     setSelectedIds([]);
     setFilterTypes([]);
@@ -904,8 +872,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setFilterSubcategories([]);
     navigateSection('activity');
   };
-  const applyLedgerFilters = useCallback((next: { types: RedCoinsType[]; accounts: string[]; categories: string[]; subcategories: string[]; dateMode: FilterDateMode; startDay: string; endDay: string; dateLabel: string }) => {
-    setVisibleLedgerCount(LEDGER_PAGE_SIZE);
+  const applyLedgerFilters = useCallback((next: { types: RedCoinsType[]; accounts: string[]; categories: string[]; subcategories: string[]; dateMode: FilterDateMode; startDay: string; endDay: string; dateLabel: string; salarySourceKey?: string }) => {
+    if (next.dateMode !== filterDateMode || next.startDay !== filterStartDay || next.endDay !== filterEndDay) setReportLedgerWindow(null);
     setSelectedIds([]);
     setFilterTypes(next.types);
     setFilterAccounts(next.accounts);
@@ -915,8 +883,9 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setFilterStartDay(next.startDay);
     setFilterEndDay(next.endDay);
     setFilterDateLabel(next.dateLabel);
+    if (next.salarySourceKey) { salarySelectionTouched.current = true; setFilterSalaryKey(next.salarySourceKey); }
     setFilterOpen(false);
-  }, []);
+  }, [filterDateMode, filterStartDay, filterEndDay]);
   const toggleCard = (name: string) => setCollapsedCards((cards) => (cards.includes(name) ? cards.filter((card) => card !== name) : [...cards, name]));
   const dismissDetection = async (id: string) => {
     await BluecoinsDriveReader?.dismissTransactionDetectionAsync?.(id);
@@ -963,32 +932,52 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const budgetKeys = useMemo(() => new Set(budgetCategories.flatMap((group) => group.subcategories.map((subcategory) => budgetKey(group.name, subcategory)))), [budgetCategories]);
 
   const salarySources = useMemo<SalarySource[]>(() => {
-    if (!state) return [];
-    const groups = new Map<string, RedCoinsEntry[]>();
-    state.entries.filter((entry) => entry.type === 'income').forEach((entry) => {
-      const key = entry.item.trim().toLowerCase().replace(/\s+/g, ' ');
-      if (!key) return;
-      const rows = groups.get(key);
-      if (rows) rows.push(entry);
-      else groups.set(key, [entry]);
-    });
-    return [...groups].map(([key, entries]) => ({
-      key,
-      label: entries[0].item.trim(),
-      entries: [...entries].sort((a, b) => a.date.localeCompare(b.date)),
-      average: entries.reduce((sum, entry) => sum + entry.amount, 0) / entries.length,
-    })).sort((a, b) => b.entries.length - a.entries.length || b.average - a.average);
+    return salaryFilterSources(state?.entries || []);
   }, [state?.entries]);
+  const filterSalarySources = useMemo(() => salaryFilterSources(state?.entries || []), [state?.entries]);
+  const ledgerSalary = preferredSalarySource(filterSalarySources, filterSalaryKey);
+  const ledgerCycleOffset = ledgerSalary ? salaryCycleOffset(ledgerSalary, filterStartDay) : 0;
+  const ledgerCycle = ledgerSalary ? salaryFilterCycle(ledgerSalary, ledgerCycleOffset) : null;
+  const changeLedgerPeriod = (mode: 'month' | 'cycle' | 'all', direction = 0) => {
+    Keyboard.dismiss();
+    if (mode === 'all') {
+      setReportLedgerWindow(null);
+      setFilterDateMode('all'); setFilterStartDay(''); setFilterEndDay(''); setFilterDateLabel(''); setSelectedIds([]); return;
+    }
+    if (mode === 'month') {
+      setReportLedgerWindow(null);
+      const period = ledgerMonthPeriod(filterStartDay, direction);
+      setFilterDateMode('month'); setFilterStartDay(period.startDay); setFilterEndDay(period.endDay); setFilterDateLabel(period.dateLabel);
+    } else {
+      if (!ledgerSalary) {
+        Alert.alert('Choose a salary source', 'Select a source under Date & cycle in transaction filters first.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Choose source', onPress: () => setFilterOpen(true) }]); return;
+      }
+      const cycle = salaryFilterCycle(ledgerSalary, filterDateMode === 'cycle' ? ledgerCycleOffset - direction : 0);
+      if (!cycle) return;
+      setReportLedgerWindow(null);
+      setFilterDateMode('cycle'); setFilterStartDay(cycle.startDay); setFilterEndDay(cycle.endDay); setFilterDateLabel(cycle.dateLabel);
+      salarySelectionTouched.current = true; setFilterSalaryKey(ledgerSalary.key);
+      void AsyncStorage.setItem(SALARY_FILTER_SOURCE_KEY, ledgerSalary.key).catch(console.warn);
+    }
+    setSelectedIds([]);
+  };
+  const chooseLedgerPeriodMode = () => Alert.alert('Ledger period', 'Change the date window; your other filters stay selected.', [
+    { text: 'Salary cycle', onPress: () => changeLedgerPeriod('cycle') },
+    { text: 'Calendar month', onPress: () => changeLedgerPeriod('month') },
+    { text: 'All dates', onPress: () => changeLedgerPeriod('all') },
+  ], { cancelable: true });
 
   const report = useMemo(() => {
     if (!state) return null;
-    const source = salarySources.find((item) => item.key === reportSalarySource) || salarySources[0];
-    const maxOffset = Math.max(0, (source?.entries.length || 1) - 1);
-    const safeOffset = Math.min(reportCycleOffset, maxOffset);
-    const anchorIndex = source ? source.entries.length - 1 - safeOffset : -1;
-    const anchor = anchorIndex >= 0 ? source!.entries[anchorIndex] : undefined;
-    const nextAnchor = source && anchorIndex >= 0 ? source.entries[anchorIndex + 1] : undefined;
+    const source = salarySources.find((item) => item.key === reportSalarySource)
+      || salarySources.find(item => item.entries[0]?.item.trim().toLowerCase().replace(/\s+/g, ' ') === reportSalarySource)
+      || salarySources[0];
     const now = new Date();
+    const cycle = source ? salaryFilterCycle({ ...source, isSalary: true }, reportCycleOffset, now) : null;
+    const maxOffset = Math.max(0, (cycle?.count || 1) - 1);
+    const safeOffset = cycle?.offset || 0;
+    const anchor = source?.entries.find(entry => new Date(entry.date).getTime() === cycle?.startInstant);
+    const nextAnchor = source?.entries.find(entry => new Date(entry.date).getTime() === cycle?.endExclusive);
     const start = reportMode === 'custom'
       ? localDay(reportCustomStart)
       : anchor ? new Date(anchor.date) : new Date(now.getFullYear(), now.getMonth() - (now.getDate() < state.payday ? 1 : 0), state.payday);
@@ -1042,6 +1031,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       start,
       endExclusive,
       displayEnd,
+      actualThrough: now.getTime(),
       rows: actualRows,
       scheduledRows,
       expense,
@@ -1056,12 +1046,26 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   }, [state, salarySources, reportSalarySource, reportCycleOffset, reportMode, reportCustomStart, reportCustomEnd]);
 
   const reportAnalysisScope = useMemo(() => report ? ({ mode: reportMode, label: reportMode === 'salary-cycle' ? report.cycleLabel : `${reportDate(report.start)} — ${reportDate(report.displayEnd)}`, start: report.start, endExclusive: report.endExclusive, salarySource: report.source }) : null, [report, reportMode]);
+  const openReportMetricLedger = (type: RedCoinsType) => {
+    if (!report) return;
+    Keyboard.dismiss();
+    setSearch(''); setSelectedIds([]);
+    setFilterTypes([type]); setFilterAccounts([]); setFilterCategories([]); setFilterSubcategories([]);
+    setFilterDateMode('range');
+    setFilterStartDay(dayKey(report.start.toISOString()));
+    setFilterEndDay(dayKey(report.displayEnd.toISOString()));
+    setFilterDateLabel(`Report · ${reportMode === 'salary-cycle' ? report.cycleLabel : `${reportDate(report.start)} — ${reportDate(report.displayEnd)}`}`);
+    // Salary boundaries can be midday; date-only filters would include rows
+    // outside the report and future scheduled entries not in the metric.
+    setReportLedgerWindow({ start: report.start.getTime(), endExclusive: report.endExclusive.getTime(), actualThrough: report.actualThrough });
+    navigateSection('activity');
+  };
 
   const finance = useMemo(() => {
     if (!state) return null;
     const now = new Date();
-    const cycleStart = bluecoins?.monthly?.cycleStart ? new Date(`${bluecoins.monthly.cycleStart}T00:00:00`) : new Date(now.getFullYear(), now.getMonth() - (now.getDate() < state.payday ? 1 : 0), state.payday);
-    const cycleEnd = bluecoins?.monthly?.cycleEnd ? new Date(`${bluecoins.monthly.cycleEnd}T23:59:59`) : new Date(cycleStart.getFullYear(), cycleStart.getMonth() + 1, cycleStart.getDate());
+    const cycleStart = bluecoins?.monthly?.cycleStartInstant ? new Date(bluecoins.monthly.cycleStartInstant) : bluecoins?.monthly?.cycleStart ? new Date(`${bluecoins.monthly.cycleStart}T00:00:00`) : new Date(now.getFullYear(), now.getMonth() - (now.getDate() < state.payday ? 1 : 0), state.payday);
+    const cycleEnd = bluecoins?.monthly?.cycleEndExclusive ? new Date(new Date(bluecoins.monthly.cycleEndExclusive).getTime() - 1) : bluecoins?.monthly?.cycleEnd ? new Date(`${bluecoins.monthly.cycleEnd}T23:59:59`) : new Date(cycleStart.getFullYear(), cycleStart.getMonth() + 1, cycleStart.getDate());
     const cycleRows = state.entries.filter((entry) => {
       const date = new Date(entry.date);
       return date >= cycleStart && date <= cycleEnd;
@@ -1076,7 +1080,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     const reservedDebt = bluecoins?.monthly.topCategories.find((category) => category.name === 'Debt commitment');
     if (reservedDebt) catSpend['Debt commitment'] = Math.max(catSpend['Debt commitment'] || 0, reservedDebt.amount);
     const remaining = state.monthlyBudget - spent;
-    const daysLeft = Math.max(1, Math.ceil((new Date(cycleStart.getFullYear(), cycleStart.getMonth() + 1, state.payday).getTime() - now.getTime()) / 86400000));
+    const daysLeft = Math.max(1, Math.ceil((cycleEnd.getTime() + 1 - now.getTime()) / 86400000));
     const cardDebt = bluecoins?.cashReality.cardOutstanding ?? state.accounts.filter((account) => account.type === 'Credit card').reduce((sum, account) => sum + Math.max(0, -account.balance), 0);
     const cash = bluecoins?.cashReality.liquidBalance ?? state.accounts.filter((account) => ['Bank', 'Cash'].includes(account.type)).reduce((sum, account) => sum + account.balance, 0);
     const allocatedBudget = Object.entries(state.subcategoryBudgets || {}).reduce((sum, [key, value]) => sum + (budgetKeys.has(key) ? Math.max(0, Number(value) || 0) : 0), 0);
@@ -1399,6 +1403,19 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           )}
         </TouchableOpacity>
       </View>
+      <View style={s.ledgerPeriodBar}>
+        <TouchableOpacity style={s.ledgerPeriodArrow} accessibilityLabel="Previous ledger period" disabled={filterDateMode !== 'month' && (filterDateMode !== 'cycle' || !ledgerCycle || ledgerCycleOffset >= ledgerCycle.count - 1)} onPress={() => changeLedgerPeriod(filterDateMode === 'month' ? 'month' : 'cycle', -1)}>
+          <Ionicons name="chevron-back" size={19} color={filterDateMode === 'month' || filterDateMode === 'cycle' && ledgerCycle && ledgerCycleOffset < ledgerCycle.count - 1 ? C.ink : '#B9B3A8'} />
+        </TouchableOpacity>
+        <TouchableOpacity style={s.ledgerPeriodLabel} accessibilityLabel="Choose cycle, month or all dates" onPress={chooseLedgerPeriodMode}>
+          <Text style={s.ledgerPeriodMode}>{reportLedgerWindow ? 'REPORT WINDOW · ACTUAL ENTRIES' : filterDateMode === 'cycle' ? 'SALARY CYCLE' : filterDateMode === 'month' ? 'CALENDAR MONTH' : filterDateMode === 'all' ? 'DATE WINDOW' : 'CUSTOM DATES'}</Text>
+          <Text style={s.ledgerPeriodTitle} numberOfLines={1}>{filterDateMode === 'cycle' ? ledgerCycle?.month || 'Choose salary source' : filterDateLabel || 'All dates'} <Ionicons name="chevron-down" size={10} color={C.muted} /></Text>
+          {filterDateMode === 'cycle' && ledgerSalary && <Text style={s.ledgerPeriodMeta} numberOfLines={1}>{ledgerSalary.label} · {filterStartDay} → {filterEndDay}</Text>}
+        </TouchableOpacity>
+        <TouchableOpacity style={s.ledgerPeriodArrow} accessibilityLabel="Next ledger period" disabled={filterDateMode !== 'month' && (filterDateMode !== 'cycle' || !ledgerCycle || ledgerCycleOffset === 0)} onPress={() => changeLedgerPeriod(filterDateMode === 'month' ? 'month' : 'cycle', 1)}>
+          <Ionicons name="chevron-forward" size={19} color={filterDateMode === 'month' || filterDateMode === 'cycle' && ledgerCycle && ledgerCycleOffset > 0 ? C.ink : '#B9B3A8'} />
+        </TouchableOpacity>
+      </View>
       <View style={s.ledgerSummaryLinkRow}>
         <Text style={[s.selectedTotalMeta, { flex: 1 }]}>{matchingLedgerEntries.length} matching transactions{filterDateLabel ? ` · ${filterDateLabel}` : ''}</Text>
         <TouchableOpacity onPress={() => setLedgerSummaryScope('filtered')} style={s.ledgerSummaryButton} accessibilityLabel="Show totals for all matching transactions">
@@ -1432,11 +1449,12 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         startDay: filterStartDay,
         endDay: filterEndDay,
         dateLabel: filterDateLabel,
+        salarySourceKey: filterSalaryKey,
       }}
       accounts={state.accounts.map((entry) => entry.name)}
       categories={state.categories.map((entry) => entry.name)}
       subcategories={[...new Set(state.categories.flatMap((entry) => entry.subcategories))]}
-      salarySources={salarySources}
+      salarySources={filterSalarySources}
       close={() => setFilterOpen(false)}
       apply={applyLedgerFilters}
     />
@@ -1685,6 +1703,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       </View>
       <View style={s.card}>
         <Text style={s.cardTitle}>Plan controls</Text>
+        <Text style={s.poolHint}>{bluecoins?.monthly.salarySourceLabel && bluecoins.monthly.cycleStartInstant ? `Cycle started with ${bluecoins.monthly.salarySourceLabel} · ${new Date(bluecoins.monthly.cycleStartInstant).toLocaleString('en-MY')}. The next cycle starts when the next salary entry arrives.` : 'No salary entry found. Using the configured payday until a Salary/Gaji entry is logged.'}</Text>
         <View style={s.cycleBudgetEdit}>
           <View style={{ flex: 1 }}>
             <Field label="SALARY-CYCLE BUDGET" value={cycleBudgetDraft} onChange={setCycleBudgetDraft} numeric />
@@ -1694,7 +1713,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           </TouchableOpacity>
         </View>
         <Field
-          label="PAYDAY (1—28)"
+          label="EXPECTED PAYDAY (1—28)"
           value={paydayDraft}
           onChange={setPaydayDraft}
           numeric
@@ -1937,12 +1956,12 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       </TouchableOpacity>
 
       <View style={s.grid}>
-        <Stat label="INCOME" value={report.income} color="#168A65" />
-        <Stat label="EXPENSE" value={report.expense} color={C.coral} />
+        <Stat label="INCOME" value={report.income} color="#168A65" onPress={() => openReportMetricLedger('income')} />
+        <Stat label="EXPENSE" value={report.expense} color={C.coral} onPress={() => openReportMetricLedger('expense')} />
         <Stat label="NET RETAINED" value={report.net} color={report.net >= 0 ? C.blue : C.coral} />
       </View>
       <View style={s.reportFacts}>
-        <View style={s.reportFact}><Text style={s.reportFactLabel}>TRANSFERS</Text><Text style={s.reportFactValue}>{money(report.transfer)}</Text></View>
+        <TouchableOpacity style={s.reportFact} accessibilityRole="button" accessibilityLabel="Show report transfers in ledger" onPress={() => openReportMetricLedger('transfer')}><Text style={s.reportFactLabel}>TRANSFERS ↗</Text><Text style={s.reportFactValue}>{money(report.transfer)}</Text></TouchableOpacity>
         <View style={s.reportFact}><Text style={s.reportFactLabel}>TRANSACTIONS</Text><Text style={s.reportFactValue}>{report.rows.length}</Text></View>
         <View style={s.reportFact}><Text style={s.reportFactLabel}>SCHEDULED</Text><Text style={s.reportFactValue}>{report.scheduledRows.length}</Text></View>
       </View>
@@ -2001,33 +2020,23 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         <View style={s.activityBody}>
           {activityHeader}
           <View style={s.ledgerCard}>
-            <SectionList
-              sections={activitySections}
-              keyExtractor={(entry) => entry.id}
-              renderItem={({ item: entry }) => <EntryRow entry={entry} icon={iconForEntry(entry)} accountBalance={entryBalanceById.get(entry.id)} selected={selectedSet.has(entry.id)} onPress={selectedIds.length ? () => toggleSelected(entry) : () => editEntry(entry)} onLong={() => toggleSelected(entry)} />}
-              renderSectionHeader={({ section }) => (
+            <RedCoinsLedgerList
+              entries={matchingLedgerEntries}
+              filterKey={ledgerFilterKey}
+              renderEntry={(entry) => <EntryRow entry={entry} icon={iconForEntry(entry)} accountBalance={entryBalanceById.get(entry.id)} selected={selectedSet.has(entry.id)} onPress={selectedIds.length ? () => toggleSelected(entry) : () => editEntry(entry)} onLong={() => toggleSelected(entry)} />}
+              renderDay={(section) => (
                 <View style={s.ledgerDate}>
-                  <Text style={s.ledgerDateText}>{section.title}</Text>
-                  <Text style={[s.ledgerDayTotal, section.total > 0 && { color: '#168A65' }]}>
+                  <Text style={s.ledgerDateText} numberOfLines={1}>{section.title}</Text>
+                  <Text style={[s.ledgerDayTotal, section.total > 0 && { color: '#168A65' }]} numberOfLines={1}>
                     {section.total > 0 ? '+' : section.total < 0 ? '− ' : ''}
                     {money(section.total)}
                   </Text>
                 </View>
               )}
               extraData={ledgerExtraData}
-              initialNumToRender={10}
-              maxToRenderPerBatch={8}
-              updateCellsBatchingPeriod={16}
-              windowSize={5}
-              removeClippedSubviews
-              onEndReached={() => setVisibleLedgerCount((count) => Math.min(ledgerTotal, count + LEDGER_PAGE_SIZE))}
-              onEndReachedThreshold={0.6}
-              keyboardShouldPersistTaps="always"
-              keyboardDismissMode="on-drag"
-              ListEmptyComponent={<Empty text="No matching RedCoins entries." />}
-              showsVerticalScrollIndicator={false}
-              stickySectionHeadersEnabled
-              contentContainerStyle={!ledgerEntries.length ? s.emptyLedger : s.ledgerContent}
+              empty={<Empty text="No matching RedCoins entries." />}
+              contentStyle={s.ledgerContent}
+              emptyStyle={s.emptyLedger}
             />
           </View>
         </View>
@@ -2055,6 +2064,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
             </View>
             {reminderCards.map(({ reminder, missing, nextDue, projection, invalidAmount }) => {
               const frequency = `${reminder.repeatEvery > 1 ? `Every ${reminder.repeatEvery} ` : 'Every '}${reminder.frequency.replace('daily', 'day').replace('weekly', 'week').replace('monthly', 'month').replace('yearly', 'year')}`;
+              const canLogNow = !!pendingReminderOccurrence(state, reminder) && missing.length === 0 && !invalidAmount;
               return <View key={reminder.id} style={s.reminderFullCard}>
                 <View style={s.reminderRow}>
                   <View style={[s.reminderMark, { backgroundColor: reminder.automaticLog ? C.mint : C.gold }]}><Ionicons name={reminder.automaticLog ? 'flash' : 'notifications'} size={15} color={C.ink} /></View>
@@ -2072,10 +2082,10 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                 {missing.length > 0 && <Text style={[s.reminderMeta, { color: C.coral }]}>Needs repair: missing {missing.join(', ')}. Auto-log is blocked until you edit the accounts.</Text>}
                 {(() => {
                   const last = state.entries.filter((entry) => entry.reminderSeriesId === reminder.id && entry.loggedAt).sort((a, b) => b.loggedAt!.localeCompare(a.loggedAt!))[0];
-                  return last ? <Text style={s.reminderMeta}>Last auto-log: {new Date(last.loggedAt!).toLocaleString('en-MY')} · scheduled {new Date(last.date).toLocaleString('en-MY')}</Text> : null;
+                  return last ? <Text style={s.reminderMeta}>Last {last.autoGenerated ? 'auto-log' : 'manual log'}: {new Date(last.loggedAt!).toLocaleString('en-MY')} · scheduled {new Date(last.scheduledFor || last.date).toLocaleString('en-MY')}</Text> : null;
                 })()}
                 <View style={s.reminderControls}>
-                  {!reminder.automaticLog && nextDue && nextDue.getTime() <= Date.now() && <TouchableOpacity style={s.reminderControlPrimary} onPress={() => logReminderNow(reminder)}><Text style={s.reminderControlPrimaryText}>LOG NOW</Text></TouchableOpacity>}
+                  <TouchableOpacity disabled={!canLogNow} style={[s.reminderControlPrimary, !canLogNow && { opacity: .4 }]} onPress={() => logReminderNow(reminder)}><Text style={s.reminderControlPrimaryText}>LOG NOW</Text></TouchableOpacity>
                   <TouchableOpacity style={s.reminderControl} onPress={() => { setReminderManagerOpen(false); editReminderSchedule(reminder); }}><Ionicons name="create-outline" size={14} color={C.ink} /><Text style={s.reminderControlText}>EDIT</Text></TouchableOpacity>
                   <TouchableOpacity style={s.reminderControl} onPress={() => toggleReminder(reminder)}><Ionicons name={reminder.enabled ? 'pause' : 'play'} size={14} color={C.ink} /><Text style={s.reminderControlText}>{reminder.enabled ? 'PAUSE' : 'RESUME'}</Text></TouchableOpacity>
                   <TouchableOpacity style={s.reminderControlDanger} onPress={() => deleteReminderSeries(reminder)}><Ionicons name="trash-outline" size={14} color={C.coral} /></TouchableOpacity>
@@ -2205,6 +2215,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
             if (existing) {
               const oldName = existing.name;
               existing.name = draftName.trim(); existing.type = draftType; existing.balance = Number(draftBalance) || 0; existing.icon = draftIcon;
+              existing.editedAt = new Date().toISOString();
               next.entries = next.entries.map((entry) => ({ ...entry, account: entry.account === oldName ? existing.name : entry.account, toAccount: entry.toAccount === oldName ? existing.name : entry.toAccount }));
               next.reminders = next.reminders.map(reminder => ({ ...reminder, template: { ...reminder.template, account: reminder.template.account === oldName ? existing.name : reminder.template.account, toAccount: reminder.template.toAccount === oldName ? existing.name : reminder.template.toAccount } }));
               next.entryDefaults = Object.fromEntries(Object.entries(next.entryDefaults || {}).map(([type, defaults]) => [type, { ...defaults, account: defaults?.account === oldName ? existing.name : defaults?.account, toAccount: defaults?.toAccount === oldName ? existing.name : defaults?.toAccount }]));
@@ -2225,7 +2236,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
             const existing = next.categories.find((entry) => entry.id === editingCategoryId);
             if (existing) {
               const oldName = existing.name; existing.name = draftCategory.trim(); existing.icon = draftIcon;
-              next.entries = next.entries.map((entry) => ({ ...entry, category: entry.category === oldName ? existing.name : entry.category }));
+              next.entries = next.entries.map((entry) => entry.category === oldName && existing.name !== oldName ? { ...entry, category: existing.name, editedAt: new Date().toISOString() } : entry);
+              if (existing.name !== oldName) next.deletedCategoryNames.push(oldName);
               const budgets: Record<string, number> = {};
               Object.entries(next.subcategoryBudgets).forEach(([key, value]) => { const [cat, sub] = key.split('\u0000'); budgets[budgetKey(cat === oldName ? existing.name : cat, sub)] = value; });
               next.subcategoryBudgets = budgets;
@@ -2250,7 +2262,11 @@ export default function RedCoinsScreen({ navigation, route }: any) {
             parent.subcategoryTypes = types;
             if (editingSubName) {
               parent.subcategories = parent.subcategories.map((sub) => sub === editingSubName ? draftSub.trim() : sub);
-              next.entries = next.entries.map((entry) => entry.category === parent.name && entry.subcategory === editingSubName ? { ...entry, subcategory: draftSub.trim() } : entry);
+              next.entries = next.entries.map((entry) => entry.category === parent.name && entry.subcategory === editingSubName ? { ...entry, subcategory: draftSub.trim(), editedAt: new Date().toISOString() } : entry);
+              if (editingSubName !== draftSub.trim()) {
+                const categoryKey = parent.name.trim().toLocaleLowerCase();
+                next.deletedSubcategories[categoryKey] = [...new Set([...(next.deletedSubcategories[categoryKey] || []), editingSubName])];
+              }
               const oldKey = budgetKey(parent.name, editingSubName); const newKey = budgetKey(parent.name, draftSub.trim());
               if (next.subcategoryBudgets[oldKey] != null) { next.subcategoryBudgets[newKey] = next.subcategoryBudgets[oldKey]; delete next.subcategoryBudgets[oldKey]; }
               const icons = { ...(parent.subcategoryIcons || {}) }; delete icons[editingSubName]; icons[draftSub.trim()] = draftIcon; parent.subcategoryIcons = icons;
@@ -2327,7 +2343,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       />
       <GuardModal visible={guardEditorOpen} draft={guardDraft} setDraft={setGuardDraft} options={bluecoins?.guardOptions} close={() => setGuardEditorOpen(false)} remove={guardDraft.id ? async () => {
         await saveSpendingGuards((bluecoins?.spendingGuards || []).filter((guard) => guard.id !== guardDraft.id));
-        if (bluecoinsBase) setBluecoins(await mergeRedCoinsIntoBudgetCoach(bluecoinsBase));
+        await refreshLiveBluecoins();
         setGuardEditorOpen(false);
       } : undefined} save={async () => {
         const value = Math.max(0, Number(guardDraft.limit) || 0);
@@ -2336,7 +2352,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         const next: SpendingGuard = { id: guardDraft.id || `guard_${Date.now()}`, name: guardDraft.name.trim(), scope: guardDraft.scope, target: guardDraft.target, limit: value, cycle: 'salary', thresholds: [50, 70, 85, 100], tone: 'normal', enabled: true };
         const index = guards.findIndex((guard) => guard.id === next.id); if (index >= 0) guards[index] = next; else guards.push(next);
         await saveSpendingGuards(guards);
-        if (bluecoinsBase) setBluecoins(await mergeRedCoinsIntoBudgetCoach(bluecoinsBase));
+        await refreshLiveBluecoins();
         setGuardEditorOpen(false);
       }} />
     </SafeAreaView>
@@ -2391,15 +2407,16 @@ function Mini({ label, value }: any) {
     </View>
   );
 }
-function Stat({ label, value, color }: any) {
+function Stat({ label, value, color, onPress }: any) {
+  const Container = onPress ? TouchableOpacity : View;
   return (
-    <View style={s.stat}>
-      <Text style={s.statLabel}>{label}</Text>
+    <Container style={s.stat} onPress={onPress} accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={onPress ? `Show report ${label.toLowerCase()} in ledger` : undefined}>
+      <Text style={s.statLabel}>{label}{onPress ? ' ↗' : ''}</Text>
       <Text style={[s.statValue, { color }]}>
         {value < 0 ? '− ' : ''}
         {money(value)}
       </Text>
-    </View>
+    </Container>
   );
 }
 function PlanCell({ label, value }: any) {
@@ -2444,7 +2461,7 @@ const EntryRow = memo(function EntryRow({ entry, icon, accountBalance, onLong, o
         {entry.status === 'pending' && <Text style={s.entryMeta}>PENDING</Text>}
       </View>
       <View style={s.entryRight}>
-        <Text style={[s.entryAmount, { color }]}>
+        <Text style={[s.entryAmount, { color }]} numberOfLines={1}>
           {entry.type === 'income' ? '+' : entry.type === 'transfer' ? '⇄ ' : '− '}
           {money(entry.amount)}
         </Text>
@@ -2518,27 +2535,46 @@ const LedgerFilterModal = memo(function LedgerFilterModal({
     startDay: string;
     endDay: string;
     dateLabel: string;
+    salarySourceKey?: string;
   };
   accounts: string[];
   categories: string[];
   subcategories: string[];
-  salarySources: SalarySource[];
+  salarySources: SalaryFilterSource[];
   close: () => void;
-  apply: (next: { types: RedCoinsType[]; accounts: string[]; categories: string[]; subcategories: string[]; dateMode: FilterDateMode; startDay: string; endDay: string; dateLabel: string }) => void;
+  apply: (next: { types: RedCoinsType[]; accounts: string[]; categories: string[]; subcategories: string[]; dateMode: FilterDateMode; startDay: string; endDay: string; dateLabel: string; salarySourceKey?: string }) => void;
 }) {
   const [draft, setDraft] = useState(current);
   const [dateOpen, setDateOpen] = useState(false);
   const [datePicker, setDatePicker] = useState<'single' | 'start' | 'end' | null>(null);
   const [salaryKey, setSalaryKey] = useState('');
   const [cycleOffset, setCycleOffset] = useState(0);
+  const [sourceOpen, setSourceOpen] = useState(false);
+  const [sourceSearch, setSourceSearch] = useState('');
+  const [showOtherIncome, setShowOtherIncome] = useState(false);
+  const [sourceReady, setSourceReady] = useState(false);
   useEffect(() => {
+    let active = true;
     if (visible) {
       setDraft(current);
-      setDateOpen(false);
+      setDateOpen(current.dateMode === 'cycle');
       setDatePicker(null);
-      setSalaryKey(salarySources[0]?.key || '');
-      setCycleOffset(0);
+      setSourceOpen(false); setSourceSearch(''); setShowOtherIncome(false); setSourceReady(false);
+      void AsyncStorage.getItem(SALARY_FILTER_SOURCE_KEY).catch(() => null).then(saved => {
+        if (!active) return;
+        const source = preferredSalarySource(salarySources, current.salarySourceKey || saved || '');
+        setSalaryKey(source?.key || '');
+        const dates = source ? [...new Set(source.entries.map(entry => dayKey(entry.date)))].sort() : [];
+        const index = current.dateMode === 'cycle' ? dates.indexOf(current.startDay) : -1;
+        setCycleOffset(index < 0 ? 0 : dates.length - 1 - index);
+        if (current.dateMode === 'cycle' && index < 0) {
+          const cycle = source ? salaryFilterCycle(source, 0) : null;
+          setDraft(row => ({ ...row, startDay: cycle?.startDay || '', endDay: cycle?.endDay || '', dateLabel: cycle?.dateLabel || '', salarySourceKey: source?.key }));
+        }
+        setSourceReady(true);
+      });
     }
+    return () => { active = false; };
   }, [visible]);
   const empty = { types: [] as RedCoinsType[], accounts: [], categories: [], subcategories: [], dateMode: 'all' as FilterDateMode, startDay: '', endDay: '', dateLabel: '' };
   const clear = () => apply(empty);
@@ -2548,29 +2584,30 @@ const LedgerFilterModal = memo(function LedgerFilterModal({
   });
   const setDateMode = (mode: FilterDateMode) => {
     const today = dayKey(new Date().toISOString());
+    if (mode === 'month') { setDraft(row => ({ ...row, dateMode: mode, ...ledgerMonthPeriod(row.startDay) })); return; }
     setDraft((row) => ({ ...row, dateMode: mode, startDay: mode === 'all' ? '' : row.startDay || today, endDay: mode === 'all' ? '' : row.endDay || today, dateLabel: mode === 'all' ? '' : row.dateLabel }));
   };
-  const selectedSalary = salarySources.find((source) => source.key === salaryKey) || salarySources[0];
-  const selectCycle = (offset: number) => {
-    if (!selectedSalary?.entries.length) return;
-    const safeOffset = Math.max(0, Math.min(selectedSalary.entries.length - 1, offset));
-    const anchorIndex = selectedSalary.entries.length - 1 - safeOffset;
-    const anchor = selectedSalary.entries[anchorIndex];
-    const nextAnchor = selectedSalary.entries[anchorIndex + 1];
-    const end = nextAnchor ? new Date(nextAnchor.date) : new Date();
-    if (nextAnchor) end.setDate(end.getDate() - 1);
-    setCycleOffset(safeOffset);
+  const selectedSalary = preferredSalarySource(salarySources, salaryKey);
+  const sourceOptions = visibleSalarySources(salarySources, sourceSearch, showOtherIncome);
+  const currentCycle = selectedSalary ? salaryFilterCycle(selectedSalary, cycleOffset) : null;
+  const selectCycle = (offset: number, source = selectedSalary) => {
+    if (!source) return;
+    const cycle = salaryFilterCycle(source, offset);
+    if (!cycle) return;
+    setCycleOffset(cycle.offset);
     setDraft((row) => ({
       ...row,
       dateMode: 'cycle',
-      startDay: dayKey(anchor.date),
-      endDay: dayKey(end.toISOString()),
-      dateLabel: `${selectedSalary.label} · ${new Date(anchor.date).toLocaleDateString('en-MY', { month: 'short', year: 'numeric' })}`,
+      startDay: cycle.startDay,
+      endDay: cycle.endDay,
+      dateLabel: cycle.dateLabel,
+      salarySourceKey: source.key,
     }));
   };
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={close}>
-      <Pressable style={s.sheetShade} onPress={close}>
+      <KeyboardAvoidingView style={s.keyboardSheetShade} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <Pressable style={s.keyboardSheetFill} onPress={close}>
         <Pressable style={s.selectionSheet} onPress={() => {}}>
           <View style={s.sheetGrab} />
           <View style={s.filterTitleRow}>
@@ -2579,30 +2616,44 @@ const LedgerFilterModal = memo(function LedgerFilterModal({
               <Text style={s.clearFilterText}>CLEAR ALL</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView style={s.filterListScroll} showsVerticalScrollIndicator={false}>
+          <ScrollView style={s.filterListScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="always">
             <View style={s.filterGroup}>
               <TouchableOpacity style={[s.filterDropdownHead, draft.dateMode !== 'all' && s.filterDropdownHeadActive]} onPress={() => setDateOpen((value) => !value)}>
                 <View style={{ flex: 1 }}><Text style={s.filterDropdownTitle}>DATE & CYCLE</Text><Text style={s.filterDropdownSummary}>{draft.dateMode === 'all' ? 'All dates' : draft.dateLabel || `${draft.startDay} → ${draft.endDay}`}</Text></View>
                 <Ionicons name={dateOpen ? 'chevron-up' : 'chevron-down'} size={18} color={C.ink} />
               </TouchableOpacity>
               {dateOpen && <View style={s.filterDropdownBody}>
-                {(['all', 'single', 'range', 'cycle'] as FilterDateMode[]).map((mode) => <TouchableOpacity key={mode} style={s.filterModeRow} onPress={() => { setDateMode(mode); if (mode === 'cycle') setTimeout(() => selectCycle(0), 0); }}>
+                {(['all', 'single', 'range', 'month', 'cycle'] as FilterDateMode[]).map((mode) => <TouchableOpacity key={mode} disabled={mode === 'cycle' && !sourceReady} style={s.filterModeRow} onPress={() => { if (mode === 'cycle') { setDraft(row => ({ ...row, dateMode: 'cycle', startDay: '', endDay: '', dateLabel: '' })); selectCycle(0); } else setDateMode(mode); }}>
                   <Ionicons name={draft.dateMode === mode ? 'radio-button-on' : 'radio-button-off'} size={18} color={draft.dateMode === mode ? C.coral : C.muted} />
-                  <Text style={s.filterListText}>{mode === 'all' ? 'All dates' : mode === 'single' ? 'One date' : mode === 'range' ? 'Custom date range' : 'Salary cycle'}</Text>
+                  <Text style={s.filterListText}>{mode === 'all' ? 'All dates' : mode === 'single' ? 'One date' : mode === 'range' ? 'Custom date range' : mode === 'month' ? 'Calendar month' : 'Salary cycle'}</Text>
                 </TouchableOpacity>)}
                 {draft.dateMode === 'single' && <TouchableOpacity style={s.filterDateButton} onPress={() => setDatePicker('single')}><Text style={s.inputLabel}>DATE</Text><Text style={s.periodDateValue}>{reportDate(localDay(draft.startDay))}</Text></TouchableOpacity>}
+                {draft.dateMode === 'month' && <TouchableOpacity style={s.filterDateButton} onPress={() => setDatePicker('single')}><Text style={s.inputLabel}>MONTH · PICK ANY DATE IN THE MONTH</Text><Text style={s.periodDateValue}>{draft.dateLabel}</Text></TouchableOpacity>}
                 {draft.dateMode === 'range' && <View style={s.periodDatesRow}>
                   <TouchableOpacity style={s.periodDateButton} onPress={() => setDatePicker('start')}><Text style={s.inputLabel}>FROM</Text><Text style={s.periodDateValue}>{reportDate(localDay(draft.startDay))}</Text></TouchableOpacity>
                   <Ionicons name="arrow-forward" size={16} color={C.muted} />
                   <TouchableOpacity style={s.periodDateButton} onPress={() => setDatePicker('end')}><Text style={s.inputLabel}>TO</Text><Text style={s.periodDateValue}>{reportDate(localDay(draft.endDay))}</Text></TouchableOpacity>
                 </View>}
                 {draft.dateMode === 'cycle' && <>
-                  <Text style={s.inputLabel}>SALARY ANCHOR</Text>
-                  {salarySources.map((source) => <TouchableOpacity key={source.key} style={[s.filterModeRow, selectedSalary?.key === source.key && s.filterListRowActive]} onPress={() => { setSalaryKey(source.key); setCycleOffset(0); const anchor = source.entries[source.entries.length - 1]; if (anchor) setDraft((row) => ({ ...row, dateMode: 'cycle', startDay: dayKey(anchor.date), endDay: dayKey(new Date().toISOString()), dateLabel: `${source.label} · ${new Date(anchor.date).toLocaleDateString('en-MY', { month: 'short', year: 'numeric' })}` })); }}><Ionicons name={selectedSalary?.key === source.key ? 'checkmark-circle' : 'ellipse-outline'} size={18} color={selectedSalary?.key === source.key ? '#168A65' : C.muted} /><Text style={s.filterListText}>{source.label}</Text></TouchableOpacity>)}
-                  {!salarySources.length && <Empty text="No salary income is available as a cycle anchor." />}
-                  {!!selectedSalary?.entries.length && <View style={s.filterCycleNav}>
-                    <TouchableOpacity disabled={cycleOffset >= selectedSalary.entries.length - 1} onPress={() => selectCycle(cycleOffset + 1)}><Ionicons name="chevron-back" size={20} color={cycleOffset >= selectedSalary.entries.length - 1 ? '#C8C1B5' : C.ink} /></TouchableOpacity>
-                    <Text style={s.filterCycleText}>{draft.dateLabel || 'Latest cycle'}</Text>
+                  <TouchableOpacity disabled={!sourceReady} style={s.filterDropdownHead} onPress={() => { setSourceOpen(value => !value); setSourceSearch(''); }} accessibilityLabel="Choose salary source">
+                    <View style={{ flex: 1 }}><Text style={s.filterDropdownTitle}>SALARY SOURCE</Text><Text style={s.filterDropdownSummary}>{!sourceReady ? 'Loading selection…' : selectedSalary?.label || 'Choose a salary source'}</Text></View>
+                    <Ionicons name={sourceOpen ? 'chevron-up' : 'chevron-down'} size={18} color={C.ink} />
+                  </TouchableOpacity>
+                  {sourceOpen && <View style={s.filterListBox}>
+                    <TextInput value={sourceSearch} onChangeText={setSourceSearch} placeholder="Search salary source…" style={s.search} autoCorrect={false} accessibilityLabel="Search salary sources" />
+                    <TouchableOpacity style={s.filterModeRow} onPress={() => setShowOtherIncome(value => !value)}><Ionicons name={showOtherIncome ? 'checkbox' : 'square-outline'} size={18} color={C.ink} /><Text style={s.filterListText}>Show other income</Text></TouchableOpacity>
+                    <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled keyboardShouldPersistTaps="always">
+                      {sourceOptions.map(source => <TouchableOpacity key={source.key} style={[s.salarySourceRow, selectedSalary?.key === source.key && s.salarySourceRowActive]} onPress={() => {
+                        setSalaryKey(source.key); selectCycle(0, source); setSourceOpen(false); Keyboard.dismiss();
+                        void AsyncStorage.setItem(SALARY_FILTER_SOURCE_KEY, source.key).catch(() => Alert.alert('Selection not remembered', 'The filter works, but your salary source could not be saved.'));
+                      }}><Ionicons name={selectedSalary?.key === source.key ? 'checkmark-circle' : 'ellipse-outline'} size={18} color={C.ink} /><View style={{ flex: 1 }}><Text style={s.salarySourceName}>{source.label}</Text><Text style={s.periodModeMeta}>{source.entries[0]?.category}</Text></View></TouchableOpacity>)}
+                      {!sourceOptions.length && <Empty text={showOtherIncome ? 'No matching income source.' : 'No matching Salary source. Try Show other income.'} />}
+                    </ScrollView>
+                  </View>}
+                  {!selectedSalary && !sourceOpen && <Empty text="Choose a source. Other income is available inside the dropdown." />}
+                  {!!currentCycle && <View style={s.filterCycleNav}>
+                    <TouchableOpacity disabled={cycleOffset >= currentCycle.count - 1} accessibilityLabel="Previous salary cycle" onPress={() => selectCycle(cycleOffset + 1)}><Ionicons name="chevron-back" size={20} color={cycleOffset >= currentCycle.count - 1 ? '#C8C1B5' : C.ink} /></TouchableOpacity>
+                    <View style={{ flex: 1 }}><Text style={[s.filterCycleText, { flex: 0 }]}>{currentCycle.month}</Text><Text style={[s.periodModeMeta, { textAlign: 'center' }]}>{draft.startDay} → {draft.endDay}</Text></View>
                     <TouchableOpacity disabled={cycleOffset === 0} onPress={() => selectCycle(cycleOffset - 1)}><Ionicons name="chevron-forward" size={20} color={cycleOffset === 0 ? '#C8C1B5' : C.ink} /></TouchableOpacity>
                   </View>}
                 </>}
@@ -2610,7 +2661,7 @@ const LedgerFilterModal = memo(function LedgerFilterModal({
                   setDatePicker(null);
                   if (!selected) return;
                   const value = dayKey(selected.toISOString());
-                  setDraft((row) => datePicker === 'single'
+                  setDraft((row) => row.dateMode === 'month' ? { ...row, ...ledgerMonthPeriod(value) } : datePicker === 'single'
                     ? { ...row, startDay: value, endDay: value, dateLabel: reportDate(localDay(value)) }
                     : datePicker === 'start'
                       ? { ...row, startDay: value, dateLabel: `${reportDate(localDay(value))} → ${reportDate(localDay(row.endDay))}` }
@@ -2625,13 +2676,16 @@ const LedgerFilterModal = memo(function LedgerFilterModal({
           </ScrollView>
           <TouchableOpacity style={s.sheetSave} onPress={() => {
             if (draft.dateMode === 'range' && draft.startDay > draft.endDay) return Alert.alert('Invalid date range', 'The start date must be before the end date.');
-            if (draft.dateMode === 'cycle' && !draft.startDay) return Alert.alert('Salary cycle required', 'Choose a salary anchor and cycle first.');
+            if (draft.dateMode === 'cycle' && (!sourceReady || !selectedSalary || !draft.startDay)) return Alert.alert('Salary cycle required', 'Choose a salary source and cycle first.');
+            if (draft.dateMode === 'cycle' && selectedSalary) void AsyncStorage.setItem(SALARY_FILTER_SOURCE_KEY, selectedSalary.key).catch(console.warn);
+            Keyboard.dismiss();
             apply(draft);
           }}>
             <Text style={s.sheetSaveText}>APPLY FILTERS</Text>
           </TouchableOpacity>
         </Pressable>
       </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 });
@@ -3291,6 +3345,7 @@ const s = StyleSheet.create({
     marginBottom: 6,
   },
   entry: {
+    height: '100%',
     minHeight: 53,
     flexDirection: 'row',
     alignItems: 'center',
@@ -3928,6 +3983,7 @@ const s = StyleSheet.create({
   ledgerContent: { paddingBottom: 86 },
   emptyLedger: { flexGrow: 1, justifyContent: 'center' },
   ledgerDate: {
+    height: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -3938,6 +3994,7 @@ const s = StyleSheet.create({
     borderBottomColor: '#E2D9C8',
   },
   ledgerDateText: {
+    flexShrink: 1,
     color: '#555B70',
     fontSize: 7,
     fontWeight: '900',
@@ -3958,6 +4015,12 @@ const s = StyleSheet.create({
   ledgerSummaryButtonText: { color: C.ink, fontSize: 8, fontWeight: '900' },
   ledgerTotalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#E2D9C8' },
   ledgerTools: { flexDirection: 'row', gap: 7 },
+  ledgerPeriodBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#EEE8D8', borderRadius: 11, marginTop: 7, minHeight: 49 },
+  ledgerPeriodArrow: { width: 44, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' },
+  ledgerPeriodLabel: { flex: 1, alignItems: 'center', paddingVertical: 7 },
+  ledgerPeriodMode: { color: C.muted, fontSize: 7, letterSpacing: .7, fontWeight: '900' },
+  ledgerPeriodTitle: { color: C.ink, fontSize: 11, fontWeight: '900', marginTop: 2 },
+  ledgerPeriodMeta: { color: C.muted, fontSize: 7, marginTop: 3 },
   filterButton: {
     width: 43,
     borderRadius: 12,

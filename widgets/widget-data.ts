@@ -4,8 +4,11 @@ import type { LeanLogWidgetProps } from './LeanLogWidget';
 import { WIDGET_CASH_REALITY_KEY, WIDGET_GUARD_KEY, WidgetGuardSnapshot } from '../services/spendingGuards';
 import { getDailyWidgetPreferences, selectedDailyAccounts } from './daily-widget-preferences';
 import type { RedCoinsState } from '../services/redcoins';
+import { getRedCoinsSummary } from '../services/redcoins';
 
 export async function getWidgetData(widgetId?: number): Promise<LeanLogWidgetProps> {
+  // Refresh derived finance snapshots from RedCoins, never from a FYDB cache.
+  await getRedCoinsSummary();
   const [foodRaw, activityRaw, goalRaw, healthRaw, guardRaw, cashRealityRaw, stateRaw, preferences] = await Promise.all([
     AsyncStorage.getItem('calorie_entries'),
     AsyncStorage.getItem('activity_entries'),

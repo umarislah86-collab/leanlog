@@ -50,3 +50,39 @@ test('future dated rows remain counted when visible but are explicitly flagged',
   assert.equal(summary.expense, 30);
   assert.equal(summary.futureCount, 1);
 });
+
+test('report drilldowns use exact salary timestamps and exclude scheduled rows from all three metric totals', () => {
+  const start = new Date(2026, 8, 25, 14).getTime(), endExclusive = new Date(2026, 9, 25, 15).getTime(), actualThrough = new Date(2026, 9, 7, 12).getTime();
+  const rows = [
+    entry('early', 999, 'income', { date: new Date(start - 1).toISOString() }),
+    entry('salary', 1000, 'income', { date: new Date(start).toISOString() }),
+    entry('expense', 13.9), entry('transfer', 300, 'transfer'),
+    entry('due-exactly-now', 20.1, 'expense', { date: new Date(actualThrough).toISOString() }),
+    entry('scheduled', 999, 'expense', { date: new Date(actualThrough + 1).toISOString() }),
+    entry('next-salary', 999, 'income', { date: new Date(endExclusive).toISOString() }),
+  ];
+  const window = { start, endExclusive, actualThrough };
+  for (const type of ['income', 'expense', 'transfer']) {
+    const expected = rows.filter(row => row.type === type && new Date(row.date).getTime() >= start && new Date(row.date).getTime() < endExclusive && new Date(row.date).getTime() <= actualThrough);
+    const actual = filterLedgerEntries(rows, { ...filters, types: [type], reportWindow: window });
+    assert.deepEqual(Array.from(actual, row => row.id).sort(), expected.map(row => row.id).sort());
+    assert.equal(summarizeLedgerEntries(actual)[type], type === 'income' ? 1000 : type === 'expense' ? 34 : 300);
+  }
+});
+
+test('actual report card handler opens a clean ledger scope matching its displayed metric', () => {
+  const screen = fs.readFileSync('screens/RedCoinsScreen.tsx', 'utf8');
+  const block = screen.slice(screen.indexOf('  const openReportMetricLedger ='), screen.indexOf('  const finance ='));
+  const output = {}, values = {};
+  const report = { start: new Date(2026, 8, 25, 14), endExclusive: new Date(2026, 9, 25, 15), displayEnd: new Date(new Date(2026, 9, 25, 15).getTime() - 1), actualThrough: new Date(2026, 9, 7, 12).getTime(), cycleLabel: 'DXC · September 2026' };
+  const context = { exports: output, report, reportMode: 'salary-cycle', Keyboard: { dismiss: () => {} }, dayKey: value => { const date = new Date(value); return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; }, reportDate: date => date.toISOString(), navigateSection: value => { values.section = value; } };
+  for (const name of ['Search', 'SelectedIds', 'FilterTypes', 'FilterAccounts', 'FilterCategories', 'FilterSubcategories', 'FilterDateMode', 'FilterStartDay', 'FilterEndDay', 'FilterDateLabel', 'ReportLedgerWindow']) context['set' + name] = value => { values[name] = value; };
+  vm.runInNewContext(ts.transpileModule(`${block}\nexports.open = openReportMetricLedger;`, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText, context);
+  for (const type of ['income', 'expense', 'transfer']) {
+    output.open(type);
+    assert.equal(values.section, 'activity'); assert.equal(values.Search, '');
+    assert.equal(values.FilterTypes[0], type);
+    assert.equal(values.FilterAccounts.length, 0); assert.equal(values.FilterCategories.length, 0); assert.equal(values.FilterSubcategories.length, 0);
+    assert.equal(values.ReportLedgerWindow.start, report.start.getTime()); assert.equal(values.ReportLedgerWindow.actualThrough, report.actualThrough);
+  }
+});

@@ -4,9 +4,11 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const ts = require('typescript');
 const exportsObject = {};
+const salaryExports = {};
+vm.runInNewContext(ts.transpileModule(fs.readFileSync(require('node:path').join(__dirname, '../services/redcoinsSalaryFilter.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports: salaryExports, Date });
 vm.runInNewContext(ts.transpileModule(fs.readFileSync(require('node:path').join(__dirname, '../services/redcoinsAiPrompt.ts'), 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
-}).outputText, { exports: exportsObject, Date, Intl });
+}).outputText, { exports: exportsObject, Date, Intl, require: () => salaryExports });
 const { buildRedCoinsAiPrompt: build } = exportsObject;
 const row = (id, date, amount = 100, type = 'expense', extras = {}) => ({ id, date, amount, type, item: 'Meal', account: 'Bank', category: 'Food', subcategory: 'Dining', ...extras });
 const state = entries => ({ entries, accounts: [{ id: 'bank', name: 'Bank', type: 'Bank', balance: 1234 }, { id: 'loan', name: 'Mortgage', type: 'Liability', balance: -20000 }, { id: 'card', name: 'Visa', type: 'Credit card', balance: -200 }], monthlyBudget: 2500, safetyBuffer: 50, trash: [row('trashed', '2026-10-02', 99999)] });

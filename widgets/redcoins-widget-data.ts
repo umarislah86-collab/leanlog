@@ -1,8 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { RedCoinsState } from '../services/redcoins';
+import { getRedCoinsSummary, loadRedCoins } from '../services/redcoins';
 import { nextReminderOccurrence } from '../services/redcoinsReminders';
 import type { AutomationWidgetRow, CashWidgetData, WidgetAccount } from './RedCoinsWidgets';
-import { WIDGET_CASH_REALITY_KEY } from '../services/spendingGuards';
 
 const REDCOINS_STATE_KEY = 'redcoins_state_v1';
 const accountPreferenceKey = (widgetId: number) => `widget_account_snapshot_${widgetId}`;
@@ -10,7 +9,7 @@ export const widgetUpdatedTime = () => new Date().toLocaleTimeString('en-MY', { 
 
 async function state() {
   const raw = await AsyncStorage.getItem(REDCOINS_STATE_KEY);
-  return raw ? JSON.parse(raw) as RedCoinsState : null;
+  return raw ? loadRedCoins() : null;
 }
 export async function getWidgetAccounts() { return (await state())?.accounts || []; }
 export async function saveWidgetAccount(widgetId: number, name: string) { await AsyncStorage.setItem(accountPreferenceKey(widgetId), name); }
@@ -21,8 +20,8 @@ export async function getAccountWidgetData(widgetId: number): Promise<WidgetAcco
   return account ? { name: account.name, type: account.type, balance: account.balance } : null;
 }
 export async function getCashWidgetData(): Promise<CashWidgetData> {
-  const raw = await AsyncStorage.getItem(WIDGET_CASH_REALITY_KEY);
-  return raw ? JSON.parse(raw) : null;
+  const summary = await getRedCoinsSummary();
+  return summary.cashReality;
 }
 export async function getAutomationWidgetData(): Promise<AutomationWidgetRow[]> {
   const current = await state();

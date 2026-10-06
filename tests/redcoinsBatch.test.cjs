@@ -7,6 +7,9 @@ const ts = require('typescript');
 function load(file, mocks = {}) {
   const exports = {};
   vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname, '../services', `${file}.ts`), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText, { exports, Date, console, require: id => {
+    if (id === './redcoinsSalaryFilter') return load('redcoinsSalaryFilter');
+    if (id === './redcoinsSummary') return load('redcoinsSummary', { './redcoinsGuards': load('redcoinsGuards') });
+    if (id === './redcoinsImportPlan') return load('redcoinsImportPlan', mocks);
     if (id === './redcoinsAccountIdentity') return load('redcoinsAccountIdentity', { '@react-native-async-storage/async-storage': mocks['@react-native-async-storage/async-storage'] });
     if (!(id in mocks)) throw new Error(`Unexpected ${id}`);
     return mocks[id];
@@ -111,17 +114,17 @@ test('same-day deliberate copy remains an additional expense after Bluecoins ref
   const original = row('import-1', { origin: 'bluecoins', balanceEffectApplied: undefined });
   const pasted = batch.pasteRedCoinsEntries(state([original]), [original], null, now, () => 'copy-1');
   await redcoins.saveRedCoins(pasted);
-  const summary = { redcoins: { entries: [original], categories: pasted.categories, accounts: [{ name: 'Aeon', type: 'Bank', balance: 100 }, { name: 'Cimb', type: 'Bank', balance: 50 }] }, monthly: { payday: 25, budget: 100 }, cashReality: { safetyBuffer: 0 } };
-  const reloaded = await redcoins.loadRedCoins(summary);
+  const summary = { sourceDate: '2026-10-06', redcoins: { entries: [original], categories: pasted.categories, accounts: [{ name: 'Aeon', type: 'Bank', balance: 100 }, { name: 'Cimb', type: 'Bank', balance: 50 }] }, monthly: { payday: 25, budget: 100 }, cashReality: { safetyBuffer: 0 } };
+  const reloaded = await redcoins.importRedCoins(summary);
   assert.equal(reloaded.entries.length, 2); assert.equal(reloaded.accounts[0].balance, 90);
-  assert.equal((await redcoins.loadRedCoins(summary)).accounts[0].balance, 90);
+  assert.equal((await redcoins.importRedCoins(summary)).accounts[0].balance, 90);
 });
 test('editing a reconciled local category survives refresh without inflating account balance', async () => {
   const original = row('local', { reconciledImportId: 'import-1' });
   const next = batch.applyRedCoinsBatch(state([original]), ['local'], { kind: 'category', category: 'Food', subcategory: 'Groceries' }, now);
   await redcoins.saveRedCoins(next);
-  const summary = { redcoins: { entries: [{ ...original, id: 'import-1', origin: 'bluecoins' }], categories: next.categories, accounts: [{ name: 'Aeon', type: 'Bank', balance: 100 }, { name: 'Cimb', type: 'Bank', balance: 50 }] }, monthly: { payday: 25, budget: 100 }, cashReality: { safetyBuffer: 0 } };
-  const reloaded = await redcoins.loadRedCoins(summary);
+  const summary = { sourceDate: '2026-10-06', redcoins: { entries: [{ ...original, id: 'import-1', origin: 'bluecoins' }], categories: next.categories, accounts: [{ name: 'Aeon', type: 'Bank', balance: 100 }, { name: 'Cimb', type: 'Bank', balance: 50 }] }, monthly: { payday: 25, budget: 100 }, cashReality: { safetyBuffer: 0 } };
+  const reloaded = await redcoins.importRedCoins(summary);
   assert.equal(reloaded.entries.length, 1); assert.equal(reloaded.entries[0].subcategory, 'Groceries'); assert.equal(reloaded.accounts[0].balance, 100);
 });
 
@@ -134,6 +137,8 @@ test('imported batch amount updates the Home coach budget and detail rows, not o
     monthly: { cycleStart: '2026-10-01', cycleEnd: '2026-10-31', budget: 100, spent: 10, remaining: 90, projected: 10, projectedLow: 10, projectedHigh: 10, alerts: [], expectedFixedCommitments: { items: [] }, topCategories: [{ name: 'Food', amount: 10, share: 100, details: [{ item: 'Coffee', subcategory: 'Drinks', amount: 10, transactions: 1, share: 100 }] }] },
     cashReality: { cashAccounts: [{ name: 'Aeon', selected: true, balance: 100 }], creditCards: [], safetyBuffer: 0 },
   };
+  storage.set('bluecoins_cash_reality_accounts_v1', '["Aeon"]');
+  storage.set('bluecoins_cash_reality_accounts_initialised_v1', 'true');
   const merged = await redcoins.mergeRedCoinsIntoBudgetCoach(summary);
   assert.equal(merged.monthly.spent, 25); assert.equal(merged.monthly.remaining, 75);
   assert.equal(merged.monthly.topCategories[0].details[0].amount, 25);
@@ -152,8 +157,8 @@ test('deleting an unexported pasted copy does not delete its imported original o
   const original = row('import-1', { origin: 'bluecoins' });
   const pasted = batch.pasteRedCoinsEntries(state([original]), [original], null, now, () => 'copy-1');
   await redcoins.saveRedCoins(batch.applyRedCoinsBatch(pasted, ['copy-1'], { kind: 'delete' }, now));
-  const summary = { redcoins: { entries: [original], categories: pasted.categories, accounts: [{ name: 'Aeon', type: 'Bank', balance: 100 }, { name: 'Cimb', type: 'Bank', balance: 50 }] }, monthly: { payday: 25, budget: 100 }, cashReality: { safetyBuffer: 0 } };
-  const reloaded = await redcoins.loadRedCoins(summary);
+  const summary = { sourceDate: '2026-10-06', redcoins: { entries: [original], categories: pasted.categories, accounts: [{ name: 'Aeon', type: 'Bank', balance: 100 }, { name: 'Cimb', type: 'Bank', balance: 50 }] }, monthly: { payday: 25, budget: 100 }, cashReality: { safetyBuffer: 0 } };
+  const reloaded = await redcoins.importRedCoins(summary);
   assert.equal(reloaded.entries.length, 1); assert.equal(reloaded.entries[0].id, 'import-1'); assert.equal(reloaded.accounts[0].balance, 100);
 });
 test('exported copy reconciles with its newly imported counterpart, never the original', async () => {
@@ -161,8 +166,8 @@ test('exported copy reconciles with its newly imported counterpart, never the or
   const pasted = batch.pasteRedCoinsEntries(state([original]), [original], null, now, () => 'copy-1');
   pasted.entries[0].exportedAt = now.toISOString();
   await redcoins.saveRedCoins(pasted);
-  const summary = { redcoins: { entries: [original, { ...original, id: 'import-2' }], categories: pasted.categories, accounts: [{ name: 'Aeon', type: 'Bank', balance: 90 }, { name: 'Cimb', type: 'Bank', balance: 50 }] }, monthly: { payday: 25, budget: 100 }, cashReality: { safetyBuffer: 0 } };
-  const reloaded = await redcoins.loadRedCoins(summary);
+  const summary = { sourceDate: '2026-10-06', redcoins: { entries: [original, { ...original, id: 'import-2' }], categories: pasted.categories, accounts: [{ name: 'Aeon', type: 'Bank', balance: 90 }, { name: 'Cimb', type: 'Bank', balance: 50 }] }, monthly: { payday: 25, budget: 100 }, cashReality: { safetyBuffer: 0 } };
+  const reloaded = await redcoins.importRedCoins(summary);
   assert.equal(reloaded.entries.length, 2); assert.equal(reloaded.accounts[0].balance, 90);
   assert.equal(reloaded.entries.find(e => e.id === 'copy-1').reconciledImportId, 'import-2');
   assert.ok(reloaded.entries.some(e => e.id === 'import-1'));

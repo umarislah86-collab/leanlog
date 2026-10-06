@@ -2,12 +2,12 @@ import type { RedCoinsEntry } from './redcoins';
 import type { SpendingGuard, SpendingGuardResult } from './spendingGuards';
 
 const localDay = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-export function evaluateRedCoinsGuards(configs: SpendingGuard[], entries: RedCoinsEntry[], salaryCycle: { cycleStart: string; cycleEnd: string }, now = new Date()): SpendingGuardResult[] {
+export function evaluateRedCoinsGuards(configs: SpendingGuard[], entries: RedCoinsEntry[], salaryCycle: { cycleStart: string; cycleEnd: string; cycleStartInstant?: string; cycleEndExclusive?: string }, now = new Date()): SpendingGuardResult[] {
   return configs.map((config) => {
     const cycleStart = config.cycle === 'calendar' ? localDay(new Date(now.getFullYear(), now.getMonth(), 1)) : salaryCycle.cycleStart;
     const cycleEnd = config.cycle === 'calendar' ? localDay(new Date(now.getFullYear(), now.getMonth() + 1, 0)) : salaryCycle.cycleEnd;
-    const start = new Date(`${cycleStart}T00:00:00`);
-    const end = new Date(`${cycleEnd}T23:59:59`);
+    const start = config.cycle !== 'calendar' && salaryCycle.cycleStartInstant ? new Date(salaryCycle.cycleStartInstant) : new Date(`${cycleStart}T00:00:00`);
+    const end = config.cycle !== 'calendar' && salaryCycle.cycleEndExclusive ? new Date(new Date(salaryCycle.cycleEndExclusive).getTime() - 1) : new Date(`${cycleEnd}T23:59:59.999`);
     const rows = entries.filter((entry) => entry.type === 'expense' && new Date(entry.date) >= start && new Date(entry.date) <= end && new Date(entry.date) <= now &&
       (config.scope === 'account' ? entry.account === config.target : config.scope === 'category' ? entry.category === config.target : entry.subcategory === config.target));
     const spent = rows.reduce((sum, entry) => sum + entry.amount, 0);

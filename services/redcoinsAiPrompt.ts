@@ -1,4 +1,5 @@
 import type { RedCoinsEntry, RedCoinsState } from './redcoins';
+import { salaryAnchorTimes } from './redcoinsSalaryFilter';
 
 export const AI_REDUCTION_TARGETS = [5, 10, 15, 20, 25] as const;
 export type AiPromptWindow = { start: Date; endExclusive: Date };
@@ -27,7 +28,7 @@ export function buildRedCoinsAiPrompt(state: RedCoinsState, scope: AiPromptScope
   const first = actual.reduce((value, row) => Math.min(value, new Date(row.date).getTime()), Infinity);
   let windows: AiPromptWindow[] = [];
   if (scope.mode === 'salary-cycle' && scope.salarySource) {
-    const anchors = [...new Set(scope.salarySource.entries.filter(row => row.type === 'income' && new Date(row.date) <= now).map(row => new Date(row.date).getTime()))].filter(Number.isFinite).sort((a, b) => a - b);
+    const anchors = salaryAnchorTimes(scope.salarySource, now);
     windows = anchors.slice(0, -1).map((time, index) => ({ start: new Date(time), endExclusive: new Date(anchors[index + 1]) }))
       .filter(window => window.endExclusive <= scope.start && window.endExclusive <= now).slice(-lookback);
   } else if (scope.mode === 'custom') {

@@ -9,8 +9,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth, fsFetchAll, fsFetchSettings } from '../firebase';
 import { ActivityEntry, FoodEntry, UserProfile } from '../types';
 import { colors, radii, shadow } from '../theme';
-import { BluecoinsSummary, chooseBluecoinsFolder, getBluecoinsFolder, refreshBluecoinsSummary, setCashRealityAccounts, setCashRealitySafetyBuffer, setBluecoinsMonthlyBudget, setBluecoinsPayday, setBluecoinsFixedCommitments } from '../services/bluecoins';
-import { mergeRedCoinsIntoBudgetCoach } from '../services/redcoins';
+import { BluecoinsSummary, setCashRealityAccounts, setCashRealitySafetyBuffer, setBluecoinsMonthlyBudget, setBluecoinsPayday, setBluecoinsFixedCommitments } from '../services/bluecoins';
+import { getRedCoinsSummary } from '../services/redcoins';
 import { connectHealth, HealthSnapshot, healthIsConnected, readHealthSnapshot } from '../services/health';
 import { AgendaEvent, calendarIsConnected, connectCalendar, readTodayAgenda } from '../services/agenda';
 import { loadInsightData, PersonalStreaks, QuickNote, WeeklyReview } from '../services/insights';
@@ -146,12 +146,10 @@ export default function HomeScreen({ navigation }: any) {
   const bluecoinsRequest = useRef(0);
   const loadBluecoins = useCallback(async (quiet = false) => {
     const request = ++bluecoinsRequest.current;
-    const folder = await getBluecoinsFolder();
-    setBluecoinsConnected(!!folder);
-    if (!folder) return;
+    setBluecoinsConnected(true);
     if (!quiet) setBluecoinsLoading(true);
     try {
-      const summary = await mergeRedCoinsIntoBudgetCoach(await refreshBluecoinsSummary(folder));
+      const summary = await getRedCoinsSummary();
       if (request !== bluecoinsRequest.current) return;
       setBluecoins(summary);
       await notifySpendingGuardChanges(summary.spendingGuards);
@@ -160,7 +158,7 @@ export default function HomeScreen({ navigation }: any) {
       setPinnedGuardId(pinned);
       await refreshLeanLogWidget();
     } catch (error: any) {
-      if (!quiet) Alert.alert('Bluecoins sync failed', bluecoinsReadError(error));
+      if (!quiet) Alert.alert('RedCoins summary failed', String(error));
     } finally {
       if (request === bluecoinsRequest.current) setBluecoinsLoading(false);
     }
@@ -272,24 +270,7 @@ export default function HomeScreen({ navigation }: any) {
   };
 
   const connectBluecoins = async (changingSource = false) => {
-    const uri = await chooseBluecoinsFolder();
-    if (!uri) return;
-    setBluecoinsConnected(true);
-    setBluecoinsLoading(true);
-    try {
-      const summary = await mergeRedCoinsIntoBudgetCoach(await refreshBluecoinsSummary(uri));
-      setBluecoins(summary);
-      await notifySpendingGuardChanges(summary.spendingGuards);
-      await notifyCashRealityRisk(summary.cashReality, summary.sourceDate);
-      const pinned = await syncPinnedGuardSnapshot(summary.spendingGuards, summary.sourceDate);
-      setPinnedGuardId(pinned);
-      await refreshLeanLogWidget();
-      Alert.alert(changingSource ? 'Bluecoins source changed' : 'Bluecoins connected', `Now reading ${summary.sourceName}. Future syncs will use this folder.`);
-    } catch (error: any) {
-      Alert.alert('Folder selected, file unreadable', bluecoinsReadError(error));
-    } finally {
-      setBluecoinsLoading(false);
-    }
+    navigation.navigate('Settings');
   };
 
   const explainWeek = async () => {
@@ -805,7 +786,7 @@ export default function HomeScreen({ navigation }: any) {
           <View style={styles.syncRow}>
             <Ionicons name="checkmark-circle" size={16} color={colors.mint} />
             <Text style={[styles.syncText, backupAgeDays > 0 && { color: colors.coral }]}>
-              Budget Coach source · {bluecoins.sourceName} · {backupAgeDays > 0 ? `data is ${backupAgeDays}d old` : 'latest backup loaded'}
+              Budget Coach · live RedCoins ledger · updated {new Date(bluecoins.syncedAt).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' })}
             </Text>
           </View>
         )}
@@ -1235,7 +1216,7 @@ export default function HomeScreen({ navigation }: any) {
                     </View>)}
                   </View>
                 ))}
-                <Text style={styles.guardFreshness}>Based on {bluecoins?.sourceName}. Refresh follows the newest Bluecoins backup—not live card activity.</Text>
+                <Text style={styles.guardFreshness}>Calculated from your current RedCoins ledger. New entries and edits update this view; bank activity appears only after you log or import it.</Text>
                 <View style={styles.guardDetailActions}>
                   <TouchableOpacity
                     style={styles.guardEditButton}

@@ -28,8 +28,8 @@ import { requestPinWidget } from 'react-native-android-widget';
 import { refreshLeanLogWidget } from '../services/widget';
 import { getNagDays, getNagTimes, isNagModeEnabled, setNagDays, setNagModeEnabled, setNagTimes } from '../services/nagging';
 import LeanLogChronicle from '../components/LeanLogChronicle';
-import { BLUECOINS_AUTO_SYNC_KEY, bluecoinsAutoSyncEnabled, chooseBluecoinsFolder, getBluecoinsSourceMetadata, refreshBluecoinsSummary } from '../services/bluecoins';
-import { loadRedCoins, mergeRedCoinsIntoBudgetCoach } from '../services/redcoins';
+import { chooseBluecoinsFolder, getBluecoinsSourceMetadata } from '../services/bluecoins';
+import { stageRedCoinsImport, commitRedCoinsImport } from '../services/redcoinsImport';
 import { ensureBluecoinsBackgroundSync } from '../services/bluecoinsBackground';
 
 const formatPickerTime = (d: Date) =>
@@ -45,39 +45,41 @@ const timeStrToDate = (timeStr: string): Date => {
 const REMINDER_KEY = 'reminders';
 
 function BluecoinsImportSettings() {
-  const [auto, setAuto] = useState(false);
   const [busy, setBusy] = useState(false);
   const [source, setSource] = useState<Awaited<ReturnType<typeof getBluecoinsSourceMetadata>>>(null);
-  useEffect(() => { bluecoinsAutoSyncEnabled().then(setAuto); getBluecoinsSourceMetadata().then(setSource); }, []);
-  const importBackup = (changeSource: boolean) => Alert.alert('Import Bluecoins backup?', 'This updates the imported baseline and account balances. Local RedCoins entries are reconciled with the backup.', [
-    { text: 'Cancel', style: 'cancel' },
-    { text: 'Import', onPress: async () => {
-      setBusy(true);
-      try {
-        const folder = changeSource ? await chooseBluecoinsFolder() : undefined;
-        if (changeSource && !folder) return;
-        const baseline = await refreshBluecoinsSummary(folder, true);
-        await loadRedCoins(baseline);
-        await mergeRedCoinsIntoBudgetCoach(baseline);
-        await refreshLeanLogWidget();
-        setSource(await getBluecoinsSourceMetadata());
-        Alert.alert('Import complete', baseline.sourceName);
-      } catch (error) { Alert.alert('Import failed', error instanceof Error ? error.message : String(error)); }
-      finally { setBusy(false); }
-    } },
-  ]);
+  useEffect(() => { getBluecoinsSourceMetadata().then(setSource); void ensureBluecoinsBackgroundSync(); }, []);
+  const importBackup = async (changeSource: boolean) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const folder = changeSource ? await chooseBluecoinsFolder() : undefined;
+      if (changeSource && !folder) { setBusy(false); return; }
+      const preview = await stageRedCoinsImport(folder);
+      const counts = preview.plan.counts;
+      const balancePreview = preview.plan.balances.filter(account => account.before !== account.after).map(account => `${account.name}: ${account.before === null ? 'new' : `RM ${account.before.toFixed(2)}`} → RM ${account.after.toFixed(2)}`).join('\n');
+      Alert.alert('Review Bluecoins import', `${preview.sourceName}\n\n${counts.added} new · ${counts.updated} updated · ${counts.removed} source deletions\n${counts.matched} matched · ${counts.protected} protected · ${counts.newAccounts} new accounts\n\n${balancePreview || 'No account balance changes.'}\n\nOnly accepted ledger changes affect existing balances; the source balance never overwrites them. Local edits and adjustments are preserved. A recovery backup is saved before applying.`, [
+        { text: 'Cancel', style: 'cancel', onPress: () => setBusy(false) },
+        { text: 'Apply import', onPress: () => { void (async () => {
+          try {
+            const result = await commitRedCoinsImport(preview);
+            try { await refreshLeanLogWidget(); } catch { result.warnings.push('Import saved; launcher widgets will refresh on their next update.'); }
+            try { setSource(await getBluecoinsSourceMetadata()); } catch { /* Metadata is not the committed ledger. */ }
+            Alert.alert('Import complete', [preview.sourceName, ...result.warnings].join('\n'));
+          } catch (error) { Alert.alert('Import not completed', error instanceof Error ? error.message : String(error)); }
+          finally { setBusy(false); }
+        })(); } },
+      ], { cancelable: true, onDismiss: () => setBusy(false) });
+    } catch (error) {
+      setBusy(false);
+      Alert.alert('Import failed', error instanceof Error ? error.message : String(error));
+    }
+  };
   return <View style={styles.card}>
-    <Text style={styles.actionSub}>{source ? `${source.name}\nLast sync: ${new Date(source.syncedAt).toLocaleString('en-MY')}` : 'Optional Bluecoins backup import. Your existing history stays available in RedCoins.'}</Text>
-    <TouchableOpacity disabled={busy} style={styles.actionRow} onPress={() => importBackup(false)}><View style={styles.actionIcon}><Ionicons name="cloud-download-outline" size={19} color="#101A2B" /></View><Text style={styles.actionTitle}>{busy ? 'Importing…' : 'Sync latest backup'}</Text></TouchableOpacity>
+    <Text style={styles.actionSub}>{source ? `${source.name}\nLast source read: ${new Date(source.syncedAt).toLocaleString('en-MY')}` : 'Optional Bluecoins import. RedCoins owns your saved ledger and balances.'}</Text>
+    <TouchableOpacity disabled={busy} style={styles.actionRow} onPress={() => { void importBackup(false); }}><View style={styles.actionIcon}><Ionicons name="cloud-download-outline" size={19} color="#101A2B" /></View><Text style={styles.actionTitle}>{busy ? 'Preparing import…' : 'Preview latest backup'}</Text></TouchableOpacity>
     <View style={styles.divider} />
-    <TouchableOpacity disabled={busy} style={styles.actionRow} onPress={() => importBackup(true)}><View style={styles.actionIcon}><Ionicons name="folder-open-outline" size={19} color="#101A2B" /></View><Text style={styles.actionTitle}>Change source</Text></TouchableOpacity>
-    <View style={styles.divider} />
-    <View style={styles.accountRow}><View style={{ flex: 1 }}><Text style={styles.actionTitle}>Automatic sync</Text><Text style={styles.actionSub}>Read new Bluecoins backups automatically</Text></View><Switch disabled={busy} value={auto} onValueChange={async (value) => {
-      setBusy(true);
-      try { await AsyncStorage.setItem(BLUECOINS_AUTO_SYNC_KEY, String(value)); setAuto(value); await ensureBluecoinsBackgroundSync(); }
-      catch (error) { Alert.alert('Sync setting failed', String(error)); }
-      finally { setBusy(false); }
-    }} /></View>
+    <TouchableOpacity disabled={busy} style={styles.actionRow} onPress={() => { void importBackup(true); }}><View style={styles.actionIcon}><Ionicons name="folder-open-outline" size={19} color="#101A2B" /></View><Text style={styles.actionTitle}>Choose import source</Text></TouchableOpacity>
+    <Text style={styles.actionSub}>Import runs only after your confirmation. No background Bluecoins sync.</Text>
   </View>;
 }
 

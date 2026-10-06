@@ -52,12 +52,13 @@ export function reconcileAccountIdentity(original: RedCoinsState, incoming: Impo
     // Prefer the pre-rename account when a prior buggy sync created a second
     // copy. Keep its local ID, so Daily widget selection remains attached.
     group.sort((a, b) => Number(key(a.name) === key(source.name)) - Number(key(b.name) === key(source.name)));
-    const canonical = { ...group[0], name: source.name };
+    const canonical = { ...group[0], name: group[0].editedAt ? group[0].name : source.name };
     canonical.icon ||= group.find(account => account.icon)?.icon;
     for (const account of group) {
-      if (account.name !== source.name) aliases[key(account.name)] = source.name;
+      if (account.name !== canonical.name) aliases[key(account.name)] = canonical.name;
       if (account.id !== canonical.id) redirects[account.id] = canonical.id;
     }
+    if (source.name !== canonical.name) aliases[key(source.name)] = canonical.name;
     state.accounts.push(canonical);
   }
   const rename = (name?: string) => name ? aliases[key(name)] || name : name;

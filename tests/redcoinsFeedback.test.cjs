@@ -9,6 +9,9 @@ function load(name, mocks = {}) {
   vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname, `../services/${name}.ts`), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
   }).outputText, { exports, Date, console, require: (id) => {
+    if (id === './redcoinsSalaryFilter') return load('redcoinsSalaryFilter');
+    if (id === './redcoinsSummary') return load('redcoinsSummary', { './redcoinsGuards': load('redcoinsGuards') });
+    if (id === './redcoinsImportPlan') return load('redcoinsImportPlan', mocks);
     if (id === './redcoinsAccountIdentity') return load('redcoinsAccountIdentity', { '@react-native-async-storage/async-storage': mocks['@react-native-async-storage/async-storage'] });
     if (!(id in mocks)) throw new Error(`Unexpected dependency ${id}`);
     return mocks[id];
@@ -160,10 +163,10 @@ test('Bluecoins refresh preserves account identity and icons for widget selectio
     './redcoinsReminders': { materializeAutomaticReminders: () => [] }, './spendingGuards': {},
     './redcoinsEvents': { emitRedCoinsChange: () => {} }, './redcoinsGuards': {},
   });
-  const summary = { redcoins: { entries: [], categories: [], accounts: [{ name: 'Aeon', balance: 125, type: 'Bank' }] }, monthly: { payday: 25, budget: 100 }, cashReality: { safetyBuffer: 0 }, sourceName: 'backup' };
-  const refreshed = await service.loadRedCoins(summary);
+  const summary = { sourceDate: '2026-10-06', redcoins: { entries: [], categories: [], accounts: [{ name: 'Aeon', balance: 125, type: 'Bank' }] }, monthly: { payday: 25, budget: 100 }, cashReality: { safetyBuffer: 0 }, sourceName: 'backup' };
+  const refreshed = await service.importRedCoins(summary);
   assert.equal(refreshed.accounts[0].id, 'stable-account');
   assert.equal(refreshed.accounts[0].icon, 'wallet');
-  assert.equal(refreshed.accounts[0].balance, 125);
-  assert.equal((await service.loadRedCoins(summary)).accounts[0].id, 'stable-account');
+  assert.equal(refreshed.accounts[0].balance, 100, 'source balance alone must not overwrite authoritative local cash');
+  assert.equal((await service.importRedCoins(summary)).accounts[0].id, 'stable-account');
 });
