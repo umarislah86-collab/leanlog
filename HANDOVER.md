@@ -2,16 +2,26 @@
 
 Updated: 6 October 2026 (Asia/Kuala_Lumpur).
 
-## Latest released changes — Reports & reminders v2.9.12 (6 October)
+## Current release work — v2.9.13 (6 October)
+
+- User requested ARM64 APK + commit/push + GitHub release. Build metadata will be updated after verification. Previous published release is v2.9.12 below.
+- Fix in `services/redcoins.ts`: custom-account balance rebuild skipped locally logged transfers matched to imports whose destination still named the deleted old account. Opening the app can replay cached FYDB even with auto-sync OFF; no new Drive sync was needed to trigger the bug.
+- Source-backed balances now reverse matched raw imports and apply effective local replacements; custom balances replay the complete effective live ledger once, including matched transfers. No double source debit; future rows excluded; deletion suppression retained.
+- Read-only actual backup `C:\\Users\\C5407836\\Downloads\\RedCoins-backup-2026-10-06.json` + reconstructed cached summary: before fix RM1,556.97 -> RM1,256.97 -> RM956.97; after fix RM1,856.97 remains unchanged for ten replays. Original backup bytes unchanged. Not a fresh FYDB or phone test.
+- Relevant local transfer `1790685244309` (Aeon -> Pot aeon, RM300) matches imported `bluecoins-1790685319967` targeting deleted `Saving POT `. Edited RM1,500 transfer also targets custom Pot aeon.
+- Added four regressions in `tests/redcoinsAccountIdentity.test.cjs`; 86 tests pass, TypeScript passes. Covers matched custom/unchanged/rerouted transfer, repeated replay, future exclusion, no double debit and user adjustment preservation.
+- Do NOT remove the user's historic RM600 Adjustment, add more compensating entries, or hardcode RM1,856.97. Fix preserves the current saved balance; already-drifted balances need explicit user confirmation to correct. Test repeated reopen on the new APK.
+
+## Previous release — Reports & reminders v2.9.12
 
 - Published v2.9.12 ARM64-only, versionCode 17. Source commit `678f649d9751acc4f0ef32e12ad25ae421496e86`, EAS `1e8aaeff-db80-4c06-a6a2-7353fe694e85`. APK 42,848,687 bytes (40.86 MiB), SHA-256 `848b09f9e494bc28b4c5dd35c0465a8704356ee35619e3569135cc4e6a725372`. APK v2 signature verified, signer unchanged. 82 tests, TypeScript, Android Metro bundle and EAS native build passed. All changes below are included in this APK; older pending-build statements below are historical. Phone UI/copy/save validation is still pending.
 - Download: https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.12/leanlog-V2.9.12.apk
 
-- Reports now opens `RedCoinsAiPromptModal`: reduction scenario 5/10/15/20/25% (default 10), baseline 3/6 periods, selectable prompt preview, OS clipboard copy (`expo-clipboard`, SDK-compatible native dependency), and `.txt` Save-to-folder/Share via existing export delivery. No external AI/API calls. Next APK is required for the new native clipboard dependency; no build requested in this turn.
+- Reports now opens `RedCoinsAiPromptModal`: reduction scenario 5/10/15/20/25% (default 10), baseline 3/6 periods, selectable prompt preview, OS clipboard copy (`expo-clipboard`, SDK-compatible native dependency), and `.txt` Save-to-folder/Share via existing export delivery. No external AI/API calls. Included in v2.9.12; native clipboard phone validation remains pending.
 - `services/redcoinsAiPrompt.ts` is a read-only live-ledger export with cent totals, complete ID-referenced selected/baseline/future data, explicit current-only account/plan snapshots, coverage warnings and non-forced reduction targets. Actual salary timestamps define prior completed cycles; custom ranges use fixed preceding calendar months without backfilling older history. Expense, liability-directed loan repayments and credit-card settlement transfers stay separate. Missing/deleted destinations are unclassified rather than guessed from names. Prompt treats data text as untrusted and prohibits double counting, invented history and forced cuts to commitments. 67 regression tests and TypeScript pass; copy, folder picker and layout await device validation.
 - User approved in-app analysis: `services/redcoinsAnalysis.ts` + `components/RedCoinsAnalysis.tsx` add compact collapsible Reports sections: matched elapsed-span expense pace for salary cycles (daily rates for custom ranges), category/subcategory shifts with transaction drill-down, repeated titles without assuming duplicates/subscriptions, user-confirmed Protected/Flexible/Unconfirmed classifications, and a read-only 5–25% cut simulator with explicit saving/shortfall. `analysisExpenseClasses` is saved in RedCoins state and preserved on Bluecoins import, also included in exported prompts. All classifications default Unconfirmed; loan-transfer payments are always protected. No budget mutation/apply action. Prompts and UI explicitly include loan repayments in total real outgoings and net after commitments, separate from raw expense and credit-card settlement. Data-only generation avoids serializing a full prompt for in-app analysis. No AI API/cloud calls or hardcoded 30% cuts.
 - Combined regression suite now has 75 passing tests, including two loans counted once, protected-cut exclusion, equal-span salary comparison, custom daily-rate comparison, repeated-charge grouping, exact cents and user-classification prompt export. Android Metro export and TypeScript checked; phone UI/native clipboard still await the next APK/device test.
-- Reminder manager now sorts nearest next due first, with paused/completed at bottom, and displays signed projected source balance (also destination for transfers). `services/redcoinsReminderProjection.ts` is read-only: rolls current balances forward through all active upcoming occurrences up to each next due, including earlier repeats, reminder-only assumptions and unapplied future ledger rows. Linked ledger occurrences count once using ledger values; applied entries/deleted occurrences are not replayed. Simultaneous dues share a post-batch snapshot. Missing-account/invalid-amount schedules have no projection. Predictions explicitly are not live balances. Seven new tests (82 total) cover ordering, cumulative repeats/income/transfers, simultaneous dues, missing accounts, dedup, suppression and exact cents. No native APK/build requested yet.
+- Reminder manager now sorts nearest next due first, with paused/completed at bottom, and displays signed projected source balance (also destination for transfers). `services/redcoinsReminderProjection.ts` is read-only: rolls current balances forward through all active upcoming occurrences up to each next due, including earlier repeats, reminder-only assumptions and unapplied future ledger rows. Linked ledger occurrences count once using ledger values; applied entries/deleted occurrences are not replayed. Simultaneous dues share a post-batch snapshot. Missing-account/invalid-amount schedules have no projection. Predictions explicitly are not live balances. Seven new tests (82 total) cover ordering, cumulative repeats/income/transfers, simultaneous dues, missing accounts, dedup, suppression and exact cents. Included in v2.9.12.
 
 ## Latest released feedback fixes — v2.9.11 (5 October)
 
@@ -20,8 +30,8 @@ Updated: 6 October 2026 (Asia/Kuala_Lumpur).
 - Ledger TOTALS summarizes the complete live search/filter set and manual selections (Income/Expense/Transfer/Net); Select All is no longer limited by pagination. Future rows included in the visible list are disclosed. `services/redcoinsLedgerSummary.ts` is the shared filter/summary source.
 - User-approved Bluecoins-style batch actions now live in `components/RedCoinsBatchModal.tsx` and `services/redcoinsBatch.ts`: title/date/amount/accounts/category/labels/status/copy-paste/delete. All mutations validate the complete set and confirm before save. No Void status. Paste detaches schedules/exports and records `duplicateOfId`, so source reconciliation cannot swallow an intentional copy. Reconciled local edits suppress their old source row; edited imports are reflected in Home coach deltas. See `docs/bluecoins-multiselect-audit.md`. Batch UI still unverified on a phone.
 - Daily widget is now configurable per instance: existing Spending Guards or up to four selected accounts, in selection order, in the same compact 2x2 slots. Preferences use stable account IDs; import refresh now preserves those IDs. Daily `widgetFeatures: reconfigurable` requires the next native APK. Tests exercise instance isolation, current balances/renames/deletion and the actual widget tree builder; launcher/device verification still pending.
-- Latest release is v2.9.11, code 16, source commit `abe3f4f0f3e756d85c69e4f0c3a8a52fea837e0b`, EAS `81bdabaf-11a8-41fc-9b55-567c43b5485f`. ARM64-only APK 42,776,303 bytes (40.80 MiB), SHA-256 `3bbfa96c4774fdce863a84d49d359ddcf17d2bf545857aa2d5f6cd63025d4ee4`. Published on GitHub; 60 tests, TypeScript, Metro export and EAS Android build passed. APK v2 signature verified with the same signer as v2.9.10. Real-device behavior still pending. Older release metadata below is historical.
-- Guard evaluations now load live configurations, evaluate active state.entries, and publish local state/guard changes to mounted RedCoins/Home screens. No new build/push requested yet.
+- Historical release is v2.9.11, code 16, source commit `abe3f4f0f3e756d85c69e4f0c3a8a52fea837e0b`, EAS `81bdabaf-11a8-41fc-9b55-567c43b5485f`. ARM64-only APK 42,776,303 bytes (40.80 MiB), SHA-256 `3bbfa96c4774fdce863a84d49d359ddcf17d2bf545857aa2d5f6cd63025d4ee4`. Published on GitHub; 60 tests, TypeScript, Metro export and EAS Android build passed. APK v2 signature verified with the same signer as v2.9.10. Real-device behavior still pending. Older release metadata below is historical.
+- Guard evaluations now load live configurations, evaluate active state.entries, and publish local state/guard changes to mounted RedCoins/Home screens. Included in v2.9.11.
 - Bluecoins `CATEGORYGROUPTABLE` verified read-only: group 2 Income, 3 Expense. Import carries per-subcategory type arrays (Bank/People/Others can exist on both sides). Logger uses these declarations, legacy ledger evidence as fallback, and hides unknown pairs. Custom subcategory type can be set in Manage; saved declarations survive source refresh.
 - Logger suggestions show the most recent amount for the same transaction type, exclude future rows, and focus amount without prefilling it. Ledger displays live state immediately; regular saves use a SQLite upsert instead of full rebuild and never wait for notification scheduling.
 - Android reminders use `RedCoinsAlarmScheduler.kt`, exact/inexact AlarmManager scheduling, reboot/package/time-change restoration, due notifications, and `RedCoinsAutoLogService` short foreground Headless JS task. `redcoinsRuntime.ts` registers the task and catches up on app resume/start. Native module has an explicit React Android dependency.
@@ -31,7 +41,7 @@ Updated: 6 October 2026 (Asia/Kuala_Lumpur).
 
 ## Read this first
 
-This document is the entry point for continuing LeanLog on another PC. Read it first, then inspect only the files needed for the current request. Do not scan the whole repository to rediscover project history. Verify current git status before editing; the working tree contains unreleased fixes listed below.
+This document is the entry point for continuing LeanLog on another PC. Read it first, then inspect only the files needed for the current request. Do not scan the whole repository to rediscover project history. Verify current git status before editing; older feedback sections below describe already released work.
 
 User speaks casually in Malay/English. Match that tone, give concrete progress updates, and avoid claiming a fix is confirmed on-device when only static checks passed. Several past regressions survived TypeScript checks, so runtime evidence matters.
 
@@ -46,16 +56,11 @@ User speaks casually in Malay/English. Match that tone, give concrete progress u
 - APK: https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.12/leanlog-V2.9.12.apk
 - ARM64-only, 42,848,687 bytes / 40.86 MiB.
 - SHA-256: `848b09f9e494bc28b4c5dd35c0465a8704356ee35619e3569135cc4e6a725372`.
-- EAS build: `a0daa4ec-bcfd-41d7-96ed-d205e4e45c2b`.
-- That build was submitted before the release commit, from a dirty tree containing the release changes. EAS metadata therefore says previous commit `13006a9`; this is not evidence that the APK omitted v2.9.9 changes.
+- EAS build: `1e8aaeff-db80-4c06-a6a2-7353fe694e85`.
 
-## Migration — do not lose local fixes
+## Migration
 
-**Cloning GitHub alone currently loses the unreleased fixes below.** They are not committed or pushed as of this handover.
-
-Simplest transfer: copy this entire checkout including hidden `.git` and `HANDOVER.md`, excluding `node_modules`, `.expo`, generated build directories and `release-artifacts`. This preserves both history and uncommitted tracked/untracked source files. Run `git status --short` on both PCs and compare the files below.
-
-If cloning instead, explicitly transfer the changed source files listed below, including the NEW `services/redcoinsBudget.ts`, and this handover. A normal `git diff` patch does not include untracked new files.
+Clone the GitHub branch after the requested release is pushed. Prior camera/parser/budget/widget/export files below are already tracked and released; no special untracked-file transfer is needed. Phone records and local credentials are separate from source migration.
 
 On the new PC:
 
@@ -67,9 +72,9 @@ On the new PC:
 
 Firebase backend configuration exists in source. Do not paste credentials, tokens, private keys or environment secrets into handover/chat. Firebase CLI login is only needed for backend operations. App data on the phone is separate from this PC migration; moving source does not transfer phone records.
 
-## Current unreleased fixes — already coded, DO NOT redo from scratch
+## Earlier feedback fixes — released, do not redo
 
-User explicitly said: **do not build yet; collect feedback first**. There has been no build/commit/push of these fixes. Continue collecting/fixing; release only when asked.
+These changes are already included in v2.9.12. Device verification caveats remain valid; old no-build instructions do not override the current release request.
 
 ### 1. Food Camera/Gallery fails through launcher shortcut
 
@@ -77,7 +82,7 @@ File: `screens/TodayScreen.tsx`.
 
 User clarified Camera/Gallery work after opening the app normally, but fail when entering via app-icon quick action. Feature and native permission/plugin were still present.
 
-The v2.9.10 delay mitigation failed on the user's phone. New unreleased change removes shortcut-specific delays/InteractionManager. Quick actions wait for a focused Log screen and active app. Native picker requests are queued until the source dialogs have unmounted, then launched with a busy guard. Camera checks existing permission first instead of always opening a redundant permission request; gallery uses the system photo picker without a broad library permission request. Picker failures display their actual error rather than only a generic permissions message. Food and activity share this path.
+The v2.9.10 delay mitigation failed on the user's phone. Released change removes shortcut-specific delays/InteractionManager. Quick actions wait for a focused Log screen and active app. Native picker requests are queued until the source dialogs have unmounted, then launched with a busy guard. Camera checks existing permission first instead of always opening a redundant permission request; gallery uses the system photo picker without a broad library permission request. Picker failures display their actual error rather than only a generic permissions message. Food and activity share this path.
 
 **Cause remains unconfirmed on the phone.** Earlier assistant overstated confirmation. Test cold launch AND warm launch via shortcut, Camera AND Gallery, normal launch, cancel and retry, first-time permissions and denied permissions. Do not equate TypeScript success with device verification. No phone is connected locally; if this still fails collect Android logcat around the tap and permission/activity transitions.
 
@@ -109,7 +114,7 @@ Test used the library's actual `buildWidgetTree` with widget primitive stubs for
 
 ## Architecture and where to look
 
-### Additional unreleased work after this handover was first written
+### Additional released work
 
 - Home's large Bluecoins sync/change-source buttons moved to Settings → Bluecoins import. Manual import confirms before reading/applying. `bluecoins_auto_sync_v1` defaults off; background task checks it. Existing local `.fydb` is used for recalculating summaries without fetching a new Drive baseline when auto-sync is off. `refreshBluecoinsSummary(folder, true)` explicitly imports a new backup.
 - `services/exportFile.ts` provides Android Save to folder (SAF) or Share for RedCoins CSV and Progress PDF/CSV. Cancel returns false and does not record an export batch. Mark as imported remains separate.
@@ -167,7 +172,7 @@ Stack: Expo SDK 57, React 19.2.3, React Native 0.86.2, TypeScript, React Navigat
 
 ## Build and GitHub release convention
 
-When user says **build**, they mean build AND commit/push AND GitHub release with APK. Do not stop after EAS submission unless user explicitly says they will follow up when ready. Current latest instruction, however, is to collect fixes without building yet.
+When user says **build**, they mean build AND commit/push AND GitHub release with APK. Do not stop after EAS submission unless user explicitly says they will follow up when ready. Current instruction is to build and push v2.9.13.
 
 1. Inspect git status and relevant diffs. Preserve unrelated changes.
 2. Bump `expo.version` in `app.json` to the next agreed version and add a factual narrative chapter to `components/LeanLogChronicle.tsx`.
@@ -184,4 +189,4 @@ ARM64 installs on user's phone; keep ARM64-only (~40MiB). Universal APKs were ~1
 
 ## Next agent's starting checklist
 
-Read `git status --short` and the relevant unreleased section above. Confirm six changed/new source paths for camera, AEON parser, budget helper/screen and widget renderer/config screen have been transferred. Resume the user's newest feedback. Do not build merely because this handover mentions the release process. Do not equate TypeScript success with phone behavior.
+Read `git status --short` and the v2.9.13 section first. Confirm release metadata below when available, then resume the newest user feedback. Do not equate TypeScript or in-memory replay success with phone verification. Preserve user data and adjustments.

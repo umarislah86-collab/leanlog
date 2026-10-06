@@ -271,31 +271,34 @@ export async function loadRedCoins(summary?: BluecoinsSummary | null) {
         const applied = entry.balanceEffectApplied ?? new Date(entry.date).getTime() <= Date.now();
         if (applied) applyEntryBalance(customBalanceState, entry, -1, true);
       });
-      refreshed.accounts.push(...customAccounts);
+      // Source balances already include imported rows; custom balances do not.
+      // Keep these baselines separate when replacing a matched imported transfer
+      // with its local version (which may target a different/custom account).
+      const sourceBalanceState = { accounts: [...refreshed.accounts] } as RedCoinsState;
       refreshed.categories.push(...customCategories);
       editedImported.forEach((edited) => {
         const original = refreshed.entries.find((entry) => entry.id === edited.id);
-        if (original) applyEntryBalance(refreshed, original, -1);
-        applyEntryBalance(refreshed, edited, 1);
+        if (trashedImportedIds.has(edited.id) || (original && reconciliation.matchedImportedIndexes.has(refreshed.entries.indexOf(original)))) return;
+        if (original) applyEntryBalance(sourceBalanceState, original, -1);
+        applyEntryBalance(sourceBalanceState, edited, 1);
       });
       refreshed.entries
         .filter((entry, index) => trashedImportedIds.has(entry.id) || deletionReconciliation.matchedImportedIndexes.has(index))
-        .forEach((entry) => applyEntryBalance(refreshed, entry, -1));
+        .forEach((entry) => applyEntryBalance(sourceBalanceState, entry, -1));
       own.forEach((entry) => {
         const due = new Date(entry.date).getTime() <= Date.now();
-        if (due && !reconciliation.matchedOwn.has(entry.id)) {
-          const source = refreshed.accounts.find((account) => account.name === entry.account);
-          const target = refreshed.accounts.find((account) => account.name === entry.toAccount);
-          if (entry.type === 'expense' && source) source.balance -= entry.amount;
-          if (entry.type === 'income' && source) source.balance += entry.amount;
-          if (entry.type === 'transfer') {
-            if (source) source.balance -= entry.amount;
-            if (target) target.balance += entry.amount;
-          }
-        }
+        const importedId = reconciliation.importedIdByOwn.get(entry.id);
+        const original = importedId && refreshed.entries.find(source => source.id === importedId);
+        if (original) applyEntryBalance(sourceBalanceState, original, -1);
+        if (due) applyEntryBalance(sourceBalanceState, entry, 1);
         entry.balanceEffectApplied = due;
       });
       refreshed.entries = [...own, ...refreshed.entries.filter((entry, index) => !reconciliation.matchedImportedIndexes.has(index) && !deletionReconciliation.matchedImportedIndexes.has(index) && !trashedImportedIds.has(entry.id)).map((entry) => editedById.get(entry.id) || entry), ...editedImported.filter((entry) => !refreshed.entries.some((source) => source.id === entry.id))].sort((a, b) => b.date.localeCompare(a.date));
+      // Replay the effective ledger, including matched local rows, exactly once
+      // into custom accounts. Skipping matched rows here loses their credit on
+      // every subsequent cached import even though the ledger row stays visible.
+      refreshed.entries.forEach(entry => applyEntryBalance(customBalanceState, entry, 1));
+      refreshed.accounts.push(...customAccounts);
       refreshed.deletedEntries = deletions;
       refreshed.reminders = saved.reminders || [];
       refreshed.exportBatches = saved.exportBatches || [];

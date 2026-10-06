@@ -95,3 +95,73 @@ test('imported rename repeated sync yields one account and keeps current balance
     assert.equal(refreshed.accounts.find(a => a.sourceAccountId === '42').id, 'old-id');
   }
 });
+
+test('matched RM300 transfer to a custom replacement survives ten cached replays without losing credit', async () => {
+  storage.clear();
+  const imported1500 = row('bluecoins-1500', { toAccount: 'Saving POT ', sourceAccountId: '1', sourceToAccountId: '42' });
+  const imported300 = row('bluecoins-300', { item: 'Ke savings pot', amount: 300, toAccount: 'Saving POT ', sourceAccountId: '1', sourceToAccountId: '42' });
+  const saved = state([account('a', 'Aeon', { balance: 100, sourceAccountId: '1' }), account('p', 'Pot aeon', { balance: 1856.97 })], [
+    { ...imported1500, toAccount: 'Pot aeon', editedAt: '2026-10-03', balanceEffectApplied: true },
+    { ...imported300, id: 'local-300', origin: 'redcoins', toAccount: 'Pot aeon', reconciledImportId: imported300.id, balanceEffectApplied: true },
+    row('dividend', { origin: 'redcoins', type: 'income', account: 'Pot aeon', toAccount: undefined, amount: 0.47, balanceEffectApplied: true }),
+    row('adjustment', { origin: 'redcoins', type: 'income', account: 'Pot aeon', toAccount: undefined, amount: 600, date: '2024-05-19T02:01:00Z', balanceEffectApplied: true }),
+  ]);
+  saved.deletedAccountNames = ['Saving POT '];
+  await service.saveRedCoins(saved);
+  const summary = { redcoins: { accounts: [account('a', 'Aeon', { balance: 100, sourceAccountId: '1' }), account('old', 'Saving POT ', { sourceAccountId: '42' })], categories: [], entries: [imported1500, imported300] }, monthly: { budget: 2000, payday: 25 }, cashReality: { safetyBuffer: 0 } };
+  for (let i = 0; i < 10; i++) {
+    const refreshed = await service.loadRedCoins(summary);
+    assert.equal(refreshed.accounts.find(a => a.name === 'Pot aeon').balance, 1856.97);
+    assert.equal(refreshed.accounts.find(a => a.name === 'Aeon').balance, 100, 'matched transfer must not debit the source twice');
+    assert.equal(refreshed.entries.filter(e => e.item === 'Ke savings pot').length, 1);
+    assert.equal(refreshed.entries.find(e => e.id === 'adjustment').amount, 600, 'do not silently remove user adjustments');
+    assert.equal((await service.loadRedCoins()).accounts.find(a => a.name === 'Pot aeon').balance, 1856.97);
+  }
+});
+
+test('matched transfer reroutes a surviving imported destination to custom account without double debit', async () => {
+  storage.clear();
+  const importedTransfer = row('bluecoins-300', { amount: 300, sourceAccountId: '1', sourceToAccountId: '42' });
+  await service.saveRedCoins(state([
+    account('a', 'Aeon', { balance: 100, sourceAccountId: '1' }),
+    account('old', 'Old Pot', { balance: 50, sourceAccountId: '42' }),
+    account('custom', 'Custom Pot', { balance: 350 }),
+  ], [{ ...importedTransfer, id: 'local-300', origin: 'redcoins', toAccount: 'Custom Pot', balanceEffectApplied: true }]));
+  const summary = { redcoins: { accounts: [account('a', 'Aeon', { balance: 100, sourceAccountId: '1' }), account('old', 'Old Pot', { balance: 350, sourceAccountId: '42' })], categories: [], entries: [importedTransfer] }, monthly: { budget: 2000, payday: 25 }, cashReality: { safetyBuffer: 0 } };
+  for (let i = 0; i < 3; i++) {
+    const next = await service.loadRedCoins(summary);
+    assert.equal(next.accounts.find(a => a.name === 'Aeon').balance, 100);
+    assert.equal(next.accounts.find(a => a.name === 'Old Pot').balance, 50);
+    assert.equal(next.accounts.find(a => a.name === 'Custom Pot').balance, 350);
+    assert.equal(next.entries.length, 1);
+  }
+});
+
+test('matched unchanged transfer leaves both imported balances unchanged on repeated refresh', async () => {
+  storage.clear();
+  const importedTransfer = row('bluecoins-300', { amount: 300, sourceAccountId: '1', sourceToAccountId: '42' });
+  const accounts = [account('a', 'Aeon', { balance: 100, sourceAccountId: '1' }), account('p', 'Old Pot', { balance: 350, sourceAccountId: '42' })];
+  await service.saveRedCoins(state(accounts, [{ ...importedTransfer, id: 'local-300', origin: 'redcoins', balanceEffectApplied: true }]));
+  const summary = { redcoins: { accounts, categories: [], entries: [importedTransfer] }, monthly: { budget: 2000, payday: 25 }, cashReality: { safetyBuffer: 0 } };
+  for (let i = 0; i < 3; i++) {
+    const next = await service.loadRedCoins(summary);
+    assert.equal(next.accounts.find(a => a.name === 'Aeon').balance, 100);
+    assert.equal(next.accounts.find(a => a.name === 'Old Pot').balance, 350);
+  }
+});
+
+test('custom opening balance replays active imported rows but excludes future local transfers', async () => {
+  storage.clear();
+  const importedTransfer = row('bluecoins-300', { amount: 300, toAccount: 'Custom Pot' });
+  await service.saveRedCoins(state([account('a', 'Aeon', { balance: 100 }), account('p', 'Custom Pot', { balance: 350 })], [
+    importedTransfer,
+    row('future', { origin: 'redcoins', toAccount: 'Custom Pot', amount: 200, date: '2099-01-01T00:00:00Z', balanceEffectApplied: false }),
+  ]));
+  const summary = { redcoins: { accounts: [account('a', 'Aeon', { balance: 100 })], categories: [], entries: [importedTransfer] }, monthly: { budget: 2000, payday: 25 }, cashReality: { safetyBuffer: 0 } };
+  for (let i = 0; i < 3; i++) {
+    const next = await service.loadRedCoins(summary);
+    assert.equal(next.accounts.find(a => a.name === 'Custom Pot').balance, 350);
+    assert.equal(next.accounts.find(a => a.name === 'Aeon').balance, 100);
+    assert.equal(next.entries.find(e => e.id === 'future').balanceEffectApplied, false);
+  }
+});
