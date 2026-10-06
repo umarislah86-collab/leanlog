@@ -6,6 +6,7 @@ Updated: 7 October 2026 (Asia/Kuala_Lumpur).
 
 - User requested ARM64 build, source commit/push and GitHub APK release. Includes all cumulative unreleased sections below: authoritative local RedCoins state/import preview, ledger scroll stability, compact salary filter, direct period navigation, report metric drilldown, exact salary timestamps and early LOG NOW. These sections describe implementation history; their older no-build statements are superseded by this request.
 - Expo version bumped to 2.9.14; Android versionCode remains remotely managed. Existing package and signing key must be retained. Build/release IDs, hashes and publication verification will be recorded after completion. Native phone validation remains pending.
+- Release source committed/pushed: `992b14e8ec67fd8837e7d08e694a250e09fdccee`. 133 tests, TypeScript, Expo prebuild config, diff checks and final Metro export (`output/release-2.9.14`) passed. EAS ARM64 build `ab578a9a-414e-438e-be1e-dbea0757504a`, versionCode 19, submitted from that exact clean commit; currently queued. GitHub draft tag `v2.9.14` exists with notes, targeting that commit, but has no APK and is NOT published/latest. Do not submit a duplicate build; resume checking this ID, download the finished official APK, verify and publish the existing draft. Existing v2.9.13 remains latest meanwhile.
 
 ## Current work — exact salary timestamps and early Log now (unreleased)
 
