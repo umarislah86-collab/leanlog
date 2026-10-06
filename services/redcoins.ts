@@ -108,6 +108,7 @@ export interface RedCoinsState {
   createdAt: string;
   exportBatches: RedCoinsExportBatch[];
   subcategoryBudgets: Record<string, number>;
+  analysisExpenseClasses?: Record<string, 'protected' | 'flexible' | 'unconfirmed'>;
   deletedAccountNames?: string[];
   deletedSourceAccountIds?: string[];
   deletedCategoryNames?: string[];
@@ -299,6 +300,7 @@ export async function loadRedCoins(summary?: BluecoinsSummary | null) {
       refreshed.reminders = saved.reminders || [];
       refreshed.exportBatches = saved.exportBatches || [];
       refreshed.subcategoryBudgets = saved.subcategoryBudgets || {};
+      refreshed.analysisExpenseClasses = saved.analysisExpenseClasses || {};
       refreshed.deletedAccountNames = saved.deletedAccountNames;
       refreshed.deletedSourceAccountIds = saved.deletedSourceAccountIds;
       refreshed.deletedCategoryNames = saved.deletedCategoryNames;

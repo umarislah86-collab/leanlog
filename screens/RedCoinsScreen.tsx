@@ -17,9 +17,12 @@ import { loggerCategories, loggerSuggestions } from '../services/redcoinsLogger'
 import { filterLedgerEntries, summarizeLedgerEntries } from '../services/redcoinsLedgerSummary';
 import { applyRedCoinsBatch, copyRedCoinsEntries, pasteRedCoinsEntries, readRedCoinsClipboard, type BatchAction } from '../services/redcoinsBatch';
 import { RedCoinsBatchModal } from '../components/RedCoinsBatchModal';
+import { RedCoinsAiPromptModal } from '../components/RedCoinsAiPromptModal';
+import { RedCoinsAnalysis } from '../components/RedCoinsAnalysis';
 import { migrateAccountPreferences } from '../services/redcoinsAccountIdentity';
 import { subscribeRedCoinsChanges } from '../services/redcoinsEvents';
 import { advanceReminderDate, materializeAutomaticReminders, missingReminderAccounts, nextReminderOccurrence, requestReminderAccess, syncReminderNotifications } from '../services/redcoinsReminders';
+import { projectRedCoinsReminders } from '../services/redcoinsReminderProjection';
 import { deleteRedCoinsLedgerEntry, queryRedCoinsLedger, syncRedCoinsLedger, upsertRedCoinsLedgerEntry } from '../services/redcoinsLedger';
 import { saveSpendingGuards, type GuardScope, type SpendingGuard } from '../services/spendingGuards';
 import { refreshLeanLogWidget } from '../services/widget';
@@ -177,6 +180,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const [reportPeriodOpen, setReportPeriodOpen] = useState(false);
   const [expandedReportCategory, setExpandedReportCategory] = useState<string | null>(null);
   const [reportExporting, setReportExporting] = useState(false);
+  const [aiPromptOpen, setAiPromptOpen] = useState(false);
+  const reminderCards = useMemo(() => state && reminderManagerOpen ? projectRedCoinsReminders(state) : [], [state, reminderManagerOpen]);
 
   const navigateSection = useCallback((next: Section) => {
     if (section === next) return;
@@ -1049,6 +1054,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       ongoing: reportMode === 'salary-cycle' && !nextAnchor,
     };
   }, [state, salarySources, reportSalarySource, reportCycleOffset, reportMode, reportCustomStart, reportCustomEnd]);
+
+  const reportAnalysisScope = useMemo(() => report ? ({ mode: reportMode, label: reportMode === 'salary-cycle' ? report.cycleLabel : `${reportDate(report.start)} — ${reportDate(report.displayEnd)}`, start: report.start, endExclusive: report.endExclusive, salarySource: report.source }) : null, [report, reportMode]);
 
   const finance = useMemo(() => {
     if (!state) return null;
@@ -1940,6 +1947,11 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         <View style={s.reportFact}><Text style={s.reportFactLabel}>SCHEDULED</Text><Text style={s.reportFactValue}>{report.scheduledRows.length}</Text></View>
       </View>
 
+      {reportAnalysisScope && <RedCoinsAnalysis state={state} scope={reportAnalysisScope} classify={async (key, value) => { const current = await loadRedCoins(); await persist({ ...current, analysisExpenseClasses: { ...current.analysisExpenseClasses, [key]: value } }); }} inspect={editEntry} />}
+      <TouchableOpacity style={s.card} onPress={() => setAiPromptOpen(true)} activeOpacity={0.8}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><View style={{ flex: 1 }}><Text style={s.eyebrow}>AI HANDOFF</Text><Text style={s.cardTitle}>A second look at your spending.</Text><Text style={s.reportSectionHint}>Generate a prompt for this report · choose a realistic 5–25% reduction scenario · copy or save.</Text></View><Ionicons name="document-text-outline" size={24} color={C.ink} /></View>
+      </TouchableOpacity>
+
       <View style={s.card}>
         <Text style={s.cardTitle}>Where the money went</Text>
         <Text style={s.reportSectionHint}>Tap a category to inspect its subcategories and charges.</Text>
@@ -2028,6 +2040,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       <RedCoinsBatchModal visible={batchOpen !== null} state={state} entries={state.entries.filter(entry => selectedSet.has(entry.id))} copiedCount={copiedEntries.length} pasteOnly={batchOpen === 'paste'} busy={batchBusy} close={() => { if (!batchLock.current) setBatchOpen(null); }} apply={reviewBatch} copy={() => { void copyBatchSelection(); }} paste={reviewPaste} />
       <LedgerTotalsModal visible={ledgerSummaryScope !== null} scope={ledgerSummaryScope === 'selected' ? 'Selected transactions' : 'Matching transactions'} summary={ledgerSummaryScope === 'selected' ? selectedLedgerSummary : filteredLedgerSummary} close={() => setLedgerSummaryScope(null)} />
       {reportPeriodModal}
+      {reportAnalysisScope && <RedCoinsAiPromptModal visible={aiPromptOpen} state={state} scope={reportAnalysisScope} close={() => setAiPromptOpen(false)} />}
       <Modal visible={reminderManagerOpen} animationType="slide" onRequestClose={() => setReminderManagerOpen(false)}>
         <SafeAreaView style={s.reminderScreen}>
           <View style={s.reminderHeader}>
@@ -2040,9 +2053,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
               {Platform.OS === 'android' && <TouchableOpacity onPress={() => { void BluecoinsDriveReader?.openRedCoinsAlarmSettingsAsync?.(); }}><Text style={s.reminderExplainerCopy}>{exactAlarmsAllowed ? 'Precise alarms enabled' : 'Precise alarms disabled — tap to enable. Notifications may be delayed; auto-log syncs on reopen.'}</Text></TouchableOpacity>}
               {Platform.OS === 'android' && <TouchableOpacity onPress={() => { void Linking.openSettings(); }}><Text style={s.reminderExplainerCopy}>{reminderNotificationsAllowed ? 'Notifications enabled' : 'Notifications disabled — tap to allow in app settings.'}</Text></TouchableOpacity>}
             </View>
-            {state.reminders.map((reminder) => {
-              const missing = missingReminderAccounts(reminder, state.accounts);
-              const nextDue = nextReminderOccurrence(reminder);
+            {reminderCards.map(({ reminder, missing, nextDue, projection, invalidAmount }) => {
               const frequency = `${reminder.repeatEvery > 1 ? `Every ${reminder.repeatEvery} ` : 'Every '}${reminder.frequency.replace('daily', 'day').replace('weekly', 'week').replace('monthly', 'month').replace('yearly', 'year')}`;
               return <View key={reminder.id} style={s.reminderFullCard}>
                 <View style={s.reminderRow}>
@@ -2050,7 +2061,14 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                   <View style={{ flex: 1 }}><Text style={s.reminderName}>{reminder.template.item}</Text><Text style={s.reminderMeta}>{frequency} · {reminder.automaticLog ? 'auto-log' : 'reminder only'}</Text><Text style={s.reminderMeta}>{money(reminder.template.amount)} · {reminder.template.account}</Text></View>
                   <View style={[s.reminderState, !reminder.enabled && s.reminderStatePaused]}><Text style={s.reminderStateText}>{reminder.enabled ? 'ACTIVE' : 'PAUSED'}</Text></View>
                 </View>
-                <View style={s.reminderDue}><Text style={s.reminderDueLabel}>NEXT DUE</Text><Text style={s.reminderDueValue}>{nextDue ? nextDue.toLocaleString('en-MY', { dateStyle: 'medium', timeStyle: 'short' }) : 'Series complete'}</Text></View>
+                <View style={s.reminderDue}><Text style={s.reminderDueLabel}>NEXT DUE</Text><Text style={s.reminderDueValue}>{nextDue ? nextDue.toLocaleString('en-MY', { dateStyle: 'medium', timeStyle: 'short' }) : reminder.enabled ? 'Series complete' : 'Paused'}</Text></View>
+                {projection && <View style={{ backgroundColor: C.cream, padding: 11, borderRadius: 13, marginBottom: 8 }}>
+                  <Text style={s.reminderDueLabel}>PROJECTED BALANCE AFTER DUE</Text>
+                  <Text style={[s.reminderName, { marginTop: 5, color: projection.source < 0 ? C.coral : C.ink }]}>{reminder.template.account} · {projection.source < 0 ? '− ' : ''}{money(projection.source)}</Text>
+                  {projection.destination !== null && <Text style={[s.reminderMeta, { color: projection.destination < 0 ? C.coral : '#168A65' }]}>{reminder.template.toAccount} · {projection.destination < 0 ? '− ' : ''}{money(projection.destination)}</Text>}
+                  <Text style={s.reminderMeta}>Assumes all active schedules happen, including earlier repeats and reminder-only entries; includes unapplied future ledger entries. Not your live balance.</Text>
+                </View>}
+                {invalidAmount && <Text style={[s.reminderMeta, { color: C.coral }]}>Fix the amount before a balance can be projected.</Text>}
                 {missing.length > 0 && <Text style={[s.reminderMeta, { color: C.coral }]}>Needs repair: missing {missing.join(', ')}. Auto-log is blocked until you edit the accounts.</Text>}
                 {(() => {
                   const last = state.entries.filter((entry) => entry.reminderSeriesId === reminder.id && entry.loggedAt).sort((a, b) => b.loggedAt!.localeCompare(a.loggedAt!))[0];
