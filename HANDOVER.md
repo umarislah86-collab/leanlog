@@ -2,7 +2,10 @@
 
 Updated: 6 October 2026 (Asia/Kuala_Lumpur).
 
-## Latest unreleased changes — AI report handoff (6 October)
+## Latest released changes — Reports & reminders v2.9.12 (6 October)
+
+- Published v2.9.12 ARM64-only, versionCode 17. Source commit `678f649d9751acc4f0ef32e12ad25ae421496e86`, EAS `1e8aaeff-db80-4c06-a6a2-7353fe694e85`. APK 42,848,687 bytes (40.86 MiB), SHA-256 `848b09f9e494bc28b4c5dd35c0465a8704356ee35619e3569135cc4e6a725372`. APK v2 signature verified, signer unchanged. 82 tests, TypeScript, Android Metro bundle and EAS native build passed. All changes below are included in this APK; older pending-build statements below are historical. Phone UI/copy/save validation is still pending.
+- Download: https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.12/leanlog-V2.9.12.apk
 
 - Reports now opens `RedCoinsAiPromptModal`: reduction scenario 5/10/15/20/25% (default 10), baseline 3/6 periods, selectable prompt preview, OS clipboard copy (`expo-clipboard`, SDK-compatible native dependency), and `.txt` Save-to-folder/Share via existing export delivery. No external AI/API calls. Next APK is required for the new native clipboard dependency; no build requested in this turn.
 - `services/redcoinsAiPrompt.ts` is a read-only live-ledger export with cent totals, complete ID-referenced selected/baseline/future data, explicit current-only account/plan snapshots, coverage warnings and non-forced reduction targets. Actual salary timestamps define prior completed cycles; custom ranges use fixed preceding calendar months without backfilling older history. Expense, liability-directed loan repayments and credit-card settlement transfers stay separate. Missing/deleted destinations are unclassified rather than guessed from names. Prompt treats data text as untrusted and prohibits double counting, invented history and forced cuts to commitments. 67 regression tests and TypeScript pass; copy, folder picker and layout await device validation.
@@ -38,11 +41,11 @@ User speaks casually in Malay/English. Match that tone, give concrete progress u
 - Existing checkout: `C:\Users\C5407836\CalorieTracker`. Use the actual clone path on the new PC, not this old absolute path.
 - Repository: https://github.com/umarislah86-collab/leanlog
 - Working branch: `github-release-v221` (historical name; still the current development/release branch).
-- Last released source commit: `abe3f4f0f3e756d85c69e4f0c3a8a52fea837e0b`.
-- Last release: `v2.9.11`, Android versionCode `16`.
-- APK: https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.11/leanlog-V2.9.11.apk
-- ARM64-only, 42,776,303 bytes / 40.80 MiB.
-- SHA-256: `3bbfa96c4774fdce863a84d49d359ddcf17d2bf545857aa2d5f6cd63025d4ee4`.
+- Last released source commit: `678f649d9751acc4f0ef32e12ad25ae421496e86`.
+- Last release: `v2.9.12`, Android versionCode `17`.
+- APK: https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.12/leanlog-V2.9.12.apk
+- ARM64-only, 42,848,687 bytes / 40.86 MiB.
+- SHA-256: `848b09f9e494bc28b4c5dd35c0465a8704356ee35619e3569135cc4e6a725372`.
 - EAS build: `a0daa4ec-bcfd-41d7-96ed-d205e4e45c2b`.
 - That build was submitted before the release commit, from a dirty tree containing the release changes. EAS metadata therefore says previous commit `13006a9`; this is not evidence that the APK omitted v2.9.9 changes.
 
