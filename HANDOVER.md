@@ -2,12 +2,14 @@
 
 Updated: 7 October 2026 (Asia/Kuala_Lumpur).
 
-## Release in progress — v2.9.15 (7 October)
+## Latest published release — v2.9.15 (7 October)
 
 - User explicitly approved period budgets and ARM64 build + GitHub commit/push/APK publication. Includes all unreleased changes below: status mapping, favorite accounts, widget alignment, What changed hierarchy/drilldown, manual bank review, JSON folder/automatic backup/restore and duplicate income warnings. This section supersedes earlier pending/unapproved statements below.
 - Plan → Budgets beyond one cycle: category or subcategory, positive total limit, calendar-month intervals 1–120 (presets 1/2/3/6/12) or inclusive custom date range, start date, repeat/once, optional cumulative net-unused carry-forward, informational monthly reserve. Custom repeat uses identical calendar-day length. Calendar boundaries anchor to original day, clamp at month end without drift. Future, non-expense, void and unrelated ledger entries excluded. No transaction creation, cash deduction, or salary-cycle pool allocation; actual paid expenses continue to count in their real salary cycle. Reserve is a suggested amount only, not actual savings tracking.
 - Period limits deliberately live separately from scalar salary-cycle subcategory budgets: never sum unlike ranges or charge a two-month limit every cycle. Category/subcategory renames migrate period targets; removed targets stay visible with repair warning. Overlapping limits are possible and UI warns they are independent, not additive. Period definitions included in validated JSON backups and retained by explicit Bluecoins imports.
-- Five pure range regressions added; 172 tests passed, TypeScript passed. Final Metro/prebuild/native/signing/release checks still in progress; phone validation remains pending.
+- Five pure range regressions added; 172 tests, TypeScript, Expo prebuild config, diff checks and Android Metro export (`output/v2915-check`, 1273 modules) passed. EAS `0a6c2aba-56a2-4664-9b03-cbcd95a17f56` FINISHED, exact source commit `be1d76b6f297cb3fde3321af6d5201b6c41f896f` pushed on `github-release-v221`. APK package/version verified: `com.calorietracker.app`, v2.9.15 / versionCode 20, ARM64-only, intact ZIP, valid APK v2 signature. Same signing certificate `62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c`.
+- Published APK: https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.15/leanlog-V2.9.15.apk — 42,999,235 bytes (41.01 MiB). SHA-256 `b1f7b119169ddb830312886e008df451193da2488a6842b5fed63658c52da0b0`. GitHub latest-release API returns v2.9.15 and exact filename; uploaded size/digest match local APK, public download HTTP 200. Request to build/commit/push is complete; do not start another build without user request.
+- Phone verification pending: upgrade without uninstall; backup before update; period boundaries/repeat/carry/reserve, income warning Cancel/Review/Save anyway, manual bank review/ticks, SAF folder grants/manual/auto/restore/recovery, favorite selection, widget geometry, analysis child drilldown and imported labels. Keep real-device verification separate from build/test success.
 
 ## Current work — duplicate income warning / multi-month budget discussion (unreleased)
 
