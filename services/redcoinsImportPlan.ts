@@ -84,8 +84,10 @@ export function prepareRedCoinsImport(original: RedCoinsState, incoming: Bluecoi
     const old = byId.get(row.id);
     if (old?.editedAt) { effect(newAccounts, row, -1, now); effect(newAccounts, old, 1, now); counts.protected++; continue; }
     if (old) {
-      if (JSON.stringify([old.type, old.item, old.amount, old.date, old.account, old.toAccount, old.category, old.subcategory, old.note, old.status]) !== JSON.stringify([row.type, row.item, row.amount, row.date, row.account, row.toAccount, row.category, row.subcategory, row.note, row.status])) {
-        effect(state, old, -1, now, eligible); effect(state, row, 1, now, eligible); byId.set(row.id, row); counts.updated++;
+      if (JSON.stringify([old.type, old.item, old.amount, old.date, old.account, old.toAccount, old.category, old.subcategory, old.note, old.status, old.sourceStatus, old.statusMappingVersion, old.legacyStatusUnknown]) !== JSON.stringify([row.type, row.item, row.amount, row.date, row.account, row.toAccount, row.category, row.subcategory, row.note, row.status, row.sourceStatus, row.statusMappingVersion, row.legacyStatusUnknown])) {
+        const financialChanged = JSON.stringify([old.type, old.amount, old.date, old.account, old.toAccount]) !== JSON.stringify([row.type, row.amount, row.date, row.account, row.toAccount]);
+        if (financialChanged) { effect(state, old, -1, now, eligible); effect(state, row, 1, now, eligible); }
+        byId.set(row.id, row); counts.updated++;
       }
     } else { effect(state, row, 1, now, eligible); byId.set(row.id, row); counts.added++; }
   }

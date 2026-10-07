@@ -9,6 +9,7 @@ function load(name, mocks = {}) {
   vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname, '../services', name + '.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText, { exports, Date, console, require: id => {
     if (id === './redcoinsAccountIdentity') return load('redcoinsAccountIdentity', mocks);
     if (id === './redcoinsSalaryFilter') return load('redcoinsSalaryFilter');
+    if (id === './redcoinsStatus') return load('redcoinsStatus');
     if (id === './redcoinsSummary') return load('redcoinsSummary', { './redcoinsGuards': load('redcoinsGuards') });
     if (id === './redcoinsImportPlan') return load('redcoinsImportPlan', mocks);
     if (id === './redcoinsEvents' && !(id in mocks)) return { emitRedCoinsChange: () => {} };
@@ -152,10 +153,66 @@ test('local account rename/icon/current balance survive source rename and transf
 
 function runtime() {
   const values = new Map();
-  const storage = { getItem: async key => values.get(key) || null, setItem: async (key, value) => values.set(key, value), getAllKeys: async () => [...values.keys()] };
+  const storage = { getItem: async key => values.get(key) || null, setItem: async (key, value) => values.set(key, value), multiSet: async pairs => { pairs.forEach(([key, value]) => values.set(key, value)); }, getAllKeys: async () => [...values.keys()] };
   const service = load('redcoins', { '@react-native-async-storage/async-storage': storage, 'expo-file-system/legacy': {}, 'expo-sharing': {}, './exportFile': {}, './redcoinsReminders': { materializeAutomaticReminders: () => [] }, './spendingGuards': { loadSpendingGuards: async () => [], syncPinnedGuardSnapshot: async () => {}, WIDGET_CASH_REALITY_KEY: 'cash' }, './redcoinsEvents': { emitRedCoinsChange: () => {} } });
   return { values, storage, service };
 }
+
+test('bank review progress survives durable saves and reopening without touching balances or statuses', async () => {
+  const { values, service } = runtime();
+  const saved = state([row('reviewed')], [account('1', 'Aeon', 1856.97)]);
+  saved.storageVersion = 2; saved.statusMappingVersion = 1;
+  saved.bankReviews = { '1': { startDay: '2026-10-01', endDay: '2026-10-07', bankBalance: '1856.97', matched: { reviewed: 'signature' }, savedAt: '2026-10-07T10:00:00Z' } };
+  await service.saveRedCoins(saved);
+  const next = await service.loadRedCoins();
+  assert.equal(JSON.stringify(next.bankReviews), JSON.stringify(saved.bankReviews));
+  assert.equal(next.accounts[0].balance, 1856.97); assert.equal(next.entries[0].status, 'cleared');
+  assert.equal(JSON.parse(values.get('redcoins_state_v1')).bankReviews['1'].bankBalance, '1856.97');
+});
+
+test('backup replacement serializes writes, rejects stale ledger/preferences and preserves authoritative money', async () => {
+  const { values, service } = runtime();
+  const original = state([row('old')]); original.storageVersion = 2; original.statusMappingVersion = 1;
+  await service.saveRedCoins(original);
+  const raw = values.get('redcoins_state_v1');
+  const restored = { ...original, entries: [], accounts: [account('1', 'Aeon', 1856.97)] };
+  values.set('finance-pref', 'changed');
+  await assert.rejects(service.replaceRedCoinsFromBackup(restored, raw, { 'finance-pref': 'backup' }, { 'finance-pref': 'old' }), /settings changed/);
+  assert.equal(values.get('redcoins_state_v1'), raw);
+  const edit = service.saveRedCoins({ ...original, monthlyBudget: 4000 });
+  const stale = service.replaceRedCoinsFromBackup(restored, raw, {}, {});
+  await edit; await assert.rejects(stale, /changed/);
+  assert.equal(JSON.parse(values.get('redcoins_state_v1')).monthlyBudget, 4000);
+  await service.replaceRedCoinsFromBackup(restored, values.get('redcoins_state_v1'), { 'finance-pref': 'backup' }, { 'finance-pref': 'changed' });
+  assert.equal((await service.loadRedCoins()).accounts[0].balance, 1856.97);
+  assert.equal((await service.loadRedCoins()).entries.length, 0); assert.equal(values.get('finance-pref'), 'backup');
+});
+
+test('status repair persists once with exact checkpoint, no FYDB reads and no balance replay', async () => {
+  const { values, service } = runtime();
+  const saved = state([row('old-pending', { status: 'pending' }), row('user-edited', { status: 'pending', editedAt: '2026-10-07' }), row('own-pending', { origin: 'redcoins', status: 'pending' })], [account('1', 'Aeon', 1856.97)]);
+  saved.storageVersion = 2;
+  const bytes = JSON.stringify(saved); values.set('redcoins_state_v1', bytes);
+  const first = await service.loadRedCoins();
+  assert.equal(first.entries[0].status, 'none'); assert.equal(first.entries[0].legacyStatusUnknown, true);
+  assert.equal(first.entries[1].status, 'pending'); assert.equal(first.entries[2].status, 'pending');
+  assert.equal(values.get('redcoins_pre_status_mapping_v1'), bytes);
+  assert.equal(JSON.parse(values.get('redcoins_state_v1')).statusMappingVersion, 1);
+  for (let i = 0; i < 20; i++) assert.equal((await service.loadRedCoins()).accounts[0].balance, 1856.97);
+  assert.equal(values.get('redcoins_pre_status_mapping_v1'), bytes);
+});
+
+test('explicit import recovers raw review metadata even when None label is unchanged, without replaying money', () => {
+  const saved = state([row('old', { status: 'none', legacyStatusUnknown: true, statusMappingVersion: 1 })], [account('1', 'Aeon', 1856.97)]);
+  const incoming = summary([row('old', { status: 'none', sourceStatus: 0, statusMappingVersion: 1 })]);
+  const result = prepare(saved, incoming, now);
+  assert.equal(result.state.entries[0].sourceStatus, 0);
+  assert.equal(result.state.entries[0].legacyStatusUnknown, undefined);
+  assert.equal(result.state.accounts[0].balance, 1856.97);
+  incoming.redcoins.entries[0].sourceStatus = 2; incoming.redcoins.entries[0].status = 'reconciled';
+  const next = prepare(result.state, incoming, now);
+  assert.equal(next.state.entries[0].status, 'reconciled'); assert.equal(next.state.accounts[0].balance, 1856.97);
+});
 
 test('opening empty RedCoins does not permanently initialize an empty cash selection', async () => {
   const { values, service } = runtime();

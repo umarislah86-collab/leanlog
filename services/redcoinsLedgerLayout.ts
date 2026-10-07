@@ -25,7 +25,7 @@ export function buildLedgerLayout(entries: RedCoinsEntry[], fontScale = 1) {
     cells.push({ kind: 'day', key: `day:${date}`, date, title: new Date(`${date}T12:00:00`).toLocaleDateString('en-MY', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase(), total: rows.reduce((cents, row) => cents + (row.type === 'expense' ? -1 : row.type === 'income' ? 1 : 0) * Math.round(row.amount * 100), 0) / 100, offset, length });
     offset += length;
     for (const entry of rows) {
-      const length = Math.ceil((entry.type === 'transfer' || entry.status === 'pending' || entry.status === 'reconciled' ? 64 : 54) * scale);
+      const length = Math.ceil((entry.type === 'transfer' || entry.status === 'pending' || entry.status === 'reconciled' || entry.status === 'void' ? 64 : 54) * scale);
       cells.push({ kind: 'entry', key: `entry:${entry.id}`, entry, offset, length }); offset += length;
     }
   }

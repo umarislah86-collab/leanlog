@@ -5,6 +5,7 @@ import * as SQLite from 'expo-sqlite';
 import type { SpendingGuardResult } from './spendingGuards';
 import type { RedCoinsState } from './redcoins';
 import { buildRedCoinsSummary } from './redcoinsSummary';
+import { bluecoinsReviewStatus } from './redcoinsStatus';
 
 const FOLDER_KEY = 'bluecoins_folder_uri_v1';
 const CACHE_NAME = 'bluecoins-dashboard-cache.fydb';
@@ -96,7 +97,7 @@ export interface BluecoinsSummary {
   redcoins: {
     accounts: { name: string; sourceAccountId?: string; type: 'Bank' | 'Cash' | 'Credit card' | 'Liability' | 'Investment'; balance: number; limit: number }[];
     categories: { name: string; subcategories: string[]; subcategoryTypes?: Record<string, Array<'income' | 'expense'>> }[];
-    entries: { id: string; type: 'expense' | 'income' | 'transfer'; item: string; amount: number; date: string; account: string; toAccount?: string; sourceAccountId?: string; sourceToAccountId?: string; category: string; subcategory: string; note: string; status: 'cleared' | 'pending' | 'reconciled'; origin: 'bluecoins' }[];
+    entries: { id: string; type: 'expense' | 'income' | 'transfer'; item: string; amount: number; date: string; account: string; toAccount?: string; sourceAccountId?: string; sourceToAccountId?: string; category: string; subcategory: string; note: string; status: 'none' | 'cleared' | 'pending' | 'reconciled' | 'void'; sourceStatus?: number; statusMappingVersion?: 1; origin: 'bluecoins' }[];
   };
 }
 
@@ -214,7 +215,7 @@ export async function readBluecoinsImport(folderUri?: string | null): Promise<Bl
               COALESCE(pair.accountName, '') AS toAccount, t.accountPairID AS sourceToAccountId,
               COALESCE(pc.parentCategoryName, cc.childCategoryName, 'Uncategorised') AS category,
               COALESCE(cc.childCategoryName, pc.parentCategoryName, 'Uncategorised') AS subcategory,
-              COALESCE(t.notes, '') AS note, COALESCE(t.status, 1) AS status
+              COALESCE(t.notes, '') AS note, COALESCE(t.status, 0) AS status
        FROM TRANSACTIONSTABLE t
        LEFT JOIN ITEMTABLE i ON i.itemTableID = t.itemID
        LEFT JOIN ACCOUNTSTABLE a ON a.accountsTableID = t.accountID
@@ -269,7 +270,9 @@ export async function readBluecoinsImport(folderUri?: string | null): Promise<Bl
         category: row.transactionType === 5 ? '(Transfer)' : row.category,
         subcategory: row.transactionType === 5 ? '(Transfer)' : row.subcategory,
         note: row.note,
-        status: row.status === 1 ? 'cleared' as const : 'pending' as const,
+        status: bluecoinsReviewStatus(row.status),
+        sourceStatus: row.status,
+        statusMappingVersion: 1 as const,
         origin: 'bluecoins' as const,
       })),
     };

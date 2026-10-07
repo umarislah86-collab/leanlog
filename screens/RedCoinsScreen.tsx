@@ -14,7 +14,10 @@ import type { TransactionDetection } from 'bluecoins-drive-reader';
 import { setBluecoinsFixedCommitments, setBluecoinsMonthlyBudget, setBluecoinsPayday, setCashRealityAccounts, setCashRealitySafetyBuffer, type BluecoinsSummary } from '../services/bluecoins';
 import { applyEntryBalance, confirmRedCoinsExport, createRedCoinsDeletion, exportRedCoinsBackup, exportRedCoinsCsv, getRedCoinsSummary, loadRedCoins, saveRedCoins, type RedCoinsAccountType, type RedCoinsEntry, type RedCoinsReminder, type RedCoinsReminderEndType, type RedCoinsState, type RedCoinsType, type RedCoinsWeekendMove } from '../services/redcoins';
 import { aggregateCycleSpending } from '../services/redcoinsBudget';
+import { RedCoinsTermBudgets } from '../components/RedCoinsTermBudgets';
+import { favoriteAccountsForHome } from '../services/redcoinsFavorites';
 import { loggerCategories, loggerSuggestions } from '../services/redcoinsLogger';
+import { findIncomeDuplicates, incomeMonth, validIncomePeriod } from '../services/redcoinsIncomeDuplicate';
 import { filterLedgerEntries, summarizeLedgerEntries } from '../services/redcoinsLedgerSummary';
 import { SALARY_FILTER_SOURCE_KEY, salaryFilterSources, visibleSalarySources, preferredSalarySource, salaryFilterCycle, salaryCycleOffset, ledgerMonthPeriod, type SalaryFilterSource } from '../services/redcoinsSalaryFilter';
 import { applyRedCoinsBatch, copyRedCoinsEntries, pasteRedCoinsEntries, readRedCoinsClipboard, type BatchAction } from '../services/redcoinsBatch';
@@ -22,6 +25,7 @@ import { RedCoinsBatchModal } from '../components/RedCoinsBatchModal';
 import { RedCoinsLedgerList } from '../components/RedCoinsLedgerList';
 import { RedCoinsAiPromptModal } from '../components/RedCoinsAiPromptModal';
 import { RedCoinsAnalysis } from '../components/RedCoinsAnalysis';
+import { RedCoinsBankReviewModal } from '../components/RedCoinsBankReviewModal';
 import { migrateAccountPreferences } from '../services/redcoinsAccountIdentity';
 import { subscribeRedCoinsChanges } from '../services/redcoinsEvents';
 import { advanceReminderDate, materializeAutomaticReminders, missingReminderAccounts, nextReminderOccurrence, pendingReminderOccurrence, logReminderOccurrenceNow, requestReminderAccess, syncReminderNotifications } from '../services/redcoinsReminders';
@@ -104,6 +108,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const [editingSubName, setEditingSubName] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
+  const [favoritesOpen, setFavoritesOpen] = useState(false);
+  const [bankReviewAccountId, setBankReviewAccountId] = useState<string | null>(null);
   const [ledgerSummaryScope, setLedgerSummaryScope] = useState<'filtered' | 'selected' | null>(null);
   const [filterTypes, setFilterTypes] = useState<RedCoinsType[]>([]);
   const [filterAccounts, setFilterAccounts] = useState<string[]>([]);
@@ -134,6 +140,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const [item, setItem] = useState('');
   const [amount, setAmount] = useState('');
   const [type, setType] = useState<RedCoinsType>('expense');
+  const [incomePeriod, setIncomePeriod] = useState('');
+  const entrySaveLock = useRef(false);
   const [account, setAccount] = useState('');
   const [toAccount, setToAccount] = useState('');
   const [category, setCategory] = useState('');
@@ -427,6 +435,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setItem('');
     setAmount('');
     setType(initialType);
+    setIncomePeriod('');
     setAccount(defaults?.account || recent?.account || state.accounts.find((a) => a.type === 'Credit card')?.name || state.accounts[0]?.name || '');
     setToAccount(defaults?.toAccount || recent?.toAccount || '');
     const chosen = available.find((group) => group.name === (defaults?.category || recent?.category)) || available[0];
@@ -457,6 +466,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   }, [item, state?.entries, type]);
   const applyEntryType = (nextType: RedCoinsType) => {
     setType(nextType);
+    setIncomePeriod('');
     const defaults = state?.entryDefaults?.[nextType];
     const recent = state?.entries.find((entry) => entry.type === nextType);
     if (defaults?.account || recent?.account) setAccount(defaults?.account || recent!.account);
@@ -475,7 +485,10 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setCategory(entry.category);
     setSubcategory(entry.subcategory);
   };
-  const editEntry = (entry: RedCoinsEntry) => {
+  const editEntry = (selectedEntry: RedCoinsEntry) => {
+    // SQLite rows contain ledger-display fields; newer metadata is authoritative
+    // in the saved state and must survive opening an entry from the ledger.
+    const entry = state?.entries.find(row => row.id === selectedEntry.id) || selectedEntry;
     setSchedulingOnly(false);
     setEditingReminderId(null);
     setReviewingDetectionId(null);
@@ -483,6 +496,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setItem(entry.item);
     setAmount(String(entry.amount));
     setType(entry.type);
+    setIncomePeriod(entry.incomePeriod || '');
     setAccount(entry.account);
     setToAccount(entry.toAccount || '');
     setEntryDate(new Date(entry.date));
@@ -512,6 +526,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setItem(template.item);
     setAmount(String(template.amount));
     setType(template.type);
+    setIncomePeriod('');
     setAccount(template.account);
     setToAccount(template.toAccount || '');
     setEntryDate(new Date(reminder.startDate));
@@ -531,11 +546,27 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setAdvanced(true);
     setEntryOpen(true);
   };
-  const saveEntry = async () => {
+  const saveEntryInternal = async () => {
+    let state = await loadRedCoins();
     if (!state || !item.trim() || !Number(amount) || !account || (type === 'transfer' && !toAccount)) return Alert.alert('Incomplete entry', 'Add item, amount and account first.');
+    if (!schedulingOnly && type === 'income' && incomePeriod.trim() && !validIncomePeriod(incomePeriod.trim())) return Alert.alert('Invalid income month', 'Use YYYY-MM, for example 2026-09, or leave it blank to use the transaction month.');
     if (schedulingOnly && (!repeat || repeat === 'none' || repeat === 'installment')) return Alert.alert('Choose a schedule', 'Select daily, weekly, monthly or yearly.');
     if (repeat && repeat !== 'none' && reminderEndType === 'date' && (!reminderEndDate || Number.isNaN(new Date(`${reminderEndDate}T23:59:59`).getTime()))) return Alert.alert('Invalid end date', 'Use YYYY-MM-DD for the recurring end date.');
     if (repeat === 'installment' && (Number(installments) || 0) < 2) return Alert.alert('Invalid instalments', 'Use at least 2 instalments.');
+    if (!schedulingOnly && type === 'income') {
+      const duplicateDraft = { id: editingEntryId || '', type, item: item.trim(), account, category, subcategory, date: entryDate.toISOString(), amount: Number(amount), incomePeriod: incomePeriod.trim() || undefined };
+      const duplicates = findIncomeDuplicates(state.entries, duplicateDraft);
+      if (duplicates.length) {
+        const decision = await new Promise<'cancel' | 'review' | 'save'>(resolve => Alert.alert('Possible duplicate income', `${duplicates.length} matching income ${duplicates.length === 1 ? 'entry' : 'entries'} already exist for ${account}.\n\n${duplicates.slice(0, 4).map(entry => `${entry.item} · ${money(entry.amount)} · ${new Date(entry.date).toLocaleDateString('en-MY')} · month ${entry.incomePeriod || incomeMonth(entry.date)}`).join('\n')}\n\nCheck the month/date first. This may be a genuine additional payment; nothing is deleted or merged.`, [
+          { text: 'Cancel', style: 'cancel', onPress: () => resolve('cancel') },
+          { text: 'Review latest', onPress: () => resolve('review') },
+          { text: 'Save anyway', onPress: () => resolve('save') },
+        ], { cancelable: true, onDismiss: () => resolve('cancel') }));
+        if (decision === 'cancel') return;
+        state = await loadRedCoins();
+        if (decision === 'review') { const existing = state.entries.find(entry => entry.id === duplicates[0].id); if (existing) editEntry(existing); else Alert.alert('Entry changed', 'The matching transaction was removed. Please check the ledger.'); return; }
+      }
+    }
     if (schedulingOnly) {
       const existing = editingReminderId ? state.reminders.find((reminder) => reminder.id === editingReminderId) : undefined;
       const reminderId = existing?.id || `series-${Date.now()}`;
@@ -613,7 +644,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       reminderSeriesId,
       reminderOccurrenceKey: original?.reminderOccurrenceKey,
       autoGenerated: original?.autoGenerated,
-      loggedAt: original?.loggedAt,
+      loggedAt: original?.loggedAt || new Date().toISOString(),
+      incomePeriod: type === 'income' ? incomePeriod.trim() || undefined : undefined,
       origin: original?.origin || 'redcoins',
       exportedAt: original?.exportedAt,
       editedAt: original?.origin === 'bluecoins' ? new Date().toISOString() : original?.editedAt,
@@ -685,6 +717,13 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         .then(() => setLedgerRevision((value) => value + 1))
         .catch((error) => console.warn('RedCoins ledger upsert failed', error));
     if (hasReminder || editingSeriesTemplate) void syncScheduleAccess(next.reminders).catch(console.warn);
+  };
+  const saveEntry = async () => {
+    if (entrySaveLock.current) return;
+    entrySaveLock.current = true;
+    try { await saveEntryInternal(); }
+    catch (error) { Alert.alert('Could not save entry', error instanceof Error ? error.message : String(error)); }
+    finally { entrySaveLock.current = false; }
   };
   const deleteEditingEntry = () => {
     if (!state || !editingEntryId) return;
@@ -1061,6 +1100,19 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     navigateSection('activity');
   };
 
+  const openAnalysisSubcategoryLedger = (category: string, subcategory: string, window: { start: number; endExclusive: number; actualThrough: number }) => {
+    Keyboard.dismiss();
+    setSearch(''); setSelectedIds([]);
+    setFilterTypes(['expense']); setFilterAccounts([]);
+    setFilterCategories([category]); setFilterSubcategories([subcategory]);
+    setFilterDateMode('range');
+    // Exact timestamps below are authoritative; avoid rounded day filters.
+    setFilterStartDay(''); setFilterEndDay('');
+    setFilterDateLabel(`What changed · ${category} / ${subcategory || 'No subcategory'}`);
+    setReportLedgerWindow(window);
+    navigateSection('activity');
+  };
+
   const finance = useMemo(() => {
     if (!state) return null;
     const now = new Date();
@@ -1192,7 +1244,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       color: palette[index],
       percent: spent ? (value / spent) * 100 : 0,
     }));
-    const favoriteAccounts = state.accounts.filter((account) => ['Bank', 'Cash', 'Credit card'].includes(account.type)).slice(0, 6);
+    const favoriteAccounts = favoriteAccountsForHome(state);
     return (
       <>
         <View style={s.dashboardIntro}>
@@ -1313,12 +1365,18 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           )}
         </View>
         <View style={s.dashCard}>
-          <TouchableOpacity style={s.dashHeadRow} onPress={() => toggleCard('favorites')}>
-            <Text style={s.dashHead}>Favorite Accounts</Text>
-            <Ionicons name={collapsedCards.includes('favorites') ? 'chevron-forward' : 'chevron-down'} size={16} color={C.ink} />
-          </TouchableOpacity>
+          <View style={s.dashHeadRow}>
+            <TouchableOpacity onPress={() => toggleCard('favorites')} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={s.dashHead}>Favorite Accounts</Text>
+              <Ionicons name={collapsedCards.includes('favorites') ? 'chevron-forward' : 'chevron-down'} size={16} color={C.ink} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setFavoritesOpen(true)} accessibilityLabel="Choose favorite accounts" style={{ padding: 10 }}>
+              <Text style={s.balanceSheetText}>EDIT</Text>
+            </TouchableOpacity>
+          </View>
           {!collapsedCards.includes('favorites') && (
             <>
+              {!favoriteAccounts.length && <Text style={s.reportSectionHint}>No favorite accounts. Tap Edit to choose what appears here.</Text>}
               {favoriteAccounts.map((account) => (
                 <TouchableOpacity key={account.id} style={s.favoriteRow} onPress={() => openDashboardFilter('account', account.name)}>
                   <Text style={s.favoriteName}>{account.name}</Text>
@@ -1524,6 +1582,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                   <Text style={s.accountListMeta}>{a.type} · tap to view ledger</Text>
                 </View>
                 <Text style={[s.accountListBalance, a.balance < 0 && { color: C.coral }]}>{a.balance < 0 ? '− ' : ''}{money(a.balance)}</Text>
+                <TouchableOpacity style={[s.accountEdit, { alignItems: 'center' }]} accessibilityLabel={`Semak ${a.name} dengan bank`} onPress={() => setBankReviewAccountId(a.id)} hitSlop={8}><Ionicons name="checkmark-done-outline" size={19} color="#168A65" /><Text style={{ fontSize: 7, fontWeight: '800', color: '#168A65' }}>SEMAK</Text></TouchableOpacity>
                 <TouchableOpacity style={s.accountEdit} onPress={() => {
                   setEditingAccountId(a.id);
                   setDraftName(a.name);
@@ -1603,7 +1662,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           <TouchableOpacity style={s.exportSecondary} onPress={() => runExport('all')}>
             <Text style={s.exportSecondaryText}>EXPORT ALL REDCOINS ENTRIES</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={s.exportSecondary} onPress={() => exportRedCoinsBackup(state)}>
+          <TouchableOpacity style={s.exportSecondary} onPress={() => { void exportRedCoinsBackup(state).catch(error => Alert.alert('Backup failed', error instanceof Error ? error.message : String(error))); }}>
             <Text style={s.exportSecondaryText}>BACKUP REDCOINS</Text>
           </TouchableOpacity>
         </View>
@@ -1722,6 +1781,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         <Field label="SAFETY BUFFER" value={safetyBufferDraft} onChange={setSafetyBufferDraft} numeric />
         <TouchableOpacity style={s.planInlineSave} onPress={async () => { const value = Math.max(0, Number(safetyBufferDraft) || 0); await setCashRealitySafetyBuffer(value); await persist({ ...state, safetyBuffer: value }, true); }}><Text style={s.planInlineSaveText}>SAVE SAFETY BUFFER</Text></TouchableOpacity>
       </View>
+      <RedCoinsTermBudgets state={state} categories={budgetCategories} save={async termBudgets => { const current = await loadRedCoins(); await persist({ ...current, termBudgets }); }} />
       <Title eyebrow="BUDGET BY SUBCATEGORY" title="Build the cycle from below." />
       {budgetCategories.map((group) => {
         const groupBudget = categoryBudget(group.name);
@@ -1966,7 +2026,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         <View style={s.reportFact}><Text style={s.reportFactLabel}>SCHEDULED</Text><Text style={s.reportFactValue}>{report.scheduledRows.length}</Text></View>
       </View>
 
-      {reportAnalysisScope && <RedCoinsAnalysis state={state} scope={reportAnalysisScope} classify={async (key, value) => { const current = await loadRedCoins(); await persist({ ...current, analysisExpenseClasses: { ...current.analysisExpenseClasses, [key]: value } }); }} inspect={editEntry} />}
+      {reportAnalysisScope && <RedCoinsAnalysis state={state} scope={reportAnalysisScope} classify={async (key, value) => { const current = await loadRedCoins(); await persist({ ...current, analysisExpenseClasses: { ...current.analysisExpenseClasses, [key]: value } }); }} inspect={editEntry} openSubcategory={openAnalysisSubcategoryLedger} />}
       <TouchableOpacity style={s.card} onPress={() => setAiPromptOpen(true)} activeOpacity={0.8}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><View style={{ flex: 1 }}><Text style={s.eyebrow}>AI HANDOFF</Text><Text style={s.cardTitle}>A second look at your spending.</Text><Text style={s.reportSectionHint}>Generate a prompt for this report · choose a realistic 5–25% reduction scenario · copy or save.</Text></View><Ionicons name="document-text-outline" size={24} color={C.ink} /></View>
       </TouchableOpacity>
@@ -2046,6 +2106,17 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         </ScrollView>
       )}
       {filterModal}
+      <RedCoinsBankReviewModal account={state.accounts.find(account => account.id === bankReviewAccountId) || null} state={state} close={() => setBankReviewAccountId(null)} save={async (accountId, review) => {
+        const current = await loadRedCoins();
+        if (!current.accounts.some(account => account.id === accountId)) throw new Error('Account no longer exists');
+        await persist({ ...current, bankReviews: { ...current.bankReviews, [accountId]: review } });
+      }} />
+      <FavoriteAccountsModal visible={favoritesOpen} state={state} close={() => setFavoritesOpen(false)} save={async (ids) => {
+        // Read latest durable state so changing card preferences cannot overwrite a transaction.
+        const current = await loadRedCoins();
+        await persist({ ...current, favoriteAccountIds: ids });
+        setFavoritesOpen(false);
+      }} />
       <RedCoinsBatchModal visible={batchOpen !== null} state={state} entries={state.entries.filter(entry => selectedSet.has(entry.id))} copiedCount={copiedEntries.length} pasteOnly={batchOpen === 'paste'} busy={batchBusy} close={() => { if (!batchLock.current) setBatchOpen(null); }} apply={reviewBatch} copy={() => { void copyBatchSelection(); }} paste={reviewPaste} />
       <LedgerTotalsModal visible={ledgerSummaryScope !== null} scope={ledgerSummaryScope === 'selected' ? 'Selected transactions' : 'Matching transactions'} summary={ledgerSummaryScope === 'selected' ? selectedLedgerSummary : filteredLedgerSummary} close={() => setLedgerSummaryScope(null)} />
       {reportPeriodModal}
@@ -2131,6 +2202,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           amount,
           setAmount,
           type,
+          incomePeriod,
+          setIncomePeriod,
           setType,
           applyEntryType,
           account,
@@ -2241,6 +2314,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
               const budgets: Record<string, number> = {};
               Object.entries(next.subcategoryBudgets).forEach(([key, value]) => { const [cat, sub] = key.split('\u0000'); budgets[budgetKey(cat === oldName ? existing.name : cat, sub)] = value; });
               next.subcategoryBudgets = budgets;
+              next.termBudgets = (next.termBudgets || []).map(b => b.category === oldName ? { ...b, category: existing.name } : b);
             } else {
               next.categories.push({
                 id: `${Date.now()}`,
@@ -2269,6 +2343,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
               }
               const oldKey = budgetKey(parent.name, editingSubName); const newKey = budgetKey(parent.name, draftSub.trim());
               if (next.subcategoryBudgets[oldKey] != null) { next.subcategoryBudgets[newKey] = next.subcategoryBudgets[oldKey]; delete next.subcategoryBudgets[oldKey]; }
+              next.termBudgets = (next.termBudgets || []).map(b => b.category === parent.name && b.subcategory === editingSubName ? { ...b, subcategory: draftSub.trim() } : b);
               const icons = { ...(parent.subcategoryIcons || {}) }; delete icons[editingSubName]; icons[draftSub.trim()] = draftIcon; parent.subcategoryIcons = icons;
             } else if (!parent.subcategories.includes(draftSub.trim())) {
               parent.subcategories.push(draftSub.trim()); parent.subcategoryIcons = { ...(parent.subcategoryIcons || {}), [draftSub.trim()]: draftIcon };
@@ -2459,6 +2534,7 @@ const EntryRow = memo(function EntryRow({ entry, icon, accountBalance, onLong, o
         </Text>
         {entry.status === 'reconciled' && <Text style={[s.entryMeta, { color: '#168A65' }]}>RECONCILED</Text>}
         {entry.status === 'pending' && <Text style={s.entryMeta}>PENDING</Text>}
+        {entry.status === 'void' && <Text style={s.entryMeta}>VOID · SOURCE STATUS</Text>}
       </View>
       <View style={s.entryRight}>
         <Text style={[s.entryAmount, { color }]} numberOfLines={1}>
@@ -2499,6 +2575,43 @@ const LedgerSearch = memo(function LedgerSearch({ value, onChange }: { value: st
   };
   return <TextInput value={draft} onChangeText={update} placeholder="Search item, category, account…" placeholderTextColor={C.muted} autoCorrect={false} autoCapitalize="none" returnKeyType="search" style={[s.search, { flex: 1 }]} />;
 });
+
+function FavoriteAccountsModal({ visible, state, close, save }: { visible: boolean; state: RedCoinsState; close: () => void; save: (ids: string[]) => Promise<void> }) {
+  const [ids, setIds] = useState<string[]>([]);
+  const [search, setSearch] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (visible) { setIds(favoriteAccountsForHome(state).map(account => account.id)); setSearch(''); }
+  }, [visible]);
+  const selected = new Set(ids);
+  const accounts = state.accounts.filter(account => `${account.name} ${account.type}`.toLowerCase().includes(search.trim().toLowerCase()));
+  const finish = async () => {
+    setBusy(true);
+    try { await save(ids.filter(id => state.accounts.some(account => account.id === id))); }
+    catch { Alert.alert('Could not save favorites', 'Your selection has not been saved. Please try again.'); }
+    finally { setBusy(false); }
+  };
+  return <Modal visible={visible} transparent animationType="fade" onRequestClose={() => { if (!busy) close(); }}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <Pressable style={[s.sheetShade, { justifyContent: 'center' }]} onPress={() => { if (!busy) close(); }}><Pressable style={[s.selectionSheet, { borderRadius: 28 }]} onPress={() => {}}>
+      <View style={s.sheetGrab} />
+      <View style={s.filterTitleRow}><Text style={s.sheetTitle}>Favorite accounts</Text><TouchableOpacity disabled={busy} onPress={close} accessibilityLabel="Close favorite accounts"><Ionicons name="close" size={23} color={C.ink} /></TouchableOpacity></View>
+      <Text style={s.reportSectionHint}>Choose accounts for RedCoins Home. This does not change spendable cash or budgets.</Text>
+      <TextInput value={search} onChangeText={setSearch} placeholder="Search accounts…" placeholderTextColor={C.muted} style={s.favoriteSearch} autoCorrect={false} />
+      <View style={s.filterTitleRow}><Text style={s.reportSectionHint}>{ids.length} selected</Text><TouchableOpacity disabled={busy} onPress={() => setIds([])}><Text style={s.balanceSheetText}>CLEAR ALL</Text></TouchableOpacity></View>
+      <ScrollView style={{ maxHeight: 330 }} keyboardShouldPersistTaps="handled">
+        {accounts.map(account => <TouchableOpacity key={account.id} disabled={busy} accessibilityRole="checkbox" accessibilityState={{ checked: selected.has(account.id) }} style={s.favoriteChoice} onPress={() => setIds(current => current.includes(account.id) ? current.filter(id => id !== account.id) : [...current, account.id])}>
+          <Ionicons name={selected.has(account.id) ? 'checkmark-circle' : 'ellipse-outline'} size={23} color={selected.has(account.id) ? C.ink : C.muted} />
+          <View style={{ flex: 1 }}><Text style={s.reportName}>{account.name}</Text><Text style={s.reportSectionHint}>{account.type}</Text></View>
+          <Text style={[s.favoriteBalance, account.balance < 0 && { color: C.coral }]}>{money(account.balance)}</Text>
+        </TouchableOpacity>)}
+        {!accounts.length && <Text style={s.reportSectionHint}>No matching accounts.</Text>}
+      </ScrollView>
+      <TouchableOpacity disabled={busy} style={s.balanceSheetButton} onPress={() => { Keyboard.dismiss(); void finish(); }}><Text style={s.balanceSheetText}>{busy ? 'SAVING…' : 'SAVE FAVORITES'}</Text></TouchableOpacity>
+    </Pressable></Pressable>
+    </KeyboardAvoidingView>
+  </Modal>;
+}
 
 function LedgerTotalsModal({ visible, scope, summary, close }: { visible: boolean; scope: string; summary: ReturnType<typeof summarizeLedgerEntries>; close: () => void }) {
   return <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
@@ -2909,6 +3022,10 @@ function EntryModal(p: any) {
             <TextInput ref={amountRef} style={s.amountBare} value={p.amount} onChangeText={p.setAmount} keyboardType="decimal-pad" returnKeyType="done" onSubmitEditing={p.saveEntry} placeholder="0.00" placeholderTextColor="#AAA393" />
             <Text style={s.currency}>MYR</Text>
           </View>
+          {p.type === 'income' && !p.schedulingOnly && <View style={{ marginBottom: 14 }}>
+            <Field label="UNTUK BULAN · YYYY-MM (OPTIONAL)" value={p.incomePeriod} onChange={p.setIncomePeriod} />
+            <Text style={s.reportSectionHint}>Blank uses {incomeMonth(p.entryDate)} for duplicate checks. For late EPF logging, use its contribution month. This label never changes the actual transaction date or salary-cycle totals.</Text>
+          </View>}
           {p.type !== 'transfer' && <PickerRow icon={ICON_LIBRARY.includes(cats.find((c) => c.name === p.category)?.icon || '') ? cats.find((c) => c.name === p.category)!.icon : 'grid-outline'} label="CATEGORY" value={p.subcategory || p.category || 'Choose category'} onPress={() => openPicker('category')} />}
           <PickerRow icon="wallet-outline" label={p.type === 'transfer' ? 'FROM ACCOUNT' : 'ACCOUNT'} value={p.account || 'Choose account'} onPress={() => openPicker('account')} />
           {p.type === 'transfer' && <PickerRow icon="arrow-forward-circle-outline" label="TRANSFER TO" value={p.toAccount || 'Choose destination'} onPress={() => openPicker('destination')} />}
@@ -4208,6 +4325,8 @@ const s = StyleSheet.create({
     borderBottomColor: '#E7DECE',
   },
   favoriteName: { color: C.ink, fontSize: 11, fontWeight: '800' },
+  favoriteSearch: { borderWidth: 1, borderColor: '#DDD8CB', borderRadius: 14, padding: 14, color: C.ink, marginVertical: 12 },
+  favoriteChoice: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E9E4D8' },
   favoriteBalance: { color: '#168A65', fontSize: 11, fontWeight: '900' },
   favoriteTotal: {
     color: '#168A65',

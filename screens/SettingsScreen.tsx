@@ -28,6 +28,7 @@ import { requestPinWidget } from 'react-native-android-widget';
 import { refreshLeanLogWidget } from '../services/widget';
 import { getNagDays, getNagTimes, isNagModeEnabled, setNagDays, setNagModeEnabled, setNagTimes } from '../services/nagging';
 import LeanLogChronicle from '../components/LeanLogChronicle';
+import { RedCoinsBackupSettings } from '../components/RedCoinsBackupSettings';
 import { chooseBluecoinsFolder, getBluecoinsSourceMetadata } from '../services/bluecoins';
 import { stageRedCoinsImport, commitRedCoinsImport } from '../services/redcoinsImport';
 import { ensureBluecoinsBackgroundSync } from '../services/bluecoinsBackground';
@@ -579,6 +580,8 @@ export default function SettingsScreen() {
         {/* Account */}
         <Text style={styles.sectionLabel}>Bluecoins import</Text>
         <BluecoinsImportSettings />
+        <Text style={styles.sectionLabel}>RedCoins backup & restore</Text>
+        <RedCoinsBackupSettings />
         <Text style={styles.sectionLabel}>{t('account')}</Text>
         <View style={styles.card}>
           <View style={styles.accountRow}>

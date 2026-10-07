@@ -19,6 +19,7 @@ import OnboardingScreen from './screens/OnboardingScreen';
 import PaywallScreen from './screens/PaywallScreen';
 import { colors } from './theme';
 import { ensureNagSchedule, markFastingDay, markLazyDay, snoozeNagging } from './services/nagging';
+import { startRedCoinsAutoBackup } from './services/redcoinsBackupFiles';
 
 let Notifications: any = null;
 try {
@@ -176,6 +177,7 @@ function MainTabs() {
 }
 
 export default function App() {
+  useEffect(() => startRedCoinsAutoBackup(), []);
   const navigationRef = useNavigationContainerRef<any>();
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [authReady, setAuthReady] = useState(false);

@@ -73,7 +73,7 @@ const UPSERT = `INSERT OR REPLACE INTO redcoins_entries
 const fingerprint = (entries: RedCoinsEntry[]) => {
   let hash = 2166136261;
   entries.forEach((entry) => {
-    const token = `${entry.id}|${entry.date}|${entry.editedAt || ''}|${entry.exportedAt || ''}`;
+    const token = `${entry.id}|${entry.date}|${entry.editedAt || ''}|${entry.exportedAt || ''}|${entry.status || ''}`;
     for (let index = 0; index < token.length; index += 1) hash = Math.imul(hash ^ token.charCodeAt(index), 16777619);
   });
   return `${LEDGER_INDEX_VERSION}:${entries.length}:${hash >>> 0}`;

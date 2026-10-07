@@ -66,6 +66,16 @@ export function reconcileAccountIdentity(original: RedCoinsState, incoming: Impo
   state.deletedEntries = (state.deletedEntries || []).map(entry => ({ ...entry, account: rename(entry.account)! }));
   state.reminders = state.reminders.map(reminder => ({ ...reminder, template: { ...reminder.template, account: rename(reminder.template.account)!, toAccount: rename(reminder.template.toAccount) } }));
   state.entryDefaults = Object.fromEntries(Object.entries(state.entryDefaults || {}).map(([type, defaults]) => [type, { ...defaults, account: rename(defaults?.account), toAccount: rename(defaults?.toAccount) }]));
+  if (state.favoriteAccountIds !== undefined) state.favoriteAccountIds = [...new Set(state.favoriteAccountIds.map(id => redirects[id] || id))].filter(id => state.accounts.some(account => account.id === id));
+  if (state.bankReviews) {
+    const reviews: NonNullable<RedCoinsState['bankReviews']> = {};
+    for (const [id, review] of Object.entries(state.bankReviews)) {
+      const target = redirects[id] || id;
+      if (!state.accounts.some(account => account.id === target)) continue;
+      if (!reviews[target] || review.savedAt > reviews[target].savedAt) reviews[target] = review;
+    }
+    state.bankReviews = reviews;
+  }
   return { state, aliases, redirects };
 }
 

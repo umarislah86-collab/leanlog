@@ -63,3 +63,30 @@ test('actual widget tree builder accepts default guards and empty, odd, full acc
     else assert.match(tree, /Choose accounts/);
   }
 });
+
+test('snapshot columns have identical zero-base weights, fixed heights and gutters despite unequal labels', () => {
+  const collect = (element, result = []) => {
+    if (Array.isArray(element)) element.forEach(child => collect(child, result));
+    else if (element?.props) { result.push(element); collect(element.props.children, result); }
+    return result;
+  };
+  for (const bottomMode of ['accounts', 'guards']) {
+    for (const count of [1, 2, 3, 4]) {
+      const names = ['A', 'VERY LONG ACCOUNT NAME', 'AEON', 'CIMB PLATINUM'];
+      const props = { ...base, bottomMode,
+        accounts: names.slice(0, count).map((name, i) => ({ name, type: 'Bank', balance: i ? -961 : 115.68 })),
+        guards: names.slice(0, count).map((name, i) => ({ id: `${i}`, name, percent: i * 10, spent: 123, limit: 400 })),
+      };
+      const rows = collect(LeanLogWidget(props)).filter(e => String(e.key || '').startsWith(`${bottomMode === 'accounts' ? 'account' : 'guard'}-row-`));
+      assert.equal(rows.length, Math.ceil(count / 2));
+      rows.forEach(row => {
+        const cells = collect(row.props.children).filter(e => e.props.style?.width === 0 && e.props.style?.height === 32);
+        assert.equal(cells.length, 2, 'odd rows must keep an equal-width empty slot');
+        cells.forEach(cell => assert.equal(cell.props.style.flex, 1));
+        assert.equal(cells[0].props.style.marginRight, 3);
+        assert.equal(cells[1].props.style.marginRight || 0, 0);
+      });
+      assert.doesNotThrow(() => buildWidgetTree(LeanLogWidget(props)));
+    }
+  }
+});

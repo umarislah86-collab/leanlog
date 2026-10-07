@@ -8,7 +8,7 @@ import type { RedCoinsEntry, RedCoinsState } from '../services/redcoins';
 
 const money = (value: number) => `RM ${value.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 type ExpenseClass = 'protected' | 'flexible' | 'unconfirmed';
-export function RedCoinsAnalysis({ state, scope, classify, inspect }: { state: RedCoinsState; scope: AiPromptScope; classify: (key: string, value: ExpenseClass) => Promise<void>; inspect: (entry: RedCoinsEntry) => void }) {
+export function RedCoinsAnalysis({ state, scope, classify, inspect, openSubcategory }: { state: RedCoinsState; scope: AiPromptScope; classify: (key: string, value: ExpenseClass) => Promise<void>; inspect: (entry: RedCoinsEntry) => void; openSubcategory: (category: string, subcategory: string, window: { start: number; endExclusive: number; actualThrough: number }) => void }) {
   const [lookback, setLookback] = useState<3 | 6>(3);
   const [target, setTarget] = useState(10);
   const [cuts, setCuts] = useState<Record<string, number>>({});
@@ -25,10 +25,6 @@ export function RedCoinsAnalysis({ state, scope, classify, inspect }: { state: R
     setCuts(current => Object.keys(current).some(key => !flexible.has(key)) ? Object.fromEntries(Object.entries(current).filter(([key]) => flexible.has(key))) : current);
   }, [analysis.groups]);
   const simulation = useMemo(() => simulateRedCoinsCuts(analysis, target, cuts), [analysis, target, cuts]);
-  const selectedRows = (ids: string[]) => {
-    const wanted = new Set(ids);
-    return state.entries.filter(row => wanted.has(row.id)).sort((a, b) => b.date.localeCompare(a.date));
-  };
   const charges = (rows: RedCoinsEntry[]) => rows.map(row => <TouchableOpacity key={row.id} style={s.charge} onPress={() => inspect(row)}><View style={{ flex: 1 }}><Text style={s.name}>{row.item}</Text><Text style={s.hint}>{new Date(row.date).toLocaleDateString('en-MY')} · {row.account}</Text></View><Text style={s.amount}>{money(row.amount)}</Text></TouchableOpacity>);
   const header = (key: string, title: string, hint: string) => <TouchableOpacity style={s.section} onPress={() => { setOpen(value => value === key ? null : key); setDetail(null); }}><View style={{ flex: 1 }}><Text style={s.sectionTitle}>{title}</Text><Text style={s.hint}>{hint}</Text></View><Ionicons name={open === key ? 'chevron-up' : 'chevron-down'} size={17} color="#7C8290" /></TouchableOpacity>;
   const saveClass = async (key: string, value: ExpenseClass) => {
@@ -48,11 +44,12 @@ export function RedCoinsAnalysis({ state, scope, classify, inspect }: { state: R
     <View style={s.pulse}><Text style={s.sectionTitle}>Cycle pulse</Text>{analysis.pulse.rate ? <><Text style={s.pulseValue}>{money(analysis.pulse.rate.current)} / day</Text><Text style={s.hint}>Baseline {money(analysis.pulse.rate.baseline)} / day{analysis.pulse.deltaPercent !== null ? ` · ${analysis.pulse.deltaPercent >= 0 ? '+' : ''}${analysis.pulse.deltaPercent.toFixed(0)}%` : ' · no non-zero baseline'}</Text></> : <Text style={s.hint}>Not enough completed history for a fair comparison.</Text>}<Text style={s.hint}>{analysis.pulse.method}{analysis.pulse.matchedDays !== null ? ` · first ${analysis.pulse.matchedDays.toFixed(1)} days` : ''}. Expense only; loans remain separate above.</Text><Text style={s.hint}>{analysis.baselinePeriods}/{lookback} available periods. Missing records can affect the result.</Text></View>
     {header('changes', 'What changed', 'Category shifts · comparable daily rates')}
     {open === 'changes' && <View style={s.details}>{analysis.changes.map(change => <View key={change.category}>
-      <TouchableOpacity style={s.row} onPress={() => setDetail(value => value === change.category ? null : change.category)}><View style={{ flex: 1 }}><Text style={s.name}>{change.category}</Text><Text style={s.hint}>Now {money(change.currentDaily)}/day · before {money(change.baselineDaily)}/day</Text></View><Text style={[s.amount, { color: change.deltaDaily > 0 ? '#C14335' : '#168A65' }]}>{change.deltaDaily >= 0 ? '+' : '−'}{money(Math.abs(change.deltaDaily))}/day</Text></TouchableOpacity>
-      {detail === change.category && <>
-        {analysis.subcategoryChanges.filter(part => part.category === change.category).map(part => <View key={part.subcategory} style={s.row}><View style={{ flex: 1 }}><Text style={s.name}>{part.subcategory}</Text><Text style={s.hint}>Now {money(part.currentDaily)}/day · before {money(part.baselineDaily)}/day</Text></View><Text style={s.amount}>{part.deltaDaily >= 0 ? '+' : '−'}{money(Math.abs(part.deltaDaily))}/day</Text></View>)}
-        <Text style={s.hint}>Transactions in the compared span, not necessarily the entire report.</Text>{charges(selectedRows(change.transactionIds))}
-      </>}
+      <TouchableOpacity style={s.row} accessibilityRole="button" accessibilityState={{ expanded: detail === change.category }} onPress={() => setDetail(value => value === change.category ? null : change.category)}><View style={{ flex: 1 }}><Text style={s.categoryName}>{change.category}</Text><Text style={s.hint}>Now {money(change.currentDaily)}/day · before {money(change.baselineDaily)}/day</Text></View><Text style={[s.amount, { color: change.deltaDaily > 0 ? '#C14335' : '#168A65' }]}>{change.deltaDaily >= 0 ? '+' : '−'}{money(Math.abs(change.deltaDaily))}/day</Text><Ionicons name={detail === change.category ? 'chevron-up' : 'chevron-down'} size={16} color="#7C8290" /></TouchableOpacity>
+      {detail === change.category && <View style={s.subcategoryGroup}>
+        <Text style={s.subcategoryLabel}>SUBCATEGORIES · TAP TO VIEW LEDGER</Text>
+        {analysis.subcategoryChanges.filter(part => part.category === change.category).map(part => <TouchableOpacity key={part.subcategory} style={s.subcategoryRow} accessibilityRole="button" accessibilityLabel={`Show ${change.category}, ${part.subcategory || 'No subcategory'} transactions in ledger`} onPress={() => openSubcategory(change.category, part.subcategory, analysis.comparisonWindow)}><View style={{ flex: 1 }}><Text style={s.subcategoryName}>{part.subcategory || 'No subcategory'}</Text><Text style={s.subcategoryHint}>Now {money(part.currentDaily)}/day · before {money(part.baselineDaily)}/day</Text><Text style={s.subcategoryHint}>{part.transactionIds.length} current entries</Text></View><Text style={[s.subcategoryAmount, { color: part.deltaDaily > 0 ? '#C14335' : '#168A65' }]}>{part.deltaDaily >= 0 ? '+' : '−'}{money(Math.abs(part.deltaDaily))}/day</Text><Ionicons name="chevron-forward" size={14} color="#7C8290" /></TouchableOpacity>)}
+        <Text style={s.subcategoryHint}>Ledger opens current entries in the compared span, not baseline history or necessarily the entire report.</Text>
+      </View>}
     </View>)}{!analysis.changes.length && <Text style={s.hint}>No comparable category history yet.</Text>}</View>}
     {header('repeated', 'Repeated charges', `${analysis.repeatedCharges.length} repeated titles · not assumed subscriptions`)}
     {open === 'repeated' && <View style={s.details}>{analysis.repeatedCharges.map(group => {
@@ -84,6 +81,13 @@ const s = StyleSheet.create({
   details: { padding: 11, backgroundColor: '#FFF9EA', borderRadius: 15, marginBottom: 12 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E7E1D5' },
   name: { color: '#111A2A', fontSize: 12, fontWeight: '800' },
+  categoryName: { color: '#111A2A', fontSize: 14, fontWeight: '800' },
+  subcategoryGroup: { marginLeft: 12, paddingLeft: 12, borderLeftWidth: 2, borderLeftColor: '#DED6C6', marginBottom: 12 },
+  subcategoryLabel: { color: '#8A8272', fontSize: 8, fontWeight: '700', letterSpacing: 0.6, marginTop: 10 },
+  subcategoryRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 52, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#E7E1D5' },
+  subcategoryName: { color: '#485260', fontSize: 11, fontWeight: '600' },
+  subcategoryHint: { color: '#7C8290', fontSize: 9, lineHeight: 14, marginTop: 3 },
+  subcategoryAmount: { fontSize: 10, fontWeight: '600' },
   amount: { color: '#111A2A', fontSize: 11, fontWeight: '800' },
   charge: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#E7E1D5' },
   classRow: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E7E1D5' },

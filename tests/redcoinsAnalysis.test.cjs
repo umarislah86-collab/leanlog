@@ -43,6 +43,27 @@ test('cycle pulse compares the same first elapsed span and excludes later baseli
   assert.equal(result.subcategoryChanges[0].transactionIds[0], 'now');
   assert.equal(result.metrics.expense, 100);
 });
+
+test('subcategory drilldown shows exactly current comparison IDs, not namesakes, income or future rows', () => {
+  const { filterLedgerEntries } = load('redcoinsLedgerSummary');
+  const salary = ['2026-08-01', '2026-09-01', '2026-10-01'].map((date, i) => row(`s${i}`, date, 3000, { type: 'income', item: 'Salary' }));
+  const fixture = state([...salary, row('baseline', '2026-09-02', 10), row('current', '2026-10-02', 20), row('same-name', '2026-10-02', 30, { category: 'Other' }), row('income', '2026-10-02', 100, { type: 'income' }), row('future', '2026-10-08', 999)]);
+  const result = analyse(fixture, { ...scope, mode: 'salary-cycle', salarySource: { label: 'Salary', entries: salary } }, 3, now);
+  const part = result.subcategoryChanges.find(p => p.category === 'Food' && p.subcategory === 'Dining');
+  const matching = filterLedgerEntries(fixture.entries, { search: '', types: ['expense'], accounts: [], categories: [part.category], subcategories: [part.subcategory], startDay: '', endDay: '', reportWindow: result.comparisonWindow });
+  assert.equal(JSON.stringify(matching.map(r => r.id).sort()), JSON.stringify([...part.transactionIds].sort()));
+  assert.equal(matching.length, 1);
+});
+
+test('custom report empty subcategory drilldown preserves the exact report window and actual cutoff', () => {
+  const { filterLedgerEntries } = load('redcoinsLedgerSummary');
+  const fixture = state([row('history-start', '2026-01-01', 0), row('old', '2026-09-02', 10, { subcategory: '' }), row('current', '2026-10-02', 20, { subcategory: '' }), row('named', '2026-10-02', 30), row('future', '2026-10-08', 40, { subcategory: '' })]);
+  const result = analyse(fixture, scope, 3, now);
+  const part = result.subcategoryChanges.find(p => p.category === 'Food' && p.subcategory === '');
+  const matching = filterLedgerEntries(fixture.entries, { search: '', types: ['expense'], accounts: [], categories: [part.category], subcategories: [''], startDay: '', endDay: '', reportWindow: result.comparisonWindow });
+  assert.equal(matching.length, 1); assert.equal(matching[0].id, 'current');
+  assert.equal(result.comparisonWindow.endExclusive, scope.endExclusive.getTime());
+});
 test('custom multi-month pulse compares daily rates, not a multi-month total against one month', () => {
   const fixture = state([row('first', '2026-01-01', 0), row('july', '2026-07-02', 31), row('aug', '2026-08-02', 31), row('sep', '2026-09-02', 30), row('oct', '2026-10-02', 31), row('nov', '2026-11-02', 30)]);
   const report = analyse(fixture, { ...scope, endExclusive: new Date('2026-12-01') }, 3, new Date('2026-12-02'));

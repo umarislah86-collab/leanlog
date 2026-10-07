@@ -10,6 +10,7 @@ function load(name, mocks = {}) {
   const exports = {};
   vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname, '../services', `${name}.ts`), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText, { exports, Date, console, require: id => {
     if (id === './redcoinsSalaryFilter') return load('redcoinsSalaryFilter');
+    if (id === './redcoinsStatus') return load('redcoinsStatus');
     if (id === './redcoinsSummary') return load('redcoinsSummary', { './redcoinsGuards': load('redcoinsGuards') });
     if (id === './redcoinsImportPlan') return load('redcoinsImportPlan', mocks);
     if (id === './redcoinsAccountIdentity') return identity;

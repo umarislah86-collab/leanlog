@@ -24,6 +24,10 @@ export function LeanLogWidget({ eaten, burned, meals, goal, steps, guards, botto
   const guardRows = Array.from({ length: Math.ceil(visibleGuards.length / 2) }, (_, index) => visibleGuards.slice(index * 2, index * 2 + 2));
   const visibleAccounts = accounts.slice(0, 4);
   const accountRows = Array.from({ length: Math.ceil(visibleAccounts.length / 2) }, (_, index) => visibleAccounts.slice(index * 2, index * 2 + 2));
+  // Android LinearLayout weights distribute leftover space after measuring
+  // wrap_content. Start both columns at zero so label lengths cannot shift
+  // the divider independently in each row.
+  const snapshotCell = { width: 0, flex: 1, height: 32, flexDirection: 'column' as const, justifyContent: 'center' as const, borderRadius: 9, paddingHorizontal: 7, paddingVertical: 4 };
   return (
     <FlexWidget
       clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://home' }}
@@ -57,20 +61,20 @@ export function LeanLogWidget({ eaten, burned, meals, goal, steps, guards, botto
       </FlexWidget>}
       <FlexWidget style={{ width: 'match_parent', flexDirection: 'column', marginTop: 5 }}>
         {bottomMode === 'accounts' ? (accountRows.length ? accountRows.map((row, rowIndex) => <FlexWidget key={`account-row-${rowIndex}`} style={{ width: 'match_parent', flexDirection: 'row', marginBottom: 3 }}>
-          {row.map((account, columnIndex) => <FlexWidget key={account.name} clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://redcoins?section=accounts' }} style={{ flex: 1, flexDirection: 'column', backgroundColor: account.balance < 0 ? '#FFD8CF' : rowIndex === 0 && columnIndex === 0 ? '#D8EFE4' : '#E9E3D7', borderRadius: 9, paddingHorizontal: 7, paddingVertical: 4, marginRight: columnIndex === 0 && row.length > 1 ? 3 : 0 }}>
+          {row.map((account, columnIndex) => <FlexWidget key={account.name} clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://redcoins?section=accounts' }} style={{ ...snapshotCell, backgroundColor: account.balance < 0 ? '#FFD8CF' : rowIndex === 0 && columnIndex === 0 ? '#D8EFE4' : '#E9E3D7', marginRight: columnIndex === 0 ? 3 : 0 }}>
             <TextWidget text={account.name.toUpperCase()} maxLines={1} style={{ color: '#172033', fontSize: 7, fontWeight: '700' }} />
             <TextWidget text={`${account.balance < 0 ? '−' : ''}RM ${Math.abs(account.balance).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} maxLines={1} style={{ color: account.balance < 0 ? '#B33421' : '#315F50', fontSize: 8, fontWeight: '700', marginTop: 2 }} />
           </FlexWidget>)}
-          {row.length === 1 && <FlexWidget style={{ flex: 1, marginLeft: 3 }} />}
+          {row.length === 1 && <FlexWidget style={{ width: 0, flex: 1, height: 32 }} />}
         </FlexWidget>) : <TextWidget text="Choose accounts in widget settings" maxLines={1} style={{ color: '#172033', fontSize: 8, fontWeight: '700' }} />) : guardRows.length ? guardRows.map((row, rowIndex) => <FlexWidget key={`guard-row-${rowIndex}`} style={{ width: 'match_parent', flexDirection: 'row', marginBottom: 3 }}>
-          {row.map((guard, columnIndex) => <FlexWidget key={guard.id} style={{ flex: 1, flexDirection: 'column', backgroundColor: guard.percent >= 100 ? '#FFD8CF' : rowIndex === 0 && columnIndex === 0 ? '#D8EFE4' : '#E9E3D7', borderRadius: 9, paddingHorizontal: 7, paddingVertical: 4, marginRight: columnIndex === 0 && row.length > 1 ? 3 : 0 }}>
+          {row.map((guard, columnIndex) => <FlexWidget key={guard.id} style={{ ...snapshotCell, backgroundColor: guard.percent >= 100 ? '#FFD8CF' : rowIndex === 0 && columnIndex === 0 ? '#D8EFE4' : '#E9E3D7', marginRight: columnIndex === 0 ? 3 : 0 }}>
             <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <FlexWidget style={{ flex: 1 }}><TextWidget text={guard.name.toUpperCase()} maxLines={1} style={{ color: '#172033', fontSize: 7, fontWeight: '700' }} /></FlexWidget>
               <TextWidget text={`${guard.percent.toFixed(0)}%`} style={{ color: guard.percent >= 100 ? '#B33421' : '#315F50', fontSize: 8, fontWeight: '700', marginLeft: 4 }} />
             </FlexWidget>
             <TextWidget text={`RM ${guard.spent.toFixed(0)} / ${guard.limit.toFixed(0)}`} maxLines={1} style={{ color: '#6D685F', fontSize: 6, fontWeight: '700', marginTop: 2 }} />
           </FlexWidget>)}
-          {row.length === 1 && <FlexWidget style={{ flex: 1, marginLeft: 3 }} />}
+          {row.length === 1 && <FlexWidget style={{ width: 0, flex: 1, height: 32 }} />}
         </FlexWidget>) : <TextWidget text="No spending guards yet" maxLines={1} style={{ color: '#172033', fontSize: 8, fontWeight: '700' }} />}
       </FlexWidget>
       <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', marginTop: 3 }}>

@@ -57,6 +57,7 @@ export function analyseRedCoins(state: RedCoinsState, scope: AiPromptScope, look
   const loanIds = new Set(data.transactions.filter(row => row.classification === 'loan-repayment-transfer').map(row => row.id));
   return {
     metrics: data.selected.metrics, warnings: data.warnings, baselinePeriods: windows.length, lookback,
+    comparisonWindow: { start: scope.start.getTime(), endExclusive: salaryMatched ? scope.start.getTime() + matchedDuration : scope.endExclusive.getTime(), actualThrough: now.getTime() },
     pulse: { rate, matchedDays: salaryMatched ? matchedDuration / DAY : null, deltaPercent: rate && rate.baseline > 0 ? (rate.current / rate.baseline - 1) * 100 : null, method: salaryMatched ? 'Expense/day over the same elapsed span at the start of each cycle' : 'Expense/day over the selected actual interval versus preceding completed calendar months' },
     changes, subcategoryChanges, repeatedCharges, groups,
     classificationTotals: { protected: classTotal('protected') + data.selected.metrics.loanRepayments, flexible: classTotal('flexible'), unconfirmed: classTotal('unconfirmed') },
