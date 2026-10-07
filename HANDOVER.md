@@ -2,13 +2,14 @@
 
 Updated: 7 October 2026 (Asia/Kuala_Lumpur).
 
-## Release in progress — v2.9.14 (7 October)
+## Latest published release — v2.9.14 (7 October)
 
-- User requested ARM64 build, source commit/push and GitHub APK release. Includes all cumulative unreleased sections below: authoritative local RedCoins state/import preview, ledger scroll stability, compact salary filter, direct period navigation, report metric drilldown, exact salary timestamps and early LOG NOW. These sections describe implementation history; their older no-build statements are superseded by this request.
-- Expo version bumped to 2.9.14; Android versionCode remains remotely managed. Existing package and signing key must be retained. Build/release IDs, hashes and publication verification will be recorded after completion. Native phone validation remains pending.
-- Release source committed/pushed: `992b14e8ec67fd8837e7d08e694a250e09fdccee`. 133 tests, TypeScript, Expo prebuild config, diff checks and final Metro export (`output/release-2.9.14`) passed. EAS ARM64 build `ab578a9a-414e-438e-be1e-dbea0757504a`, versionCode 19, submitted from that exact clean commit; currently queued. GitHub draft tag `v2.9.14` exists with notes, targeting that commit, but has no APK and is NOT published/latest. Do not submit a duplicate build; resume checking this ID, download the finished official APK, verify and publish the existing draft. Existing v2.9.13 remains latest meanwhile.
+- Published ARM64 v2.9.14 / versionCode 19, source commit `992b14e8ec67fd8837e7d08e694a250e09fdccee`; EAS `ab578a9a-414e-438e-be1e-dbea0757504a` FINISHED. All cumulative work below is included: authoritative local RedCoins state/import preview, ledger scroll stability, compact salary filter, direct period navigation, report metric drilldown, exact salary timestamps and early LOG NOW. Older no-build/pending statements below are historical, superseded by this publication.
+- 133 tests, TypeScript, Expo prebuild config, diff checks, final Metro export (`output/release-2.9.14`) and EAS native build passed. Manifest package `com.calorietracker.app`, version/code, ARM64-only libraries, ZIP integrity and APK v2 signing verified. Signer unchanged: `62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c`.
+- APK: https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.14/leanlog-V2.9.14.apk — 42,856,899 bytes / 40.87 MiB. SHA-256 `ba076faaf02ff65b47e9f05ae4c2a9fd3780922e239cbd854da482ef64cad7ca`. GitHub asset size/digest matches local file, public download HTTP 200, latest-release API returns v2.9.14 with the exact APK filename; Semak Update/automatic checks therefore resolve the new APK.
+- Native phone validation remains pending: backup before upgrade, repeated cold opens preserve balances; deep ledger scroll/refresh; import preview cancel/confirm/repeat; salary/loan timestamps around payday; early LOG NOW plus original due without duplicate; notifications and current recurring projections. Do not equate native compilation/signing with device behavior.
 
-## Current work — exact salary timestamps and early Log now (unreleased)
+## Included in v2.9.14 — exact salary timestamps and early Log now
 
 - User explicitly wants the actual salary entry timestamp, NOT midnight on its calendar date: salary at 18:00 starts the new cycle at 18:00 inclusive; a loan logged before it remains in the old cycle. No dates/amounts are rewritten or repayments redistributed artificially. `salaryAnchorTimes`, `salaryFilterCycle`, `activeSalaryCycle` in `services/redcoinsSalaryFilter.ts` share half-open windows; multiple salary credits on the same day use the first timestamp. Future salary entries cannot roll the cycle before their timestamp. Without a recorded Salary/Gaji/Upah source, configured payday is the explicit legacy fallback.
 - Authoritative summary, Plan actuals, salary-based guards, Activity salary filters, Reports and AI historical baselines use these timestamps. Main summary chooses the saved report salary source when it is a Salary source, otherwise the most frequent Salary source. Report source identity now includes category/subcategory/title, migrates old title-only preferences on lookup and excludes future anchors. Explicit alternate-income reports remain possible. Expected payday estimates forecasts only; an existing salary cycle does not roll just because the calendar reaches that day. Plan explains the actual start timestamp and labels payday as expected.
@@ -16,27 +17,27 @@ Updated: 7 October 2026 (Asia/Kuala_Lumpur).
 - `scheduledFor` retains original due time; `consumedOccurrenceKeys` consumes that original slot without changing startDate, monthly anchor or finite repeat count. Generation, notifications and projections skip consumed slots. Deleting an early transaction does not regenerate the consumed occurrence. Last log label distinguishes manual vs automatic. Existing reminders without these optional fields retain their behavior.
 - Nine added regressions cover exact 18:00 boundaries, no calendar/future rollover, shared summary/guard totals, both reminder modes, single occurrence completion, transfers, stale/invalid validation and weekend-shifted slots. Combined suite: 133 tests passed; TypeScript and final Android Metro export passed (`output/salary-time-log-now-check`). APK build, commit/push and phone verification are still pending; not requested this turn.
 
-## Current work — report metric ledger drilldown (unreleased)
+## Included in v2.9.14 — report metric ledger drilldown
 
 - Income and Expense Stat cards plus Transfers fact are now tappable, marked with a small drilldown arrow, and open Activity with the corresponding transaction type and exact report window. Net retained stays read-only. Old search/account/category/subcategory filters and manual selections are cleared so the displayed metric is not accidentally narrowed by a previous ledger context. RedCoins tab history returns to Reports with its period preserved.
 - `reportLedgerWindow` tracks start timestamp, exclusive end and the report's actual-through timestamp; `filterLedgerEntries` enforces these bounds in addition to ordinary filters. Necessary because salary credits can occur midday and custom report windows can contain separately shown scheduled transactions. Report card metrics exclude scheduled rows, so drilldown must also exclude them. Header indicates Report window / actual entries.
 - Search and category/type refinements retain exact report bounds. Intentional date-mode/date changes, direct period navigation and dashboard filters clear the report window; Clear All restores ordinary full ledger. Two tests cover exact timestamps/future exclusion/metric totals and the actual screen drilldown handler clearing stale filters. Combined suite 124 passes; TypeScript and Android Metro export passed. APK/device validation still pending; no build/push requested.
 
-## Current work — direct ledger period navigation (unreleased)
+## Included in v2.9.14 — direct ledger period navigation
 
 - User approved an Activity bar below search with previous/next arrows and a center label. Center opens Salary cycle / Calendar month / All dates (three Android-native alert choices; back/outside cancels). Search/type/account/category/subcategory filters stay intact; period changes clear manual selections and intentionally reset ledger scroll via changed date filter key.
 - Calendar month is now an explicit date-filter mode, with inclusive full-month boundaries and year/leap-year-safe navigation. Single/custom range modes show their label but disable quick arrows until a navigable mode is selected. Month can navigate to future months to inspect dated entries. The filter modal recognizes Month and lets users choose any date within it.
 - Cycle arrows use the selected source and actual salary dates, clamp/disable at newest/oldest real cycles, and preserve source identity through modal Apply. Remembered source hydrates on mount without overwriting a newer user selection; cycle/month calculations live in `services/redcoinsSalaryFilter.ts`.
 - Four additional regressions cover calendar/year/leap boundaries, current-month defaults, cycle offsets and the actual screen navigation handler retaining unrelated filters. Combined suite 122 passes; TypeScript and Android Metro export passed. Device bar/arrow/filter testing pending. No APK/build/push requested yet.
 
-## Current work — compact transaction salary filter (unreleased)
+## Included in v2.9.14 — compact transaction salary filter
 
 - User approved replacing the full income-anchor listing inside Activity filters with one collapsed Salary source dropdown. Implemented in `LedgerFilterModal` in `screens/RedCoinsScreen.tsx`; Reports' separate period selector is unchanged.
 - Searchable, bounded-height results; default shows Salary/Gaji/Upah subcategories only. Explicit Show other income expands to other active income sources. Keyboard-aware filter sheet and tap-through search results; back/outside-close and immediate Clear All behavior retained. Main cycle controls show selected source, month, exact date range and previous/next buttons.
 - `services/redcoinsSalaryFilter.ts` derives identity from normalized category/subcategory/title, not a transaction ID/date/amount. Same title in different income subcategories remains distinct. Persisted last selected source: `redcoins_filter_salary_source_v1`; deleted/missing preference falls back to a Salary source, never arbitrary income. No Salary found prompts explicit choice of another income source. Future/non-income/invalid-dated rows excluded from anchors; same-day salary credits share a single boundary.
 - Six regression tests added: compact default vs 300 other incomes, source identity persistence, fallback/explicit other-income preference, future exclusion, real-payday periods, same-day duplicates and navigation bounds. Combined suite 118 passes; TypeScript and Android Metro export passed; no new APK/build/push requested. Phone keyboard/dropdown/navigation validation pending.
 
-## Current work — ledger scroll stability (unreleased, 7 October)
+## Included in v2.9.14 — ledger scroll stability
 
 - User reports v2.9.13 Activity scroll jumping backwards from July/August to September/October. Do not attribute it conclusively to FYDB without a phone reproduction. User approved a scrolling implementation change; no APK/build/push requested in this turn.
 - Replaced the growing 120-entry SectionList prefix with `components/RedCoinsLedgerList.tsx`: a complete, bounded-render-window FlatList, stable `entry:<id>` / `day:<date>` keys, sticky date headers and explicit per-cell geometry via `services/redcoinsLedgerLayout.ts`. Removed presentation pagination/effect-mirrored ledger arrays and Android child clipping. Does not mount every transaction view; visible-window virtualization remains enabled. Day totals now cover the complete matching day rather than a partial loaded batch.
@@ -44,7 +45,7 @@ Updated: 7 October 2026 (Asia/Kuala_Lumpur).
 - Five new tests use 5,000 transactions spanning several years and exercise exact offsets, keys, sticky indices, refresh/deep-position preservation, insertion/deletion anchors, cent totals, font scale and actual component wiring with a mocked hook/FlatList runtime. Combined suite: 112 passing tests; TypeScript and Android Metro export passed. On-phone validation pending. Tests are not a native Android gesture test, and this is not a byte-for-byte copy of Bluecoins' proprietary native implementation.
 - Device acceptance after next ARM64 build: slow drag and fast fling October -> July -> 2025 and back, no snap backwards/blank clipped rows; refresh while deep; scheduled/new entry while deep; title/filter/clear reset intentionally; selection icons, transfers, sticky dates and large font setting. Native phone validation is still pending.
 
-## Current work — RedCoins-authoritative architecture (unreleased)
+## Included in v2.9.14 — RedCoins-authoritative architecture
 
 - User approved the complete import architecture change. Implemented locally; NOT in v2.9.13 and no new APK/build/push requested yet. User reports manually corrected Pot aeon now stays at RM1,856; do not infer another correction or remove historic adjustments.
 - Normal startup, Home, RedCoins, guards and finance widgets now read `redcoins_state_v1` through `loadRedCoins()` / `getRedCoinsSummary()`. No cached FYDB reconciliation on open. `services/redcoinsSummary.ts` derives local summaries, cycle spending, selected cash, card debt, forecasts and unpaid loan reserves. Actual loan repayments count once as spending; card settlement/internal transfers do not.
@@ -55,7 +56,7 @@ Updated: 7 October 2026 (Asia/Kuala_Lumpur).
 - Read-only actual JSON audit: 12 accounts, 3,839 entries, 50 ordinary loads/projections preserved every account balance and adjustment with zero FYDB reads. Parser audit of `daily_backup_2026-10-01.fydb`: 3 read-only SQLite queries, 12 accounts, 3,823 ledger entries, 13 categories; original file hash unchanged. That older FYDB was NOT imported into user data. These audits are not a phone performance measurement.
 - Next device checks after the next ARM64 build: repeated cold launches preserve Pot aeon; offline opening; account/cycle/buffer/guard edits reflect across Home/Plan/widgets; explicit import preview cancel/confirm/repeat; future transactions/reminders apply once; renamed/deleted account references and all report/export flows. Historical auto-sync/cached-replay descriptions below are superseded by this section.
 
-## Latest published release — v2.9.13 (6 October)
+## Previous release — v2.9.13 (6 October)
 
 - Published ARM64 APK v2.9.13 / versionCode 18. Source commit `5098cd6b1d0cc7927e43bbe029f84cc6daa3f9e3`; EAS `01d81985-d151-478f-aef2-46ec0b13a259` FINISHED. 42,849,967 bytes (40.86 MiB). Manifest/version/package, ARM64-only libraries, ZIP integrity and APK v2 signing verified; signer unchanged (`62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c`). 86 tests, TypeScript, Android Metro and EAS native build passed. Phone testing remains pending.
 - APK: https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.13/leanlog-V2.9.13.apk
@@ -106,12 +107,12 @@ User speaks casually in Malay/English. Match that tone, give concrete progress u
 - Existing checkout: `C:\Users\C5407836\CalorieTracker`. Use the actual clone path on the new PC, not this old absolute path.
 - Repository: https://github.com/umarislah86-collab/leanlog
 - Working branch: `github-release-v221` (historical name; still the current development/release branch).
-- Last released source commit: `5098cd6b1d0cc7927e43bbe029f84cc6daa3f9e3`.
-- Last release: `v2.9.13`, Android versionCode `18`.
-- APK: https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.13/leanlog-V2.9.13.apk
-- ARM64-only, 42,849,967 bytes / 40.86 MiB.
-- SHA-256: `ad32ebf776cffe58bfee17f113bd0a5aa0fcbd527609600ebb693a5b27b0d02c`.
-- EAS build: `01d81985-d151-478f-aef2-46ec0b13a259`.
+- Last released source commit: `992b14e8ec67fd8837e7d08e694a250e09fdccee`.
+- Last release: `v2.9.14`, Android versionCode `19`.
+- APK: https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.14/leanlog-V2.9.14.apk
+- ARM64-only, 42,856,899 bytes / 40.87 MiB.
+- SHA-256: `ba076faaf02ff65b47e9f05ae4c2a9fd3780922e239cbd854da482ef64cad7ca`.
+- EAS build: `ab578a9a-414e-438e-be1e-dbea0757504a`.
 
 ## Migration
 
@@ -227,7 +228,7 @@ Stack: Expo SDK 57, React 19.2.3, React Native 0.86.2, TypeScript, React Navigat
 
 ## Build and GitHub release convention
 
-When user says **build**, they mean build AND commit/push AND GitHub release with APK. Do not stop after EAS submission unless user explicitly says they will follow up when ready. The v2.9.13 request is complete; do not start another build without a new request.
+When user says **build**, they mean build AND commit/push AND GitHub release with APK. Do not stop after EAS submission unless user explicitly says they will follow up when ready. The v2.9.14 request is complete; do not start another build without a new request.
 
 1. Inspect git status and relevant diffs. Preserve unrelated changes.
 2. Bump `expo.version` in `app.json` to the next agreed version and add a factual narrative chapter to `components/LeanLogChronicle.tsx`.
@@ -244,4 +245,4 @@ ARM64 installs on user's phone; keep ARM64-only (~40MiB). Universal APKs were ~1
 
 ## Next agent's starting checklist
 
-Read `git status --short` and the v2.9.13 section first. Confirm release metadata below when available, then resume the newest user feedback. Do not equate TypeScript or in-memory replay success with phone verification. Preserve user data and adjustments.
+Read `git status --short` and the v2.9.14 section first, then resume the newest user feedback. Do not equate TypeScript, in-memory replay or native build/signature success with phone verification. Preserve user data and adjustments.
