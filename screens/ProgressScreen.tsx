@@ -1,20 +1,11 @@
+import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
+import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useState } from 'react';
 import { fsUpsert, fsDelete, fsFetchAll, fsMirrorPhotoFetchAll, fsMirrorPhotoUpsert, fsMirrorPhotoDelete } from '../firebase';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { runLeanLogAi } from '../services/ai';
@@ -117,6 +108,8 @@ function catmullRom(pts: {x: number, y: number}[], segs = 14): {x: number, y: nu
 }
 
 const WeightLineChart = ({ entries }: { entries: WeightEntry[] }) => {
+  const chartStyles = useThemeStyles(baseChartStyles);
+  const { themed } = useTheme();
   const [chartWidth, setChartWidth] = useState(0);
   const sorted = [...entries]
     .sort((a, b) => parseDateKey(a.date) - parseDateKey(b.date))
@@ -168,7 +161,7 @@ const WeightLineChart = ({ entries }: { entries: WeightEntry[] }) => {
             {[minV, (minV + maxV) / 2, maxV].map((v, gi) => (
               <View key={gi} style={{
                 position: 'absolute', left: PAD.left, top: gy(v),
-                width: chartWidth - PAD.left - PAD.right, height: 1, backgroundColor: '#222',
+                width: chartWidth - PAD.left - PAD.right, height: 1, backgroundColor: themed('#222', 'backgroundColor'),
               }} />
             ))}
 
@@ -179,7 +172,7 @@ const WeightLineChart = ({ entries }: { entries: WeightEntry[] }) => {
               const angle = Math.atan2(ny - p.y, nx - p.x) * 180 / Math.PI;
               return (
                 <View key={i} style={{
-                  position: 'absolute', width: len, height: 2, backgroundColor: '#FF6542',
+                  position: 'absolute', width: len, height: 2, backgroundColor: themed('#FF6542', 'backgroundColor'),
                   left: (p.x + nx) / 2 - len / 2, top: (p.y + ny) / 2 - 1,
                   transform: [{ rotate: `${angle}deg` }],
                 }} />
@@ -190,7 +183,7 @@ const WeightLineChart = ({ entries }: { entries: WeightEntry[] }) => {
             {pts.map((p, i) => (
               <View key={i} style={{
                 position: 'absolute', width: 7, height: 7, borderRadius: 4,
-                backgroundColor: '#FF6542', borderWidth: 2, borderColor: '#172338',
+                backgroundColor: themed('#FF6542', 'backgroundColor'), borderWidth: 2, borderColor: themed('#172338', 'borderColor'),
                 left: p.x - 3.5, top: p.y - 3.5,
               }} />
             ))}
@@ -215,7 +208,7 @@ const WeightLineChart = ({ entries }: { entries: WeightEntry[] }) => {
   );
 };
 
-const chartStyles = StyleSheet.create({
+const baseChartStyles = StyleSheet.create({
   wrap: { height: 140, position: 'relative', marginTop: 4 },
   axisLbl: { position: 'absolute', color: '#7D8799', fontSize: 9, left: 0, width: 42, textAlign: 'right' },
 });
@@ -230,6 +223,8 @@ interface DaySummary {
 }
 
 export default function ProgressScreen() {
+  const styles = useThemeStyles(baseStyles);
+  const { themed } = useTheme();
   const { t, lang } = useLanguage();
   const [period, setPeriod] = useState<Period>('7');
   const [allFood, setAllFood] = useState<FoodEntry[]>([]);
@@ -740,17 +735,17 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
               <Text style={styles.timelineTitle}>Proof, not perfection.</Text>
             </View>
             {hiddenWeightCount > 0 && <TouchableOpacity style={[styles.timelineToggle, showWeightTimeline && styles.timelineToggleActive]} onPress={() => setShowWeightTimeline((value) => !value)}>
-              <Ionicons name={showWeightTimeline ? 'contract-outline' : 'expand-outline'} size={14} color={showWeightTimeline ? '#101A2B' : '#8FD6B4'} />
+              <Ionicons name={showWeightTimeline ? 'contract-outline' : 'expand-outline'} size={14} color={showWeightTimeline ? themed('#101A2B', 'onAccent') : themed('#8FD6B4', 'color')} />
               <Text style={[styles.timelineToggleText, showWeightTimeline && styles.timelineToggleTextActive]}>{showWeightTimeline ? 'COLLAPSE' : `+${hiddenWeightCount} WEIGHTS`}</Text>
             </TouchableOpacity>}
           </View>
           <View style={styles.timelineMirrorBar}>
             <TouchableOpacity style={styles.timelineMirrorGallery} onPress={() => setShowMirrorGalleryModal(true)}>
-              <Ionicons name="images-outline" size={17} color="#FFF4DB" />
+              <Ionicons name="images-outline" size={17} color={themed("#FFF4DB", 'color')} />
               <View><Text style={styles.timelineMirrorLabel}>MONTHLY MIRROR</Text><Text style={styles.timelineMirrorMeta}>{mirrorPhotos.length} photos in your gallery</Text></View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.timelineMirrorAdd} onPress={uploadMirrorPhoto} disabled={mirrorUploadLoading}>
-              {mirrorUploadLoading ? <ActivityIndicator size="small" color="#101A2B" /> : <Ionicons name="camera-outline" size={19} color="#101A2B" />}
+              {mirrorUploadLoading ? <ActivityIndicator size="small" color={themed("#101A2B", 'onAccent')} /> : <Ionicons name="camera-outline" size={19} color={themed("#101A2B", 'onAccent')} />}
             </TouchableOpacity>
           </View>
           {mirrorPhotos.length >= 2 && <Text style={styles.timelineMirrorHint}>{t('mirrorAiHint')}</Text>}
@@ -805,9 +800,9 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
               })()}
             </View>
             <TouchableOpacity style={styles.feedbackBtn} onPress={getAIFeedback}>
-              <View style={styles.feedbackIcon}><Ionicons name="sparkles-outline" size={17} color="#101A2B" /></View>
+              <View style={styles.feedbackIcon}><Ionicons name="sparkles-outline" size={17} color={themed("#101A2B", 'onAccent')} /></View>
               <View style={{ flex: 1 }}><Text style={styles.feedbackBtnText}>READ THE PATTERN</Text><Text style={styles.feedbackBtnSub}>{t('aiAnalysisSub')}</Text></View>
-              <Ionicons name="arrow-forward" size={18} color="#FFF4DB" />
+              <Ionicons name="arrow-forward" size={18} color={themed("#FFF4DB", 'color')} />
             </TouchableOpacity>
           </View>
         )}
@@ -820,14 +815,14 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
               onPress={exportPDF}
               disabled={exportLoading}
             >
-              <Ionicons name="document-text-outline" size={17} color="#101A2B" /><Text style={styles.exportBtnText}>{exportLoading ? '...' : 'PDF REPORT'}</Text>
+              <Ionicons name="document-text-outline" size={17} color={themed("#101A2B", 'color')} /><Text style={styles.exportBtnText}>{exportLoading ? '...' : 'PDF REPORT'}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.exportBtn, styles.exportCsvBtn]}
               onPress={exportCSV}
               disabled={exportLoading}
             >
-              <Ionicons name="grid-outline" size={17} color="#C9472C" /><Text style={[styles.exportBtnText, { color: '#C9472C' }]}>{exportLoading ? '...' : 'CSV DATA'}</Text>
+              <Ionicons name="grid-outline" size={17} color={themed("#C9472C", 'color')} /><Text style={[styles.exportBtnText, { color: themed('#C9472C', 'color') }]}>{exportLoading ? '...' : 'CSV DATA'}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -890,10 +885,10 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
                         {day}
                       </Text>
                       <View style={styles.calDots}>
-                        {hasFood && <View style={[styles.calDot, { backgroundColor: '#FF6542' }]} />}
-                        {hasAct && <View style={[styles.calDot, { backgroundColor: '#FF6542' }]} />}
-                        {hasWeight && <View style={[styles.calDot, { backgroundColor: '#8FD6B4' }]} />}
-                        {hasGym && <View style={[styles.calDot, { backgroundColor: '#8D9BFF' }]} />}
+                        {hasFood && <View style={[styles.calDot, { backgroundColor: themed('#FF6542', 'backgroundColor') }]} />}
+                        {hasAct && <View style={[styles.calDot, { backgroundColor: themed('#FF6542', 'backgroundColor') }]} />}
+                        {hasWeight && <View style={[styles.calDot, { backgroundColor: themed('#8FD6B4', 'backgroundColor') }]} />}
+                        {hasGym && <View style={[styles.calDot, { backgroundColor: themed('#8D9BFF', 'backgroundColor') }]} />}
                       </View>
                     </TouchableOpacity>
                   );
@@ -902,19 +897,19 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
             </View>
             <View style={styles.calLegend}>
               <View style={styles.calLegendItem}>
-                <View style={[styles.calDot, { backgroundColor: '#FF6542' }]} />
+                <View style={[styles.calDot, { backgroundColor: themed('#FF6542', 'backgroundColor') }]} />
                 <Text style={styles.calLegendTxt}>{lang === 'en' ? 'Food' : 'Makanan'}</Text>
               </View>
               <View style={styles.calLegendItem}>
-                <View style={[styles.calDot, { backgroundColor: '#FF6542' }]} />
+                <View style={[styles.calDot, { backgroundColor: themed('#FF6542', 'backgroundColor') }]} />
                 <Text style={styles.calLegendTxt}>{lang === 'en' ? 'Activity' : 'Aktiviti'}</Text>
               </View>
               <View style={styles.calLegendItem}>
-                <View style={[styles.calDot, { backgroundColor: '#8FD6B4' }]} />
+                <View style={[styles.calDot, { backgroundColor: themed('#8FD6B4', 'backgroundColor') }]} />
                 <Text style={styles.calLegendTxt}>{lang === 'en' ? 'Weight' : 'Berat'}</Text>
               </View>
               <View style={styles.calLegendItem}>
-                <View style={[styles.calDot, { backgroundColor: '#8D9BFF' }]} />
+                <View style={[styles.calDot, { backgroundColor: themed('#8D9BFF', 'backgroundColor') }]} />
                 <Text style={styles.calLegendTxt}>Gym</Text>
               </View>
             </View>
@@ -942,19 +937,19 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
                 </View>
                 <View style={styles.dayKcalSummary}>
                   <View style={styles.dayKcalItem}>
-                    <Text style={[styles.dayKcalVal, { color: '#FF6542' }]}>
+                    <Text style={[styles.dayKcalVal, { color: themed('#FF6542', 'color') }]}>
                       {eaten}
                     </Text>
                     <Text style={styles.dayKcalLbl}>{lang === 'en' ? 'kcal eaten' : 'kcal dimakan'}</Text>
                   </View>
-                  <View style={[styles.dayKcalItem, { borderLeftWidth: 1, borderLeftColor: '#26334A' }]}>
-                    <Text style={[styles.dayKcalVal, { color: '#8D9BFF' }]}>
+                  <View style={[styles.dayKcalItem, { borderLeftWidth: 1, borderLeftColor: themed('#26334A', 'borderColor') }]}>
+                    <Text style={[styles.dayKcalVal, { color: themed('#8D9BFF', 'color') }]}>
                       {burned}
                     </Text>
                     <Text style={styles.dayKcalLbl}>{lang === 'en' ? 'kcal burned' : 'kcal dibakar'}</Text>
                   </View>
-                  <View style={[styles.dayKcalItem, { borderLeftWidth: 1, borderLeftColor: '#26334A' }]}>
-                    <Text style={[styles.dayKcalVal, { color: net <= goal ? '#8FD6B4' : '#FF6542' }]}>{net}</Text>
+                  <View style={[styles.dayKcalItem, { borderLeftWidth: 1, borderLeftColor: themed('#26334A', 'borderColor') }]}>
+                    <Text style={[styles.dayKcalVal, { color: net <= goal ? themed('#8FD6B4', 'color') : themed('#FF6542', 'color') }]}>{net}</Text>
                     <Text style={styles.dayKcalLbl}>net kcal</Text>
                   </View>
                 </View>
@@ -994,7 +989,7 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
                               onPress={() => deleteEntry(e.id, 'food')}
                               style={styles.detailDeleteBtn}
                             >
-                              <Text style={{ color: '#FF6542', fontSize: 14 }}>🗑️</Text>
+                              <Text style={{ color: themed('#FF6542', 'color'), fontSize: 14 }}>🗑️</Text>
                             </TouchableOpacity>
                           </View>
                         ))}
@@ -1010,12 +1005,12 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
                             <Text style={styles.detailFoodName}>{a.name}</Text>
                             <Text style={styles.detailFoodTime}>{a.time} · {a.duration} min</Text>
                           </View>
-                          <Text style={[styles.detailFoodKcal, { color: '#8D9BFF' }]}>-{a.caloriesBurned} kcal</Text>
+                          <Text style={[styles.detailFoodKcal, { color: themed('#8D9BFF', 'color') }]}>-{a.caloriesBurned} kcal</Text>
                           <TouchableOpacity
                             onPress={() => deleteEntry(a.id, 'activity')}
                             style={styles.detailDeleteBtn}
                           >
-                            <Text style={{ color: '#FF6542', fontSize: 14 }}>🗑️</Text>
+                            <Text style={{ color: themed('#FF6542', 'color'), fontSize: 14 }}>🗑️</Text>
                           </TouchableOpacity>
                         </View>
                       ))}
@@ -1036,7 +1031,7 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
                             onPress={() => deleteGymSession(s)}
                             style={styles.detailDeleteBtn}
                           >
-                            <Text style={{ color: '#FF6542', fontSize: 14 }}>🗑️</Text>
+                            <Text style={{ color: themed('#FF6542', 'color'), fontSize: 14 }}>🗑️</Text>
                           </TouchableOpacity>
                         </View>
                       ))}
@@ -1055,9 +1050,9 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
                     <View style={styles.macroProgressBox}>
                       <Text style={styles.macroSummaryLabel}>{t('macroTotal')}</Text>
                       {[
-                        { label: lang === 'en' ? 'Protein' : 'Protein', value: totalP, target: Math.round(goal * 0.25 / 4), color: '#8D9BFF' },
-                        { label: lang === 'en' ? 'Carbs' : 'Karbo', value: totalK, target: Math.round(goal * 0.45 / 4), color: '#E8B84A' },
-                        { label: lang === 'en' ? 'Fat' : 'Lemak', value: totalL, target: Math.round(goal * 0.30 / 9), color: '#FF856B' },
+                        { label: lang === 'en' ? 'Protein' : 'Protein', value: totalP, target: Math.round(goal * 0.25 / 4), color: themed('#8D9BFF', 'color') },
+                        { label: lang === 'en' ? 'Carbs' : 'Karbo', value: totalK, target: Math.round(goal * 0.45 / 4), color: themed('#E8B84A', 'color') },
+                        { label: lang === 'en' ? 'Fat' : 'Lemak', value: totalL, target: Math.round(goal * 0.30 / 9), color: themed('#FF856B', 'color') },
                       ].map((macro) => (
                         <View key={macro.label} style={styles.journalMacroRow}>
                           <View style={styles.journalMacroLabels}><Text style={styles.journalMacroName}>{macro.label}</Text><Text style={styles.journalMacroValue}>{macro.value}g / {macro.target}g</Text></View>
@@ -1086,7 +1081,7 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
                 </TouchableOpacity>
               ))}
             </ScrollView>
-            <Text style={{ color: '#33415C', fontSize: 11, textAlign: 'center', marginVertical: 8 }}>{t('longPressDelete')}</Text>
+            <Text style={{ color: themed('#33415C', 'color'), fontSize: 11, textAlign: 'center', marginVertical: 8 }}>{t('longPressDelete')}</Text>
             <TouchableOpacity style={styles.modalSave} onPress={() => setShowWeightListModal(false)}>
               <Text style={styles.modalSaveText}>{t('close')}</Text>
             </TouchableOpacity>
@@ -1111,14 +1106,14 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
                         style={{ width: '100%', height: 180, borderRadius: 8 }}
                         resizeMode="cover"
                       />
-                      <Text style={{ color: '#CBD2DD', fontSize: 11, marginTop: 4, textAlign: 'center' }}>
+                      <Text style={{ color: themed('#CBD2DD', 'color'), fontSize: 11, marginTop: 4, textAlign: 'center' }}>
                         {p.displayDate || p.id}
                       </Text>
                       {p.weight !== undefined && (
-                        <Text style={{ color: '#FF6542', fontSize: 11, textAlign: 'center' }}>{p.weight} kg</Text>
+                        <Text style={{ color: themed('#FF6542', 'color'), fontSize: 11, textAlign: 'center' }}>{p.weight} kg</Text>
                       )}
                       {p.waist !== undefined && (
-                        <Text style={{ color: '#8D9BFF', fontSize: 11, textAlign: 'center' }}>{t('waistUnit')} {p.waist} cm</Text>
+                        <Text style={{ color: themed('#8D9BFF', 'color'), fontSize: 11, textAlign: 'center' }}>{t('waistUnit')} {p.waist} cm</Text>
                       )}
                     </TouchableOpacity>
                   ))}
@@ -1153,7 +1148,7 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
                 onChangeText={setMirrorDetailWeight}
                 keyboardType="numeric"
                 placeholder="cth: 85.5"
-                placeholderTextColor="#7D8799"
+                placeholderTextColor={themed("#7D8799", 'color')}
               />
               <Text style={styles.modalLabel}>{t('waistCmLabel')}</Text>
               <TextInput
@@ -1162,15 +1157,15 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
                 onChangeText={setMirrorDetailWaist}
                 keyboardType="numeric"
                 placeholder="cth: 90"
-                placeholderTextColor="#7D8799"
+                placeholderTextColor={themed("#7D8799", 'color')}
               />
               <View style={styles.modalBtns}>
-                <TouchableOpacity style={[styles.modalCancel, { borderColor: '#FF6542' }]} onPress={() => {
+                <TouchableOpacity style={[styles.modalCancel, { borderColor: themed('#FF6542', 'borderColor') }]} onPress={() => {
                   const id = mirrorDetailPhoto.id;
                   setShowMirrorDetailModal(false);
                   deleteMirrorPhoto(id);
                 }}>
-                  <Text style={[styles.modalCancelText, { color: '#FF6542' }]}>{t('delete')}</Text>
+                  <Text style={[styles.modalCancelText, { color: themed('#FF6542', 'color') }]}>{t('delete')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.modalSave} onPress={saveMirrorDetail}>
                   <Text style={styles.modalSaveText}>{t('save')}</Text>
@@ -1193,7 +1188,7 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
               onChangeText={setNewWeight}
               keyboardType="numeric"
               placeholder="cth: 85.5"
-              placeholderTextColor="#7D8799"
+              placeholderTextColor={themed("#7D8799", 'color')}
               autoFocus
             />
             <Text style={styles.modalLabel}>{t('dateOptional')}</Text>
@@ -1219,7 +1214,7 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
             <Text style={styles.modalTitle}>{t('aiAnalysisTitle')}</Text>
             {loadingFeedback ? (
               <View style={styles.feedbackLoading}>
-                <ActivityIndicator size="large" color="#FF6542" />
+                <ActivityIndicator size="large" color={themed("#FF6542", 'color')} />
                 <Text style={styles.feedbackLoadingText}>{t('aiAnalysingData')}</Text>
               </View>
             ) : (
@@ -1261,7 +1256,7 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F7F0E1' },
   header: { backgroundColor: '#F7F0E1', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 },
   headerTitle: { color: '#101A2B', fontSize: 32, fontWeight: '800', fontFamily: 'serif', letterSpacing: -0.8 },

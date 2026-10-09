@@ -1,16 +1,7 @@
+import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
+import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import React, { useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signIn, signUp } from '../firebase';
 import { useLanguage } from '../context/LanguageContext';
@@ -18,6 +9,8 @@ import { useLanguage } from '../context/LanguageContext';
 type Tab = 'login' | 'register';
 
 export default function AuthScreen() {
+  const styles = useThemeStyles(baseStyles);
+  const { themed } = useTheme();
   const { t } = useLanguage();
   const [tab, setTab] = useState<Tab>('login');
   const [email, setEmail] = useState('');
@@ -96,7 +89,7 @@ export default function AuthScreen() {
             value={email}
             onChangeText={setEmail}
             placeholder="nama@emel.com"
-            placeholderTextColor="#7D8799"
+            placeholderTextColor={themed("#7D8799", 'color')}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
@@ -107,7 +100,7 @@ export default function AuthScreen() {
             value={password}
             onChangeText={setPassword}
             placeholder="••••••••"
-            placeholderTextColor="#7D8799"
+            placeholderTextColor={themed("#7D8799", 'color')}
             secureTextEntry
           />
 
@@ -117,7 +110,7 @@ export default function AuthScreen() {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="#FFFDF7" />
+              <ActivityIndicator color={themed("#FFFDF7", 'color')} />
             ) : (
               <Text style={styles.submitBtnText}>
                 {tab === 'login' ? t('login') : t('register')}
@@ -139,7 +132,7 @@ export default function AuthScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F7F0E1' },
   inner: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
 

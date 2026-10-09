@@ -1,5 +1,7 @@
+import { ThemeText as Text } from '../components/ThemePrimitives';
+import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import React, { useCallback, useState } from 'react';
-import { Alert, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -8,6 +10,8 @@ import { commitRedCoinsBackup, hasRecoveryBackup, stageRecoveryBackup, stageRedC
 import { exportRedCoinsBackup, loadRedCoins } from '../services/redcoins';
 
 export function RedCoinsBackupSettings() {
+  const s = useThemeStyles(baseS);
+  const { themed } = useTheme();
   const [config, setConfig] = useState<BackupFolderConfig | null>(null);
   const [recovery, setRecovery] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -50,7 +54,7 @@ export function RedCoinsBackupSettings() {
     {button(config ? 'Change backup folder' : 'Choose backup folder', () => { void run(async () => { const chosen = await chooseBackupFolder(); if (chosen) { setConfig(chosen); if (chosen.automatic) await backupRedCoinsToFolder(); } }); })}
     {config && <Text style={s.hint}>Folder: {decodeURIComponent(config.folderUri).split('/').pop()}</Text>}
     <View style={s.row}><View style={{ flex: 1 }}><Text style={s.name}>Auto-backup</Text><Text style={s.hint}>Needs a selected folder.</Text></View><Switch disabled={busy || !config} value={config?.automatic || false} onValueChange={automatic => { void run(async () => { const current = await getBackupFolderConfig(); if (!current) return; await configureBackupFolder({ ...current, automatic }); if (automatic) await backupRedCoinsToFolder(); }); }} trackColor={{ true: '#8BD6B2', false: '#DDD8CD' }} /></View>
-    {config && <View style={s.row}><Text style={[s.name, { flex: 1 }]}>Frequency</Text>{(['changes', 'daily'] as const).map(frequency => <TouchableOpacity key={frequency} disabled={busy} style={s.choice} onPress={() => { void run(async () => { const current = await getBackupFolderConfig(); if (current) await configureBackupFolder({ ...current, frequency }); }); }}><Text style={{ color: config.frequency === frequency ? '#168A65' : '#7C8290', fontSize: 11, fontWeight: '700' }}>{config.frequency === frequency ? '✓ ' : ''}{frequency === 'changes' ? 'After edits' : 'Daily'}</Text></TouchableOpacity>)}</View>}
+    {config && <View style={s.row}><Text style={[s.name, { flex: 1 }]}>Frequency</Text>{(['changes', 'daily'] as const).map(frequency => <TouchableOpacity key={frequency} disabled={busy} style={s.choice} onPress={() => { void run(async () => { const current = await getBackupFolderConfig(); if (current) await configureBackupFolder({ ...current, frequency }); }); }}><Text style={{ color: config.frequency === frequency ? themed('#168A65', 'color') : themed('#7C8290', 'color'), fontSize: 11, fontWeight: '700' }}>{config.frequency === frequency ? '✓ ' : ''}{frequency === 'changes' ? 'After edits' : 'Daily'}</Text></TouchableOpacity>)}</View>}
     <Text style={s.hint}>After edits: saves a new snapshot after 10 seconds without more edits. Daily: at most one snapshot per day while LeanLog runs (checked every 15 minutes). Also tries on launch/resume/background; Android may stop the app before a pending backup runs.</Text>
     <Text style={s.hint}>Last saved: {config?.lastSavedAt ? new Date(config.lastSavedAt).toLocaleString('en-MY') : 'Not saved to selected folder yet'}{config?.lastFile ? `\n${config.lastFile}` : ''}</Text>
     {!!config?.error && <Text style={s.error}>Last backup failed: {config.error}. Reselect the folder if access was revoked.</Text>}
@@ -60,4 +64,4 @@ export function RedCoinsBackupSettings() {
     <Text style={s.hint}>Backups are new timestamped files, never overwritten or auto-deleted. Keep a copy outside this phone; JSON contains your financial data.</Text>
   </View>;
 }
-const s = StyleSheet.create({ card: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E1DCCF', borderRadius: 22, padding: 18 }, row: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#E7E1D5' }, name: { fontSize: 13, fontWeight: '700', color: '#111A2A', flexShrink: 1 }, hint: { color: '#7C8290', fontSize: 11, lineHeight: 17, marginVertical: 5 }, arrow: { color: '#7C8290', fontSize: 22, marginLeft: 'auto' }, choice: { padding: 7 }, error: { color: '#C14335', fontSize: 11, lineHeight: 17, marginVertical: 5 } });
+const baseS = StyleSheet.create({ card: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E1DCCF', borderRadius: 22, padding: 18 }, row: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#E7E1D5' }, name: { fontSize: 13, fontWeight: '700', color: '#111A2A', flexShrink: 1 }, hint: { color: '#7C8290', fontSize: 11, lineHeight: 17, marginVertical: 5 }, arrow: { color: '#7C8290', fontSize: 22, marginLeft: 'auto' }, choice: { padding: 7 }, error: { color: '#C14335', fontSize: 11, lineHeight: 17, marginVertical: 5 } });

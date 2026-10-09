@@ -1,5 +1,7 @@
+import { ThemeText as Text } from '../components/ThemePrimitives';
+import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import React, { useState } from 'react';
-import { ActivityIndicator, Image, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface Props {
@@ -15,6 +17,8 @@ const WA_MSG: Record<Plan, string> = {
 };
 
 export default function PaywallScreen({ onRecheck }: Props) {
+  const styles = useThemeStyles(baseStyles);
+  const { themed } = useTheme();
   const [checking, setChecking] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<Plan>('yearly');
 
@@ -87,7 +91,7 @@ export default function PaywallScreen({ onRecheck }: Props) {
 
         <TouchableOpacity style={styles.recheckBtn} onPress={handleRecheck} disabled={checking} activeOpacity={0.7}>
           {checking
-            ? <ActivityIndicator color="#7D8799" size="small" />
+            ? <ActivityIndicator color={themed("#7D8799", 'color')} size="small" />
             : <Text style={styles.recheckTxt}>Sudah bayar? Semak sekarang</Text>
           }
         </TouchableOpacity>
@@ -103,7 +107,7 @@ export default function PaywallScreen({ onRecheck }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F7F0E1' },
   inner: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   lock: { fontSize: 48, marginBottom: 14 },

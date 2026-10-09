@@ -1,5 +1,7 @@
+import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
+import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import type { RedCoinsEntry, RedCoinsState } from '../services/redcoins';
@@ -19,6 +21,8 @@ export function RedCoinsBatchModal({ visible, state, entries, copiedCount, paste
   visible: boolean; state: RedCoinsState; entries: RedCoinsEntry[]; copiedCount: number; pasteOnly: boolean; busy: boolean;
   close: () => void; apply: (action: BatchAction) => void; copy: () => void; paste: (day: string | null) => void;
 }) {
+  const s = useThemeStyles(baseS);
+  const { themed } = useTheme();
   const [kind, setKind] = useState<Kind | null>(null);
   const [value, setValue] = useState('');
   const [date, setDate] = useState(new Date());
@@ -57,15 +61,15 @@ export function RedCoinsBatchModal({ visible, state, entries, copiedCount, paste
   };
   const ready = !!kind && !busy && (kind !== 'name' && kind !== 'amount' || !!value.trim()) && (kind !== 'account' || !!account || hasTransfers && !!destination) && (kind !== 'category' || !!subcategory) && (kind !== 'paste' || copiedCount > 0) && (kind !== 'labels' || labelsMode === 'clear' || !!value.trim());
   const row = (label: string, selected: boolean, onPress: () => void, meta?: string) => <TouchableOpacity key={label} style={[s.row, selected && s.active]} onPress={onPress} disabled={busy}>
-    <View style={{ flex: 1 }}><Text style={s.label}>{label}</Text>{meta ? <Text style={s.meta}>{meta}</Text> : null}</View><Ionicons name={selected ? 'checkmark-circle' : 'chevron-forward'} size={19} color={selected ? '#168A65' : '#7C8290'} />
+    <View style={{ flex: 1 }}><Text style={s.label}>{label}</Text>{meta ? <Text style={s.meta}>{meta}</Text> : null}</View><Ionicons name={selected ? 'checkmark-circle' : 'chevron-forward'} size={19} color={selected ? themed('#168A65', 'color') : themed('#7C8290', 'color')} />
   </TouchableOpacity>;
   const title = picker ? picker === 'category' ? 'Choose category' : picker === 'source' ? 'Choose source account' : 'Choose destination' : kind ? actions.find(action => action.kind === kind)?.title : 'Selection actions';
   return <Modal visible={visible} transparent animationType="fade" onRequestClose={() => { if (!busy) close(); }}>
     <KeyboardAvoidingView style={s.shade} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <Pressable style={s.fill} onPress={() => { if (!busy) close(); }}><Pressable style={s.sheet} onPress={() => {}}>
         <View style={s.grab} /><View style={s.header}>
-          {(kind && !pasteOnly || picker) && <TouchableOpacity disabled={busy} onPress={() => { if (picker) setPicker(null); else setKind(null); }} style={s.close}><Ionicons name="arrow-back" size={21} color="#111A2A" /></TouchableOpacity>}
-          <Text style={s.title}>{title}</Text><TouchableOpacity disabled={busy} onPress={close} style={s.close} accessibilityLabel="Close batch actions"><Ionicons name="close" size={22} color="#111A2A" /></TouchableOpacity>
+          {(kind && !pasteOnly || picker) && <TouchableOpacity disabled={busy} onPress={() => { if (picker) setPicker(null); else setKind(null); }} style={s.close}><Ionicons name="arrow-back" size={21} color={themed("#111A2A", 'color')} /></TouchableOpacity>}
+          <Text style={s.title}>{title}</Text><TouchableOpacity disabled={busy} onPress={close} style={s.close} accessibilityLabel="Close batch actions"><Ionicons name="close" size={22} color={themed("#111A2A", 'color')} /></TouchableOpacity>
         </View>
         <Text style={s.hint}>{kind === 'paste' ? `${copiedCount} copied transactions · creates new entries` : `${entries.length} selected · changes affect every selected entry`}</Text>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 12 }}>
@@ -81,7 +85,7 @@ export function RedCoinsBatchModal({ visible, state, entries, copiedCount, paste
           </View> : !kind ? actions.map(action => {
             const disabled = action.kind === 'category' && !canChangeCategory || action.kind === 'paste' && !copiedCount;
             return <TouchableOpacity key={action.kind} style={[s.row, disabled && { opacity: 0.4 }]} disabled={disabled || busy} onPress={() => chooseAction(action.kind)}>
-              <Ionicons name={action.icon} size={20} color={action.kind === 'delete' ? '#F04444' : '#111A2A'} style={{ marginRight: 12 }} /><View style={{ flex: 1 }}><Text style={[s.label, action.kind === 'delete' && { color: '#F04444' }]}>{action.title}</Text>{action.kind === 'category' && !canChangeCategory ? <Text style={s.meta}>Select expenses only or incomes only.</Text> : null}</View><Ionicons name="chevron-forward" size={17} color="#7C8290" />
+              <Ionicons name={action.icon} size={20} color={action.kind === 'delete' ? themed('#F04444', 'color') : themed('#111A2A', 'color')} style={{ marginRight: 12 }} /><View style={{ flex: 1 }}><Text style={[s.label, action.kind === 'delete' && { color: themed('#F04444', 'color') }]}>{action.title}</Text>{action.kind === 'category' && !canChangeCategory ? <Text style={s.meta}>Select expenses only or incomes only.</Text> : null}</View><Ionicons name="chevron-forward" size={17} color={themed("#7C8290", 'color')} />
             </TouchableOpacity>;
           }) : <View>
             {(kind === 'name' || kind === 'amount') && <TextInput value={value} onChangeText={setValue} placeholder={kind === 'name' ? 'New title for all selected entries' : 'New amount for each entry'} keyboardType={kind === 'amount' ? 'decimal-pad' : 'default'} autoFocus style={s.input} editable={!busy} />}
@@ -100,15 +104,15 @@ export function RedCoinsBatchModal({ visible, state, entries, copiedCount, paste
             {kind === 'status' && <View>{(['none', 'pending', 'cleared', 'reconciled'] as const).map(value => row(value === 'none' ? 'None / no review status' : value[0].toUpperCase() + value.slice(1), status === value, () => setStatus(value)))}<Text style={s.hint}>Status records review state. It does not create another payment or change the transaction amount.</Text></View>}
             {kind === 'copy' && <Text style={s.hint}>Keeps a reusable copy inside LeanLog, even if you close the app. Your original transactions are unchanged.</Text>}
             {kind === 'paste' && <Text style={s.hint}>Each copy gets a new ID. Reminder schedules, export flags and reconciliation links are NOT duplicated.</Text>}
-            {kind === 'delete' && <Text style={[s.hint, { color: '#F04444' }]}>Deletes these entries permanently and reverses their account effects. This does not cancel an associated recurring schedule.</Text>}
+            {kind === 'delete' && <Text style={[s.hint, { color: themed('#F04444', 'color') }]}>Deletes these entries permanently and reverses their account effects. This does not cancel an associated recurring schedule.</Text>}
           </View>}
         </ScrollView>
-        {kind && !picker && <TouchableOpacity disabled={!ready} onPress={submit} style={[s.apply, kind === 'delete' && { backgroundColor: '#F04444' }, !ready && { opacity: 0.4 }]}>{busy ? <ActivityIndicator color="#FFF9EA" /> : <Text style={s.applyText}>{kind === 'copy' ? 'COPY' : kind === 'paste' ? 'REVIEW PASTE' : 'REVIEW CHANGE'}</Text>}</TouchableOpacity>}
+        {kind && !picker && <TouchableOpacity disabled={!ready} onPress={submit} style={[s.apply, kind === 'delete' && { backgroundColor: themed('#F04444', 'backgroundColor') }, !ready && { opacity: 0.4 }]}>{busy ? <ActivityIndicator color={themed("#FFF9EA", 'color')} /> : <Text style={s.applyText}>{kind === 'copy' ? 'COPY' : kind === 'paste' ? 'REVIEW PASTE' : 'REVIEW CHANGE'}</Text>}</TouchableOpacity>}
       </Pressable></Pressable>
     </KeyboardAvoidingView>
   </Modal>;
 }
-const s = StyleSheet.create({
+const baseS = StyleSheet.create({
   shade: { flex: 1, backgroundColor: 'rgba(6,10,18,.72)' }, fill: { flex: 1, justifyContent: 'center', padding: 16 },
   sheet: { backgroundColor: '#FFF9EA', borderRadius: 26, padding: 18, maxHeight: '92%' },
   grab: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#D6CEBE', alignSelf: 'center', marginBottom: 12 },

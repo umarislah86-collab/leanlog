@@ -1,3 +1,4 @@
+import { useTheme } from '../context/ThemeContext';
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import Svg, { Path, Defs, LinearGradient, Stop, Circle } from 'react-native-svg';
@@ -19,6 +20,7 @@ const parseDateKey = (key: string): number => {
 };
 
 export default function WeightAreaChart({ entries }: Props) {
+  const { themed } = useTheme();
   const [canvasW, setCanvasW] = useState(0);
 
   const sorted = [...entries].sort((a, b) => parseDateKey(a.date) - parseDateKey(b.date));
@@ -76,14 +78,14 @@ export default function WeightAreaChart({ entries }: Props) {
               x2="0" y2={String(bottomY)}
               gradientUnits="userSpaceOnUse"
             >
-              <Stop offset="0" stopColor="#FF6542" stopOpacity="0.4" />
-              <Stop offset="1" stopColor="#FF6542" stopOpacity="0" />
+              <Stop offset="0" stopColor={themed("#FF6542", 'color')} stopOpacity="0.4" />
+              <Stop offset="1" stopColor={themed("#FF6542", 'color')} stopOpacity="0" />
             </LinearGradient>
           </Defs>
           <Path d={areaPath} fill="url(#wGrad)" />
-          <Path d={linePath} fill="none" stroke="#FF6542" strokeWidth={2} />
+          <Path d={linePath} fill="none" stroke={themed("#FF6542", 'color')} strokeWidth={2} />
           {[pts[0], pts[pts.length - 1]].map((p, i) => (
-            <Circle key={i} cx={p.x} cy={p.y} r={3.5} fill="#FF6542" />
+            <Circle key={i} cx={p.x} cy={p.y} r={3.5} fill={themed("#FF6542", 'color')} />
           ))}
         </Svg>
       )}

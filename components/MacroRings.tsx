@@ -1,5 +1,7 @@
+import { ThemeText as Text } from '../components/ThemePrimitives';
+import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, View, Text, StyleSheet } from 'react-native';
+import { Animated, View, StyleSheet } from 'react-native';
 import Svg, { Circle, G } from 'react-native-svg';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -30,6 +32,8 @@ const RING_DEFS_COMPACT = [
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 export default function MacroRings({ protein, carbs, fat, calorieGoal, eatenCalories, compact }: Props) {
+  const styles = useThemeStyles(baseStyles);
+  const { themed } = useTheme();
   const { t } = useLanguage();
   const [selected, setSelected] = useState<'carbs' | 'protein' | 'fat' | null>(null);
   const ringProgress = useRef({
@@ -46,9 +50,9 @@ export default function MacroRings({ protein, carbs, fat, calorieGoal, eatenCalo
   const goals:  Record<string, number> = { carbs: carbsGoal, protein: proteinGoal, fat: fatGoal };
 
   const legendItems = [
-    { key: 'carbs',   label: t('carbs'),   color: '#FF6542', val: carbs,   goal: carbsGoal },
-    { key: 'protein', label: t('protein'), color: '#8D9BFF', val: protein, goal: proteinGoal },
-    { key: 'fat',     label: t('fat'),     color: '#E8B84A', val: fat,     goal: fatGoal },
+    { key: 'carbs',   label: t('carbs'),   color: themed('#FF6542', 'color'), val: carbs,   goal: carbsGoal },
+    { key: 'protein', label: t('protein'), color: themed('#8D9BFF', 'color'), val: protein, goal: proteinGoal },
+    { key: 'fat',     label: t('fat'),     color: themed('#E8B84A', 'color'), val: fat,     goal: fatGoal },
   ];
 
   const size = compact ? 148 : 176;
@@ -79,7 +83,7 @@ export default function MacroRings({ protein, carbs, fat, calorieGoal, eatenCalo
               <G key={key} rotation={-90} origin={`${cx}, ${cy}`}>
                 <Circle
                   cx={cx} cy={cy} r={radius}
-                  stroke="#252535"
+                  stroke={themed("#252535", 'color')}
                   strokeWidth={sw}
                   fill="none"
                 />
@@ -124,7 +128,7 @@ export default function MacroRings({ protein, carbs, fat, calorieGoal, eatenCalo
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   wrapper: {
     alignItems: 'center',
     paddingTop: 10,

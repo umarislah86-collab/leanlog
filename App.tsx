@@ -1,7 +1,10 @@
+import { ThemeText as Text } from './components/ThemePrimitives';
+import { ThemeProvider, useTheme, useThemeStyles } from './context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, TouchableOpacity, Text, View, StyleSheet, Image, Modal } from 'react-native';
-import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
+import { Animated, TouchableOpacity, View, StyleSheet, Image, Modal } from 'react-native';
+import { DarkTheme, DefaultTheme, NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
+import { StatusBar } from 'expo-status-bar';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +21,7 @@ import AuthScreen from './screens/AuthScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import PaywallScreen from './screens/PaywallScreen';
 import { colors } from './theme';
+import { themeFont } from './services/appTheme';
 import { ensureNagSchedule, markFastingDay, markLazyDay, snoozeNagging } from './services/nagging';
 import { startRedCoinsAutoBackup } from './services/redcoinsBackupFiles';
 
@@ -45,6 +49,8 @@ const TAB_ICONS: Record<string, string> = {
 };
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
+  const quickDock = useThemeStyles(baseQuickDock);
+  const { themed } = useTheme();
   const insets = useSafeAreaInsets();
   const [quickDockOpen, setQuickDockOpen] = useState(false);
   const launch = (route: 'Log' | 'RedCoins', params: Record<string, unknown>) => {
@@ -56,8 +62,8 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: colors.oat,
-        borderTopColor: 'rgba(16, 26, 43, 0.10)',
+        backgroundColor: themed(colors.oat, 'backgroundColor'),
+        borderTopColor: themed('rgba(16, 26, 43, 0.10)', 'borderColor'),
         borderTopWidth: 1,
         paddingBottom: insets.bottom || 6,
         paddingTop: 6,
@@ -67,7 +73,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
         .map((route: any, index: number) => ({ route, index }))
         .map(({ route, index }: any) => {
           const focused = state.index === index;
-          const color = focused ? colors.coral : '#5F6670';
+          const color = themed(focused ? colors.coral : '#5F6670');
           const iconBase = TAB_ICONS[route.name] ?? 'ellipse';
           const iconName = focused ? iconBase : `${iconBase}-outline`;
           const label = descriptors[route.key].options.title ?? route.name;
@@ -89,7 +95,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
                   width: focused ? 28 : 0,
                   height: 3,
                   borderRadius: 2,
-                  backgroundColor: colors.coral,
+                  backgroundColor: themed(colors.coral, 'backgroundColor'),
                   marginTop: 5,
                 }}
               />
@@ -118,17 +124,17 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
               borderRadius: 22,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: colors.mint,
+              backgroundColor: themed(colors.mint, 'backgroundColor'),
               borderWidth: 5,
-              borderColor: colors.oat,
-              shadowColor: colors.ink,
+              borderColor: themed(colors.oat, 'borderColor'),
+              shadowColor: themed(colors.ink, 'shadowColor'),
               shadowOffset: { width: 0, height: 6 },
               shadowOpacity: 0.24,
               shadowRadius: 9,
               elevation: 8,
             }}
           >
-            <Ionicons name="add" size={34} color={colors.ink} />
+            <Ionicons name="add" size={34} color={themed(colors.ink, 'onAccent')} />
           </View>
         </TouchableOpacity>
       </View>
@@ -138,21 +144,21 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
             <View style={quickDock.handle} />
             <View style={quickDock.header}>
               <View><Text style={quickDock.eyebrow}>LEANLOG / QUICK ENTRY</Text><Text style={quickDock.title}>What moved?</Text></View>
-              <TouchableOpacity style={quickDock.close} onPress={() => setQuickDockOpen(false)}><Ionicons name="close" size={20} color={colors.oat} /></TouchableOpacity>
+              <TouchableOpacity style={quickDock.close} onPress={() => setQuickDockOpen(false)}><Ionicons name="close" size={20} color={themed(colors.oat, 'color')} /></TouchableOpacity>
             </View>
             <Text style={quickDock.sectionLabel}>MONEY</Text>
             <View style={quickDock.moneyRow}>
-              <TouchableOpacity style={[quickDock.moneyAction, quickDock.expense]} onPress={() => launch('RedCoins', { mode: 'expense', fabTrigger: Date.now() })}><Ionicons name="arrow-up" size={20} color="#FFFDF7" /><Text style={quickDock.moneyText}>EXPENSE</Text></TouchableOpacity>
-              <TouchableOpacity style={[quickDock.moneyAction, quickDock.income]} onPress={() => launch('RedCoins', { mode: 'income', fabTrigger: Date.now() })}><Ionicons name="arrow-down" size={20} color="#101A2B" /><Text style={[quickDock.moneyText, quickDock.moneyTextDark]}>INCOME</Text></TouchableOpacity>
-              <TouchableOpacity style={[quickDock.moneyAction, quickDock.transfer]} onPress={() => launch('RedCoins', { mode: 'transfer', fabTrigger: Date.now() })}><Ionicons name="swap-horizontal" size={20} color="#FFFDF7" /><Text style={quickDock.moneyText}>TRANSFER</Text></TouchableOpacity>
+              <TouchableOpacity style={[quickDock.moneyAction, quickDock.expense]} onPress={() => launch('RedCoins', { mode: 'expense', fabTrigger: Date.now() })}><Ionicons name="arrow-up" size={20} color={themed("#FFFDF7", 'color')} /><Text style={quickDock.moneyText}>EXPENSE</Text></TouchableOpacity>
+              <TouchableOpacity style={[quickDock.moneyAction, quickDock.income]} onPress={() => launch('RedCoins', { mode: 'income', fabTrigger: Date.now() })}><Ionicons name="arrow-down" size={20} color={themed("#101A2B", 'onAccent')} /><Text style={[quickDock.moneyText, quickDock.moneyTextDark]}>INCOME</Text></TouchableOpacity>
+              <TouchableOpacity style={[quickDock.moneyAction, quickDock.transfer]} onPress={() => launch('RedCoins', { mode: 'transfer', fabTrigger: Date.now() })}><Ionicons name="swap-horizontal" size={20} color={themed("#FFFDF7", 'color')} /><Text style={quickDock.moneyText}>TRANSFER</Text></TouchableOpacity>
             </View>
             <Text style={quickDock.sectionLabel}>BODY</Text>
             <View style={quickDock.bodyCard}>
-              <TouchableOpacity style={quickDock.bodyAction} onPress={() => launch('Log', { quickAction: 'food', fabTrigger: Date.now() })}><View style={quickDock.bodyIcon}><Ionicons name="restaurant-outline" size={20} color="#101A2B" /></View><View style={{ flex: 1 }}><Text style={quickDock.bodyTitle}>Food</Text><Text style={quickDock.bodySub}>Meal, snack or drink</Text></View><Ionicons name="chevron-forward" size={17} color="#7F8BA0" /></TouchableOpacity>
+              <TouchableOpacity style={quickDock.bodyAction} onPress={() => launch('Log', { quickAction: 'food', fabTrigger: Date.now() })}><View style={quickDock.bodyIcon}><Ionicons name="restaurant-outline" size={20} color={themed("#101A2B", 'onAccent')} /></View><View style={{ flex: 1 }}><Text style={quickDock.bodyTitle}>Food</Text><Text style={quickDock.bodySub}>Meal, snack or drink</Text></View><Ionicons name="chevron-forward" size={17} color={themed("#7F8BA0", 'color')} /></TouchableOpacity>
               <View style={quickDock.rule} />
-              <TouchableOpacity style={quickDock.bodyAction} onPress={() => launch('Log', { quickAction: 'activity', fabTrigger: Date.now() })}><View style={quickDock.bodyIcon}><Ionicons name="walk-outline" size={20} color="#101A2B" /></View><View style={{ flex: 1 }}><Text style={quickDock.bodyTitle}>Activity</Text><Text style={quickDock.bodySub}>Exercise or movement</Text></View><Ionicons name="chevron-forward" size={17} color="#7F8BA0" /></TouchableOpacity>
+              <TouchableOpacity style={quickDock.bodyAction} onPress={() => launch('Log', { quickAction: 'activity', fabTrigger: Date.now() })}><View style={quickDock.bodyIcon}><Ionicons name="walk-outline" size={20} color={themed("#101A2B", 'onAccent')} /></View><View style={{ flex: 1 }}><Text style={quickDock.bodyTitle}>Activity</Text><Text style={quickDock.bodySub}>Exercise or movement</Text></View><Ionicons name="chevron-forward" size={17} color={themed("#7F8BA0", 'color')} /></TouchableOpacity>
               <View style={quickDock.rule} />
-              <TouchableOpacity style={quickDock.bodyAction} onPress={() => launch('Log', { quickAction: 'weight', fabTrigger: Date.now() })}><View style={quickDock.bodyIcon}><Ionicons name="scale-outline" size={20} color="#101A2B" /></View><View style={{ flex: 1 }}><Text style={quickDock.bodyTitle}>Weight</Text><Text style={quickDock.bodySub}>Record a check-in</Text></View><Ionicons name="chevron-forward" size={17} color="#7F8BA0" /></TouchableOpacity>
+              <TouchableOpacity style={quickDock.bodyAction} onPress={() => launch('Log', { quickAction: 'weight', fabTrigger: Date.now() })}><View style={quickDock.bodyIcon}><Ionicons name="scale-outline" size={20} color={themed("#101A2B", 'onAccent')} /></View><View style={{ flex: 1 }}><Text style={quickDock.bodyTitle}>Weight</Text><Text style={quickDock.bodySub}>Record a check-in</Text></View><Ionicons name="chevron-forward" size={17} color={themed("#7F8BA0", 'color')} /></TouchableOpacity>
             </View>
             <Text style={quickDock.hint}>Long-press the + button anytime for a new expense.</Text>
           </View>
@@ -177,6 +183,20 @@ function MainTabs() {
 }
 
 export default function App() {
+  return <ThemeProvider><AppStatusBar /><AppContent /></ThemeProvider>;
+}
+
+function AppStatusBar() {
+  const { palette } = useTheme();
+  return <StatusBar style={palette.dark ? 'light' : 'dark'} />;
+}
+
+function AppContent() {
+  const { palette, fontsLoaded } = useTheme();
+  const navigationBase = palette.dark ? DarkTheme : DefaultTheme;
+  const navigationFont = (role: keyof typeof navigationBase.fonts, weight: number) => ({ ...navigationBase.fonts[role], ...(fontsLoaded ? themeFont(palette.id, { fontWeight: weight }, 'body') : {}) });
+  const splash = useThemeStyles(baseSplash);
+  const snooze = useThemeStyles(baseSnooze);
   useEffect(() => startRedCoinsAutoBackup(), []);
   const navigationRef = useNavigationContainerRef<any>();
   const [user, setUser] = useState<User | null | undefined>(undefined);
@@ -309,6 +329,7 @@ export default function App() {
       <LanguageProvider>
         <NavigationContainer
           ref={navigationRef}
+          theme={{ ...navigationBase, fonts: { regular: navigationFont('regular', 400), medium: navigationFont('medium', 500), bold: navigationFont('bold', 700), heavy: navigationFont('heavy', 800) }, colors: { ...navigationBase.colors, primary: palette.accent, background: palette.canvas, card: palette.surface, text: palette.text, border: palette.border } }}
           linking={{
             prefixes: ['leanlog://'],
             config: {
@@ -357,7 +378,7 @@ export default function App() {
   );
 }
 
-const snooze = StyleSheet.create({
+const baseSnooze = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -413,7 +434,7 @@ const snooze = StyleSheet.create({
   cancelText: { color: '#68758A', fontSize: 11, fontWeight: '800' },
 });
 
-const quickDock = StyleSheet.create({
+const baseQuickDock = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(8,14,24,0.70)' },
   sheet: { backgroundColor: colors.oat, borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 18, paddingTop: 10 },
   handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#CFC4B3', alignSelf: 'center', marginBottom: 15 },
@@ -438,7 +459,7 @@ const quickDock = StyleSheet.create({
   hint: { color: '#737A84', fontSize: 9, textAlign: 'center', marginTop: 12 },
 });
 
-const splash = StyleSheet.create({
+const baseSplash = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.ink,

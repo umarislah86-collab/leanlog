@@ -1,10 +1,12 @@
+import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
+import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { useFocusEffect } from '@react-navigation/native';
 import { subscribeRedCoinsChanges } from '../services/redcoinsEvents';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth, fsFetchAll, fsFetchSettings } from '../firebase';
 import { ActivityEntry, FoodEntry, UserProfile } from '../types';
@@ -58,6 +60,8 @@ const displayName = () => {
 };
 
 export default function HomeScreen({ navigation }: any) {
+  const styles = useThemeStyles(baseStyles);
+  const { themed } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
   const [bluecoinsLoading, setBluecoinsLoading] = useState(false);
   const [bluecoinsConnected, setBluecoinsConnected] = useState(false);
@@ -510,7 +514,7 @@ export default function HomeScreen({ navigation }: any) {
         <TouchableOpacity style={styles.nutritionCard} onPress={() => navigation.navigate('Log')} activeOpacity={0.9}>
           <View style={styles.cardHeadingRow}>
             <Text style={styles.cardEyebrow}>CALORIE BALANCE</Text>
-            <Ionicons name="arrow-forward" size={19} color={colors.text} />
+            <Ionicons name="arrow-forward" size={19} color={themed(colors.text, 'color')} />
           </View>
           <View style={styles.nutritionStats}>
             <Metric value={consumed.toLocaleString()} label="eaten" />
@@ -535,21 +539,21 @@ export default function HomeScreen({ navigation }: any) {
           </View>
           <Text style={styles.briefTitle}>{remaining >= 0 ? `${remaining.toLocaleString()} kcal to shape your day.` : maintenanceDifference != null && maintenanceDifference >= 0 ? `${targetDifference.toLocaleString()} kcal above target, still ~${maintenanceDifference.toLocaleString()} below maintenance.` : maintenanceDifference != null ? `${Math.abs(maintenanceDifference).toLocaleString()} kcal above estimated maintenance.` : `${targetDifference.toLocaleString()} kcal above today's target.`}</Text>
           <View style={styles.briefChips}>
-            <View style={[styles.briefChip, { backgroundColor: '#DDF5E9' }]}>
+            <View style={[styles.briefChip, { backgroundColor: themed('#DDF5E9', 'backgroundColor') }]}>
               <Text style={styles.briefChipText}>👟 {health?.steps.toLocaleString() || '—'} steps</Text>
             </View>
-            <View style={[styles.briefChip, { backgroundColor: '#EEF0FF' }]}>
+            <View style={[styles.briefChip, { backgroundColor: themed('#EEF0FF', 'backgroundColor') }]}>
               <Text style={styles.briefChipText}>🌙 {health ? `${Math.floor(health.sleepMinutes / 60)}h ${health.sleepMinutes % 60}m` : '—'} sleep</Text>
             </View>
-            <View style={[styles.briefChip, { backgroundColor: '#E8E8FF' }]}>
+            <View style={[styles.briefChip, { backgroundColor: themed('#E8E8FF', 'backgroundColor') }]}>
               <Text style={styles.briefChipText}>
                 📅 {agenda.length} event{agenda.length === 1 ? '' : 's'}
               </Text>
             </View>
-            <View style={[styles.briefChip, { backgroundColor: '#F6E4AC' }]}>
+            <View style={[styles.briefChip, { backgroundColor: themed('#F6E4AC', 'backgroundColor') }]}>
               <Text style={styles.briefChipText}>💳 {bluecoins ? money(bluecoins.total) : '—'} / 7d</Text>
             </View>
-            <View style={[styles.briefChip, { backgroundColor: '#FFE6DC' }]}>
+            <View style={[styles.briefChip, { backgroundColor: themed('#FFE6DC', 'backgroundColor') }]}>
               <Text style={styles.briefChipText}>🔥 {streaks?.logging || 0}d log</Text>
             </View>
           </View>
@@ -586,14 +590,14 @@ export default function HomeScreen({ navigation }: any) {
         </View>
 
         <View style={styles.healthStrip}>
-          <HealthMetric icon="footsteps-outline" value={health ? health.steps.toLocaleString() : '—'} label="steps" color={colors.mint} />
+          <HealthMetric icon="footsteps-outline" value={health ? health.steps.toLocaleString() : '—'} label="steps" color={themed(colors.mint, 'color')} />
           <View style={styles.healthRule} />
-          <HealthMetric icon="moon-outline" value={health ? `${Math.floor(health.sleepMinutes / 60)}h ${health.sleepMinutes % 60}m` : '—'} label="sleep" color={colors.cornflower} />
+          <HealthMetric icon="moon-outline" value={health ? `${Math.floor(health.sleepMinutes / 60)}h ${health.sleepMinutes % 60}m` : '—'} label="sleep" color={themed(colors.cornflower, 'color')} />
           <View style={styles.healthRule} />
-          <HealthMetric icon="heart-outline" value={health?.averageBpm ? String(health.averageBpm) : '—'} label="bpm" color={colors.coral} />
+          <HealthMetric icon="heart-outline" value={health?.averageBpm ? String(health.averageBpm) : '—'} label="bpm" color={themed(colors.coral, 'color')} />
         </View>
         <TouchableOpacity style={styles.connectHealth} onPress={healthConnected ? manualHealthSync : handleConnectHealth} disabled={healthLoading}>
-          {healthLoading ? <ActivityIndicator size="small" color={colors.mint} /> : <Ionicons name={healthConnected ? 'refresh-circle-outline' : 'add-circle-outline'} size={17} color={colors.mint} />}
+          {healthLoading ? <ActivityIndicator size="small" color={themed(colors.mint, 'color')} /> : <Ionicons name={healthConnected ? 'refresh-circle-outline' : 'add-circle-outline'} size={17} color={themed(colors.mint, 'color')} />}
           <Text style={styles.connectHealthText}>{healthConnected ? 'Refresh health signals' : 'Connect steps, sleep & heart rate'}</Text>
         </TouchableOpacity>
 
@@ -606,7 +610,7 @@ export default function HomeScreen({ navigation }: any) {
           <TouchableOpacity style={styles.dayCard} activeOpacity={0.9} onPress={calendarConnected ? loadAgenda : handleConnectCalendar}>
             <Text style={styles.smallCardTitle}>AGENDA</Text>
             {calendarLoading ? (
-              <ActivityIndicator color={colors.cornflower} style={{ marginTop: 34 }} />
+              <ActivityIndicator color={themed(colors.cornflower, 'color')} style={{ marginTop: 34 }} />
             ) : agenda.length ? (
               <View style={styles.agendaList}>
                 {agenda.map((event) => {
@@ -631,7 +635,7 @@ export default function HomeScreen({ navigation }: any) {
             ) : (
               <>
                 <View style={styles.emptyAgendaIcon}>
-                  <Ionicons name="calendar-outline" size={24} color={colors.cornflower} />
+                  <Ionicons name="calendar-outline" size={24} color={themed(colors.cornflower, 'color')} />
                 </View>
                 <Text style={styles.emptyTitle}>{calendarConnected ? 'Clear day' : 'Connect Calendar'}</Text>
                 <Text style={styles.emptyBody}>{calendarConnected ? 'Nothing scheduled today.' : 'Your phone calendar will appear here.'}</Text>
@@ -642,10 +646,10 @@ export default function HomeScreen({ navigation }: any) {
           <TouchableOpacity style={styles.moneyCard} onPress={bluecoinsConnected && bluecoins ? openBudgetCoach : () => navigation.navigate('Settings')} activeOpacity={0.9}>
             <View style={styles.moneyTop}>
               <Text style={styles.moneyEyebrow}>BUDGET COACH · LAST 7 DAYS</Text>
-              <Ionicons name="wallet-outline" size={22} color={colors.text} />
+              <Ionicons name="wallet-outline" size={22} color={themed(colors.text, 'color')} />
             </View>
             {bluecoinsLoading ? (
-              <ActivityIndicator color={colors.text} style={{ marginTop: 28 }} />
+              <ActivityIndicator color={themed(colors.text, 'color')} style={{ marginTop: 28 }} />
             ) : bluecoins ? (
               <>
                 <View style={styles.moneySummaryRow}>
@@ -688,7 +692,7 @@ export default function HomeScreen({ navigation }: any) {
                         style={[
                           styles.categoryDot,
                           {
-                            backgroundColor: [colors.coral, colors.cornflower, colors.mint][index],
+                            backgroundColor: [themed(colors.coral, 'backgroundColor'), themed(colors.cornflower, 'backgroundColor'), themed(colors.mint, 'backgroundColor')][index],
                           },
                         ]}
                       />
@@ -716,13 +720,13 @@ export default function HomeScreen({ navigation }: any) {
                   <Text style={styles.realityEyebrow}>CASH REALITY</Text>
                   <Text style={styles.realityTitle}>What is actually yours.</Text>
                 </View>
-                <Ionicons name="eye-outline" size={22} color={colors.mint} />
+                <Ionicons name="eye-outline" size={22} color={themed(colors.mint, 'color')} />
               </View>
               <Text
                 style={[
                   styles.realityValue,
                   bluecoins.cashReality.trueSpendable < 0 && {
-                    color: colors.coral,
+                    color: themed(colors.coral, 'color'),
                   },
                 ]}
               >
@@ -736,7 +740,7 @@ export default function HomeScreen({ navigation }: any) {
                 </View>
                 <Text style={styles.realityOperator}>−</Text>
                 <View style={styles.realityEquationItem}>
-                  <Text style={[styles.realityEquationValue, { color: colors.coral }]}>{money(bluecoins.cashReality.cardOutstanding)}</Text>
+                  <Text style={[styles.realityEquationValue, { color: themed(colors.coral, 'color') }]}>{money(bluecoins.cashReality.cardOutstanding)}</Text>
                   <Text style={styles.realityEquationLabel}>card reserved</Text>
                 </View>
                 {bluecoins.cashReality.safetyBuffer > 0 && (
@@ -784,8 +788,8 @@ export default function HomeScreen({ navigation }: any) {
 
         {bluecoins && (
           <View style={styles.syncRow}>
-            <Ionicons name="checkmark-circle" size={16} color={colors.mint} />
-            <Text style={[styles.syncText, backupAgeDays > 0 && { color: colors.coral }]}>
+            <Ionicons name="checkmark-circle" size={16} color={themed(colors.mint, 'color')} />
+            <Text style={[styles.syncText, backupAgeDays > 0 && { color: themed(colors.coral, 'color') }]}>
               Budget Coach · live RedCoins ledger · updated {new Date(bluecoins.syncedAt).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' })}
             </Text>
           </View>
@@ -798,10 +802,10 @@ export default function HomeScreen({ navigation }: any) {
               <Text style={styles.sectionHint}>Calculated offline</Text>
             </View>
             <View style={styles.streakGrid}>
-              <StreakCard emoji="✍️" value={streaks.logging} label="logging" color={colors.coral} />
-              <StreakCard emoji="🎯" value={streaks.calorieTarget} label="on target" color={colors.mustard} />
-              <StreakCard emoji="🏃" value={streaks.movement} label="movement" color={colors.cornflower} />
-              <StreakCard emoji="💪" value={streaks.protein} label="protein" color={colors.mint} />
+              <StreakCard emoji="✍️" value={streaks.logging} label="logging" color={themed(colors.coral, 'color')} />
+              <StreakCard emoji="🎯" value={streaks.calorieTarget} label="on target" color={themed(colors.mustard, 'color')} />
+              <StreakCard emoji="🏃" value={streaks.movement} label="movement" color={themed(colors.cornflower, 'color')} />
+              <StreakCard emoji="💪" value={streaks.protein} label="protein" color={themed(colors.mint, 'color')} />
             </View>
           </View>
         )}
@@ -824,7 +828,7 @@ export default function HomeScreen({ navigation }: any) {
             ))}
             {!!aiReview && <Text style={styles.aiReview}>{aiReview}</Text>}
             <TouchableOpacity style={styles.aiButton} onPress={explainWeek} disabled={aiReviewLoading}>
-              {aiReviewLoading ? <ActivityIndicator color={colors.ink} /> : <Text style={styles.aiButtonText}>✨ {aiReview ? 'Refresh AI explanation' : 'Explain my week with AI'}</Text>}
+              {aiReviewLoading ? <ActivityIndicator color={themed(colors.ink, 'color')} /> : <Text style={styles.aiButtonText}>✨ {aiReview ? 'Refresh AI explanation' : 'Explain my week with AI'}</Text>}
             </TouchableOpacity>
             <Text style={styles.tokenHint}>Only this button uses an API token.</Text>
           </View>
@@ -841,7 +845,7 @@ export default function HomeScreen({ navigation }: any) {
                 <Text style={styles.budgetTitle}>Spend with intention.</Text>
               </View>
               <TouchableOpacity style={styles.budgetClose} onPress={() => setShowBudgetCoach(false)}>
-                <Ionicons name="close" size={22} color={colors.text} />
+                <Ionicons name="close" size={22} color={themed(colors.text, 'color')} />
               </TouchableOpacity>
             </View>
             {bluecoins && (
@@ -861,7 +865,7 @@ export default function HomeScreen({ navigation }: any) {
                     <Text style={styles.openRedCoinsTitle}>OPEN REDCOINS</Text>
                     <Text style={styles.openRedCoinsMeta}>Log daily money · accounts · plan · reports · Bluecoins export</Text>
                   </View>
-                  <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+                  <Ionicons name="arrow-forward" size={20} color={themed("#FFFFFF", 'color')} />
                 </TouchableOpacity>
                 <View style={styles.budgetHero}>
                   <Text style={styles.budgetHeroLabel}>SAFE TO SPEND TODAY</Text>
@@ -899,7 +903,7 @@ export default function HomeScreen({ navigation }: any) {
                       Based on {bluecoins.monthly.projectionCycles} completed salary cycles · 5-cycle median {money(bluecoins.monthly.historicalMedian)} · mean {money(bluecoins.monthly.historicalMean)}
                     </Text>
                   </View>
-                  <Ionicons name="analytics-outline" size={22} color={colors.cornflower} />
+                  <Ionicons name="analytics-outline" size={22} color={themed(colors.cornflower, 'color')} />
                 </View>
 
                 <Text style={styles.budgetSectionTitle}>CASH REALITY · BANK MINUS CARD DEBT</Text>
@@ -909,7 +913,7 @@ export default function HomeScreen({ navigation }: any) {
                     style={[
                       styles.realityPanelValue,
                       bluecoins.cashReality.trueSpendable < 0 && {
-                        color: colors.coral,
+                        color: themed(colors.coral, 'color'),
                       },
                     ]}
                   >
@@ -933,9 +937,9 @@ export default function HomeScreen({ navigation }: any) {
                 <Text style={styles.realityPickerHint}>WHICH BALANCES COUNT AS SPENDABLE CASH?</Text>
                 <View style={styles.realityAccountList}>
                   <TouchableOpacity style={styles.realityAccountSummary} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins', { section: 'plan', planPage: 'budgets' }); }} activeOpacity={0.78}>
-                    <Ionicons name="checkmark-circle" size={20} color={colors.ink} />
+                    <Ionicons name="checkmark-circle" size={20} color={themed(colors.ink, 'color')} />
                     <Text style={styles.realityAccountNameActive}>{bluecoins.cashReality.selectedAccounts.length ? bluecoins.cashReality.selectedAccounts.join(' · ') : 'No cash account selected'}</Text>
-                    <Ionicons name="arrow-forward" size={16} color={colors.muted} />
+                    <Ionicons name="arrow-forward" size={16} color={themed(colors.muted, 'color')} />
                   </TouchableOpacity>
                 </View>
                 <Text style={styles.suggestedHint}>Card purchases reduce true spendable immediately. Paying the card later is settlement—not a second expense.</Text>
@@ -947,7 +951,7 @@ export default function HomeScreen({ navigation }: any) {
                       style={[
                         styles.coachDot,
                         {
-                          backgroundColor: [colors.coral, colors.mustard, colors.mint][index % 3],
+                          backgroundColor: [themed(colors.coral, 'backgroundColor'), themed(colors.mustard, 'backgroundColor'), themed(colors.mint, 'backgroundColor')][index % 3],
                         },
                       ]}
                     />
@@ -981,7 +985,7 @@ export default function HomeScreen({ navigation }: any) {
                               style={[
                                 styles.subcategoryDot,
                                 {
-                                  backgroundColor: [colors.coral, colors.cornflower, colors.mustard, colors.mint][subIndex % 4],
+                                  backgroundColor: [themed(colors.coral, 'backgroundColor'), themed(colors.cornflower, 'backgroundColor'), themed(colors.mustard, 'backgroundColor'), themed(colors.mint, 'backgroundColor')][subIndex % 4],
                                 },
                               ]}
                             />
@@ -1009,7 +1013,7 @@ export default function HomeScreen({ navigation }: any) {
                         <Text style={styles.commitmentTitle}>Bills, subscriptions & loans</Text>
                       </View>
                       <Text style={styles.commitmentAmount}>{money(bluecoins.monthly.fixedCommitments.total)}</Text>
-                      <Ionicons name={showFixedCommitments ? 'chevron-up' : 'chevron-down'} size={16} color={colors.muted} />
+                      <Ionicons name={showFixedCommitments ? 'chevron-up' : 'chevron-down'} size={16} color={themed(colors.muted, 'color')} />
                     </TouchableOpacity>
                     {showFixedCommitments &&
                       bluecoins.monthly.fixedCommitments.items.map((item) => (
@@ -1020,7 +1024,7 @@ export default function HomeScreen({ navigation }: any) {
                       ))}
                     {showFixedCommitments && (
                       <TouchableOpacity style={styles.commitmentManage} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins', { section: 'plan', planPage: 'budgets' }); }}>
-                        <Ionicons name="options-outline" size={14} color={colors.coral} />
+                        <Ionicons name="options-outline" size={14} color={themed(colors.coral, 'color')} />
                         <Text style={styles.commitmentManageText}>MANAGE RECURRING ITEMS</Text>
                       </TouchableOpacity>
                     )}
@@ -1030,7 +1034,7 @@ export default function HomeScreen({ navigation }: any) {
                 <View style={styles.guardSectionHeader}>
                   <Text style={[styles.budgetSectionTitle, { marginBottom: 0 }]}>SPENDING GUARDS</Text>
                   <TouchableOpacity style={styles.guardAddButton} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins', { section: 'plan', planPage: 'guards' }); }}>
-                    <Ionicons name="arrow-forward" size={16} color={colors.ink} />
+                    <Ionicons name="arrow-forward" size={16} color={themed(colors.ink, 'color')} />
                     <Text style={styles.guardAddText}>MANAGE</Text>
                   </TouchableOpacity>
                 </View>
@@ -1041,7 +1045,7 @@ export default function HomeScreen({ navigation }: any) {
                         style={[
                           styles.guardStatusDot,
                           {
-                            backgroundColor: !guard.enabled ? '#AAA' : guard.percent >= 100 ? colors.coral : guard.percent >= 70 ? colors.mustard : colors.mint,
+                            backgroundColor: !guard.enabled ? themed('#AAA', 'backgroundColor') : guard.percent >= 100 ? themed(colors.coral, 'backgroundColor') : guard.percent >= 70 ? themed(colors.mustard, 'backgroundColor') : themed(colors.mint, 'backgroundColor'),
                           },
                         ]}
                       />
@@ -1050,7 +1054,7 @@ export default function HomeScreen({ navigation }: any) {
                           <Text style={styles.guardListName}>{guard.name}</Text>
                           {pinnedGuardId === guard.id && (
                             <View style={styles.pinnedPill}>
-                              <Ionicons name="pin" size={9} color={colors.ink} />
+                              <Ionicons name="pin" size={9} color={themed(colors.ink, 'color')} />
                               <Text style={styles.pinnedPillText}>WIDGET</Text>
                             </View>
                           )}
@@ -1094,7 +1098,7 @@ export default function HomeScreen({ navigation }: any) {
                 </View>
                 {bluecoins.monthly.budgetIsSuggested && <Text style={styles.suggestedHint}>This is a suggested budget based on available spending history. Set your own anytime.</Text>}
                 <TouchableOpacity style={styles.refreshBudget} onPress={() => loadBluecoins(false)}>
-                  <Ionicons name="refresh" size={17} color={colors.cornflower} />
+                  <Ionicons name="refresh" size={17} color={themed(colors.cornflower, 'color')} />
                   <Text style={styles.refreshBudgetText}>Refresh newest .fydb backup</Text>
                 </TouchableOpacity>
               </ScrollView>
@@ -1118,16 +1122,16 @@ export default function HomeScreen({ navigation }: any) {
                   setFixedCommitmentSearch('');
                 }}
               >
-                <Ionicons name="close" size={22} color={colors.text} />
+                <Ionicons name="close" size={22} color={themed(colors.text, 'color')} />
               </TouchableOpacity>
             </View>
             <Text style={styles.fixedManagerHint}>Search every item in your Bluecoins history. Selected items stay inside monthly spending, but disappear from controllable daily-expense rankings.</Text>
             <View style={styles.fixedSearchBox}>
-              <Ionicons name="search" size={17} color={colors.muted} />
-              <TextInput style={styles.fixedSearchInput} value={fixedCommitmentSearch} onChangeText={setFixedCommitmentSearch} placeholder="Search Unifi, YouTube, insurance…" placeholderTextColor={colors.muted} autoCorrect={false} />
+              <Ionicons name="search" size={17} color={themed(colors.muted, 'color')} />
+              <TextInput style={styles.fixedSearchInput} value={fixedCommitmentSearch} onChangeText={setFixedCommitmentSearch} placeholder="Search Unifi, YouTube, insurance…" placeholderTextColor={themed(colors.muted, 'color')} autoCorrect={false} />
               {!!fixedCommitmentSearch && (
                 <TouchableOpacity onPress={() => setFixedCommitmentSearch('')}>
-                  <Ionicons name="close-circle" size={17} color={colors.muted} />
+                  <Ionicons name="close-circle" size={17} color={themed(colors.muted, 'color')} />
                 </TouchableOpacity>
               )}
             </View>
@@ -1139,7 +1143,7 @@ export default function HomeScreen({ navigation }: any) {
                 })
                 .map((option) => (
                   <TouchableOpacity key={option.key} style={[styles.fixedOption, option.selected && styles.fixedOptionSelected]} onPress={() => toggleFixedCommitment(option.key)} activeOpacity={0.72}>
-                    <Ionicons name={option.selected ? 'checkmark-circle' : 'ellipse-outline'} size={20} color={option.selected ? colors.coral : colors.muted} />
+                    <Ionicons name={option.selected ? 'checkmark-circle' : 'ellipse-outline'} size={20} color={option.selected ? themed(colors.coral, 'color') : themed(colors.muted, 'color')} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.fixedOptionLabel}>{option.label}</Text>
                       <Text style={styles.fixedOptionCategory}>
@@ -1175,7 +1179,7 @@ export default function HomeScreen({ navigation }: any) {
                     <Text style={styles.budgetTitle}>{selectedGuard.name}</Text>
                   </View>
                   <TouchableOpacity style={styles.budgetClose} onPress={() => { setSelectedGuardId(null); setExpandedGuardPart(null); }}>
-                    <Ionicons name="close" size={22} color={colors.text} />
+                    <Ionicons name="close" size={22} color={themed(colors.text, 'color')} />
                   </TouchableOpacity>
                 </View>
                 <View style={[styles.guardDetailHero, selectedGuard.level === 'breached' && styles.guardDetailHeroDanger]}>
@@ -1206,7 +1210,7 @@ export default function HomeScreen({ navigation }: any) {
                       </View>
                     </View>
                     <Text style={styles.guardBreakdownAmount}>{money(item.amount)}</Text>
-                    <Ionicons name={expandedGuardPart === item.name ? 'chevron-up' : 'chevron-down'} size={15} color={colors.muted} />
+                    <Ionicons name={expandedGuardPart === item.name ? 'chevron-up' : 'chevron-down'} size={15} color={themed(colors.muted, 'color')} />
                   </TouchableOpacity>
                   {expandedGuardPart === item.name && selectedGuard.transactions
                     .filter((tx) => selectedGuard.scope === 'subcategory' ? tx.itemName === item.name : tx.subcategory === item.name)
@@ -1228,13 +1232,13 @@ export default function HomeScreen({ navigation }: any) {
                     <Text style={styles.guardEditText}>EDIT GUARD</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.guardPinButton, pinnedGuardId === selectedGuard.id && styles.guardPinButtonActive]} onPress={() => makeGuardTopPriority(selectedGuard)}>
-                    <Ionicons name="pin" size={17} color={pinnedGuardId === selectedGuard.id ? colors.ink : colors.oat} />
+                    <Ionicons name="pin" size={17} color={pinnedGuardId === selectedGuard.id ? themed(colors.ink, 'color') : themed(colors.oat, 'color')} />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.guardPauseButton} onPress={() => toggleGuard(selectedGuard)}>
-                    <Ionicons name={selectedGuard.enabled ? 'pause' : 'play'} size={17} color={colors.text} />
+                    <Ionicons name={selectedGuard.enabled ? 'pause' : 'play'} size={17} color={themed(colors.text, 'color')} />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.guardDeleteButton} onPress={() => deleteGuard(selectedGuard)}>
-                    <Ionicons name="trash-outline" size={18} color={colors.coral} />
+                    <Ionicons name="trash-outline" size={18} color={themed(colors.coral, 'color')} />
                   </TouchableOpacity>
                 </View>
               </ScrollView>
@@ -1252,7 +1256,7 @@ export default function HomeScreen({ navigation }: any) {
                 <Text style={styles.habitModalTitle}>{editingGuardId ? 'Edit your limit.' : 'Watch the leak.'}</Text>
               </View>
               <TouchableOpacity style={styles.budgetClose} onPress={() => setShowGuardEditor(false)}>
-                <Ionicons name="close" size={21} color={colors.text} />
+                <Ionicons name="close" size={21} color={themed(colors.text, 'color')} />
               </TouchableOpacity>
             </View>
             <Text style={styles.guardFieldLabel}>WATCH</Text>
@@ -1271,11 +1275,11 @@ export default function HomeScreen({ navigation }: any) {
               </Picker>
             </View>
             <Text style={styles.guardFieldLabel}>DISPLAY NAME · OPTIONAL</Text>
-            <TextInput style={styles.guardTextInput} value={guardName} onChangeText={setGuardName} placeholder={guardTarget || 'My guard'} placeholderTextColor="#8B8B8B" />
+            <TextInput style={styles.guardTextInput} value={guardName} onChangeText={setGuardName} placeholder={guardTarget || 'My guard'} placeholderTextColor={themed("#8B8B8B", 'color')} />
             <Text style={styles.guardFieldLabel}>LIMIT</Text>
             <View style={styles.budgetEditRow}>
               <Text style={styles.currencyPrefix}>RM</Text>
-              <TextInput style={styles.budgetInput} value={guardLimit} onChangeText={setGuardLimit} keyboardType="decimal-pad" placeholder="1400" placeholderTextColor="#8B8B8B" />
+              <TextInput style={styles.budgetInput} value={guardLimit} onChangeText={setGuardLimit} keyboardType="decimal-pad" placeholder="1400" placeholderTextColor={themed("#8B8B8B", 'color')} />
             </View>
             <Text style={styles.guardFieldLabel}>RESET CYCLE</Text>
             <View style={styles.guardChoiceRow}>
@@ -1311,7 +1315,7 @@ export default function HomeScreen({ navigation }: any) {
                 <Text style={styles.habitReportTitle}>Your habit rhythm.</Text>
               </View>
               <TouchableOpacity style={styles.budgetClose} onPress={() => setShowHabitReport(false)}>
-                <Ionicons name="close" size={22} color={colors.text} />
+                <Ionicons name="close" size={22} color={themed(colors.text, 'color')} />
               </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
@@ -1367,7 +1371,7 @@ export default function HomeScreen({ navigation }: any) {
             <Text style={styles.habitModalTitle}>{editingHabit ? 'Keep it realistic.' : 'Make it almost too easy.'}</Text>
             <View style={styles.habitInputRow}>
               <TextInput style={styles.emojiInput} value={newHabitEmoji} onChangeText={setNewHabitEmoji} maxLength={2} />
-              <TextInput style={styles.habitInput} value={newHabitName} onChangeText={setNewHabitName} placeholder="e.g. Stretch 5 min" placeholderTextColor="#8993A5" maxLength={28} />
+              <TextInput style={styles.habitInput} value={newHabitName} onChangeText={setNewHabitName} placeholder="e.g. Stretch 5 min" placeholderTextColor={themed("#8993A5", 'color')} maxLength={28} />
             </View>
             <Text style={styles.habitDaysLabel}>ACTIVE DAYS</Text>
             <View style={styles.habitDaysRow}>
@@ -1410,6 +1414,7 @@ export default function HomeScreen({ navigation }: any) {
 }
 
 function Metric({ value, label }: { value: string; label: string }) {
+  const styles = useThemeStyles(baseStyles);
   return (
     <View style={styles.metric}>
       <Text style={styles.metricValue}>{value}</Text>
@@ -1419,6 +1424,7 @@ function Metric({ value, label }: { value: string; label: string }) {
 }
 
 function HealthMetric({ icon, value, label, color }: { icon: any; value: string; label: string; color: string }) {
+  const styles = useThemeStyles(baseStyles);
   return (
     <View style={styles.healthMetric}>
       <Ionicons name={icon} size={22} color={color} />
@@ -1429,6 +1435,7 @@ function HealthMetric({ icon, value, label, color }: { icon: any; value: string;
 }
 
 function StreakCard({ emoji, value, label, color }: { emoji: string; value: number; label: string; color: string }) {
+  const styles = useThemeStyles(baseStyles);
   return (
     <View style={[styles.streakCard, { borderTopColor: color }]}>
       <Text style={styles.streakEmoji}>{emoji}</Text>
@@ -1439,6 +1446,7 @@ function StreakCard({ emoji, value, label, color }: { emoji: string; value: numb
 }
 
 function BudgetStat({ value, label }: { value: string; label: string }) {
+  const styles = useThemeStyles(baseStyles);
   return (
     <View style={styles.budgetStat}>
       <Text style={styles.budgetStatValue}>{value}</Text>
@@ -1447,7 +1455,7 @@ function BudgetStat({ value, label }: { value: string; label: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.ink },
   screen: { flex: 1, backgroundColor: colors.ink },
   content: { paddingHorizontal: 18, paddingBottom: 36 },

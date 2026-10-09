@@ -1,5 +1,7 @@
+import { ThemeText as Text } from '../components/ThemePrimitives';
+import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import React from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -47,9 +49,11 @@ const chapters = [
 ];
 
 export default function LeanLogChronicle({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const s = useThemeStyles(baseS);
+  const { themed } = useTheme();
   return <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
     <SafeAreaView style={s.safe}>
-      <View style={s.header}><TouchableOpacity onPress={onClose} style={s.back}><Ionicons name="arrow-back" size={22} color="#FFF4DB" /></TouchableOpacity><View style={{ flex: 1 }}><Text style={s.kicker}>ARKIB DIRAJA LEANLOG</Text><Text style={s.headerTitle}>Hikayat sebuah app.</Text></View></View>
+      <View style={s.header}><TouchableOpacity onPress={onClose} style={s.back}><Ionicons name="arrow-back" size={22} color={themed("#FFF4DB", 'color')} /></TouchableOpacity><View style={{ flex: 1 }}><Text style={s.kicker}>ARKIB DIRAJA LEANLOG</Text><Text style={s.headerTitle}>Hikayat sebuah app.</Text></View></View>
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
         <View style={s.hero}><Text style={s.heroMark}>۞</Text><Text style={s.heroTitle}>Hikayat LeanLog</Text><Text style={s.heroCopy}>Maka tersebutlah kisah sebuah pencatat kalori yang enggan duduk diam, lalu membesar menjadi teman makan, senaman, tabiat dan wang.</Text><Text style={s.heroMeta}>DICATAT SEJAK OGOS 2026 · {chapters.length - 1} RELEASE</Text></View>
         <View style={s.thread} />
@@ -60,6 +64,6 @@ export default function LeanLogChronicle({ visible, onClose }: { visible: boolea
   </Modal>;
 }
 
-const s = StyleSheet.create({
+const baseS = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#101A2B' }, header: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 17, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#29364B' }, back: { width: 42, height: 42, borderRadius: 14, backgroundColor: '#202C40', alignItems: 'center', justifyContent: 'center' }, kicker: { color: '#91DCBB', fontSize: 8, fontWeight: '900', letterSpacing: 1.7 }, headerTitle: { color: '#FFF4DB', fontFamily: 'serif', fontSize: 22, fontWeight: '800', marginTop: 2 }, content: { padding: 16, paddingBottom: 42 }, hero: { backgroundColor: '#F7EEDC', borderRadius: 28, padding: 24, alignItems: 'center' }, heroMark: { color: '#C95370', fontSize: 27 }, heroTitle: { color: '#101A2B', fontFamily: 'serif', fontSize: 37, fontWeight: '800', marginTop: 4 }, heroCopy: { color: '#596173', textAlign: 'center', fontFamily: 'serif', fontSize: 15, lineHeight: 23, marginTop: 10 }, heroMeta: { color: '#C95370', fontSize: 7, fontWeight: '900', letterSpacing: 1.2, marginTop: 17 }, thread: { position: 'absolute', left: 30, top: 250, bottom: 110, width: 2, backgroundColor: '#344158' }, chapter: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 14 }, seal: { width: 29, height: 29, borderRadius: 15, backgroundColor: '#344158', borderWidth: 3, borderColor: '#101A2B', alignItems: 'center', justifyContent: 'center', marginTop: 18, marginRight: 9, zIndex: 2 }, latestSeal: { backgroundColor: '#FF6542' }, sealText: { color: '#FFF4DB', fontSize: 8, fontWeight: '900' }, parchment: { flex: 1, backgroundColor: '#FFF9EA', borderRadius: 19, padding: 15, borderWidth: 1, borderColor: '#E2D7C3' }, latest: { borderColor: '#FF6542', borderWidth: 2 }, chapterTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }, version: { color: '#C95370', fontSize: 10, fontWeight: '900', letterSpacing: 1 }, date: { color: '#8A8175', fontSize: 7, fontWeight: '800' }, title: { color: '#101A2B', fontFamily: 'serif', fontSize: 18, fontWeight: '800', marginTop: 7 }, story: { color: '#596173', fontFamily: 'serif', fontSize: 12, lineHeight: 19, marginTop: 7 }, current: { color: '#FF6542', fontSize: 7, fontWeight: '900', letterSpacing: 1, marginTop: 12 }, ending: { alignItems: 'center', paddingHorizontal: 28, paddingTop: 28 }, endingMark: { color: '#91DCBB', fontSize: 22 }, endingText: { color: '#AAB5C7', textAlign: 'center', fontFamily: 'serif', fontSize: 13, lineHeight: 20, marginTop: 7 },
 });

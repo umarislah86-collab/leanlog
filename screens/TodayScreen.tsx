@@ -1,3 +1,5 @@
+import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
+import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import * as Linking from 'expo-linking';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -6,22 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Picker } from '@react-native-picker/picker';
-import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  AppState,
-  Image,
-  LayoutAnimation,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Animated, AppState, Image, LayoutAnimation, Modal, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect, useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -64,6 +51,8 @@ const parseEntryDateTime = (dateStr: string, timeStr: string): Date => {
 };
 
 export default function TodayScreen() {
+  const styles = useThemeStyles(baseStyles);
+  const { themed, palette } = useTheme();
   const { t } = useLanguage();
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
@@ -759,7 +748,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar style="dark" />
+      <StatusBar style={palette.dark ? 'light' : 'dark'} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -812,7 +801,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
                 <Text style={styles.ringStatLbl}>{t('kcalEaten')}</Text>
               </View>
               <View style={styles.ringStatItem}>
-                <Text style={[styles.ringStatVal, { color: remaining < 0 ? '#FF6542' : '#CBD2DD' }]}>{Math.abs(remaining)}</Text>
+                <Text style={[styles.ringStatVal, { color: remaining < 0 ? themed('#FF6542', 'color') : themed('#CBD2DD', 'color') }]}>{Math.abs(remaining)}</Text>
                 <Text style={styles.ringStatLbl}>{remaining < 0 ? t('over') : t('remaining')}</Text>
               </View>
             </View>
@@ -826,29 +815,29 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
             />
             <View style={styles.ringStatCol}>
               <View style={styles.ringStatItem}>
-                <Text style={[styles.ringStatVal, { color: '#8D9BFF' }]}>{totalBurned}</Text>
+                <Text style={[styles.ringStatVal, { color: themed('#8D9BFF', 'color') }]}>{totalBurned}</Text>
                 <Text style={styles.ringStatLbl}>{t('kcalBurned')}</Text>
               </View>
               <TouchableOpacity style={styles.ringStatItem} onPress={() => { setGoalInput(String(calorieGoal)); setShowGoalModal(true); }}>
                 <Text style={styles.ringStatVal}>{calorieGoal}</Text>
-                <Text style={[styles.ringStatLbl, { color: '#FF6542' }]}>{t('goalEdit')}</Text>
+                <Text style={[styles.ringStatLbl, { color: themed('#FF6542', 'color') }]}>{t('goalEdit')}</Text>
               </TouchableOpacity>
             </View>
           </View>
           <Text style={styles.progressLabel}>{Math.round(progress * 100)}{t('pctOfGoal')}</Text>
           <View style={styles.macrosRow}>
             <View style={styles.macroCell}>
-              <Text style={[styles.macroVal, { color: '#8D9BFF' }]}>{totalMacro('protein')}g</Text>
+              <Text style={[styles.macroVal, { color: themed('#8D9BFF', 'color') }]}>{totalMacro('protein')}g</Text>
               <Text style={styles.macroSub}>/ {proteinGoal}g</Text>
               <Text style={styles.macroLbl}>{t('protein')}</Text>
             </View>
             <View style={[styles.macroCell, styles.macroCellMid]}>
-              <Text style={[styles.macroVal, { color: '#FF6542' }]}>{totalMacro('karbohidrat')}g</Text>
+              <Text style={[styles.macroVal, { color: themed('#FF6542', 'color') }]}>{totalMacro('karbohidrat')}g</Text>
               <Text style={styles.macroSub}>/ {carbsGoal}g</Text>
               <Text style={styles.macroLbl}>{t('carbs')}</Text>
             </View>
             <View style={styles.macroCell}>
-              <Text style={[styles.macroVal, { color: '#E8B84A' }]}>{totalMacro('lemak')}g</Text>
+              <Text style={[styles.macroVal, { color: themed('#E8B84A', 'color') }]}>{totalMacro('lemak')}g</Text>
               <Text style={styles.macroSub}>/ {fatGoal}g</Text>
               <Text style={styles.macroLbl}>{t('fat')}</Text>
             </View>
@@ -859,7 +848,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
 
       {loading && (
         <View style={styles.loadingBar}>
-          <ActivityIndicator size="small" color="#FF6542" />
+          <ActivityIndicator size="small" color={themed("#FF6542", 'color')} />
           <Text style={styles.loadingText}>{loadingMsg}</Text>
         </View>
       )}
@@ -970,7 +959,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
                 <View style={styles.sectionHeader}>
                   <Text style={styles.sectionEmoji}>🏃</Text>
                   <Text style={styles.sectionTitle}>{t('aktiviti')}</Text>
-                  <Text style={[styles.sectionCal, { color: '#8D9BFF' }]}>-{totalBurned} kcal</Text>
+                  <Text style={[styles.sectionCal, { color: themed('#8D9BFF', 'color') }]}>-{totalBurned} kcal</Text>
                 </View>
                 {todayActivities.map((a) => (
                   <TouchableOpacity key={a.id} style={styles.activityCard} activeOpacity={0.8}
@@ -981,8 +970,8 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
                       <Text style={styles.foodTime}>{a.time} · {a.duration} {t('min')}</Text>
                     </View>
                     <View style={styles.calorieBadge}>
-                      <Text style={[styles.foodCalories, { color: '#8D9BFF' }]}>-{a.caloriesBurned}</Text>
-                      <Text style={[styles.kcalLabel, { color: '#8D9BFF' }]}>kcal</Text>
+                      <Text style={[styles.foodCalories, { color: themed('#8D9BFF', 'color') }]}>-{a.caloriesBurned}</Text>
+                      <Text style={[styles.kcalLabel, { color: themed('#8D9BFF', 'color') }]}>kcal</Text>
                     </View>
                   </TouchableOpacity>
                 ))}
@@ -1004,7 +993,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
                 <Text style={styles.loggerIntro}>Choose a lane. We will keep the next step focused.</Text>
               </View>
               <TouchableOpacity style={styles.loggerClose} onPress={() => setShowCategoryPicker(false)}>
-                <Ionicons name="close" size={21} color="#FFF4DB" />
+                <Ionicons name="close" size={21} color={themed("#FFF4DB", 'color')} />
               </TouchableOpacity>
             </View>
 
@@ -1013,10 +1002,10 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
               {MEAL_CATEGORIES.map((cat) => {
                 const icon = cat.key === 'sarapan' ? 'sunny-outline' : cat.key === 'tengahari' ? 'restaurant-outline' : cat.key === 'malam' ? 'moon-outline' : 'cafe-outline';
                 return <TouchableOpacity key={cat.key} style={styles.mealTile} onPress={() => handleCategorySelect(cat.key)}>
-                  <View style={styles.mealIcon}><Ionicons name={icon as any} size={20} color="#101A2B" /></View>
+                  <View style={styles.mealIcon}><Ionicons name={icon as any} size={20} color={themed("#101A2B", 'color')} /></View>
                   <Text style={styles.mealTileLabel}>{cat.label}</Text>
                   <Text style={styles.mealTileSub}>{cat.subtitle}</Text>
-                  <Ionicons name="arrow-forward" size={15} color="#C9472C" style={styles.mealTileArrow} />
+                  <Ionicons name="arrow-forward" size={15} color={themed("#C9472C", 'color')} style={styles.mealTileArrow} />
                 </TouchableOpacity>;
               })}
             </View>
@@ -1024,9 +1013,9 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
             <Text style={styles.loggerSectionLabel}>BODY & NOTES</Text>
             <View style={styles.loggerUtilityCard}>
               <TouchableOpacity style={styles.loggerUtilityRow} onPress={() => handleCategorySelect('aktiviti')}>
-                <View style={[styles.utilityIcon, styles.utilityIconMint]}><Ionicons name="walk-outline" size={20} color="#101A2B" /></View>
+                <View style={[styles.utilityIcon, styles.utilityIconMint]}><Ionicons name="walk-outline" size={20} color={themed("#101A2B", 'onAccent')} /></View>
                 <View style={{ flex: 1 }}><Text style={styles.utilityTitle}>{t('aktiviti')}</Text><Text style={styles.utilitySub}>{t('aktivitiSub')}</Text></View>
-                <Ionicons name="chevron-forward" size={17} color="#7F8BA0" />
+                <Ionicons name="chevron-forward" size={17} color={themed("#7F8BA0", 'color')} />
               </TouchableOpacity>
               <View style={styles.utilityRule} />
               <TouchableOpacity style={styles.loggerUtilityRow} onPress={() => {
@@ -1034,21 +1023,21 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
                 setNewWeight('70.0'); setNewWeightDate(new Date());
                 setTimeout(() => setShowWeightModal(true), 300);
               }}>
-                <View style={[styles.utilityIcon, styles.utilityIconCoral]}><Ionicons name="scale-outline" size={20} color="#101A2B" /></View>
+                <View style={[styles.utilityIcon, styles.utilityIconCoral]}><Ionicons name="scale-outline" size={20} color={themed("#101A2B", 'color')} /></View>
                 <View style={{ flex: 1 }}><Text style={styles.utilityTitle}>{t('logWeight')}</Text><Text style={styles.utilitySub}>{t('weightKg')}</Text></View>
-                <Ionicons name="chevron-forward" size={17} color="#7F8BA0" />
+                <Ionicons name="chevron-forward" size={17} color={themed("#7F8BA0", 'color')} />
               </TouchableOpacity>
               <View style={styles.utilityRule} />
               <TouchableOpacity style={styles.loggerUtilityRow} onPress={() => { setShowCategoryPicker(false); setTimeout(() => setShowQuickNoteModal(true), 250); }}>
-                <View style={styles.utilityIcon}><Ionicons name="create-outline" size={20} color="#FFF4DB" /></View>
+                <View style={styles.utilityIcon}><Ionicons name="create-outline" size={20} color={themed("#FFF4DB", 'color')} /></View>
                 <View style={{ flex: 1 }}><Text style={styles.utilityTitle}>Quick Note</Text><Text style={styles.utilitySub}>A thought, symptom or reminder</Text></View>
-                <Ionicons name="chevron-forward" size={17} color="#7F8BA0" />
+                <Ionicons name="chevron-forward" size={17} color={themed("#7F8BA0", 'color')} />
               </TouchableOpacity>
               <View style={styles.utilityRule} />
               <TouchableOpacity style={styles.loggerUtilityRow} onPress={() => { setShowCategoryPicker(false); setTimeout(() => setShowMealMemory(true), 250); }}>
-                <View style={styles.utilityIcon}><Ionicons name="time-outline" size={20} color="#FFF4DB" /></View>
+                <View style={styles.utilityIcon}><Ionicons name="time-outline" size={20} color={themed("#FFF4DB", 'color')} /></View>
                 <View style={{ flex: 1 }}><Text style={styles.utilityTitle}>Meal Memory</Text><Text style={styles.utilitySub}>Repeat a familiar meal in one tap</Text></View>
-                <Ionicons name="chevron-forward" size={17} color="#7F8BA0" />
+                <Ionicons name="chevron-forward" size={17} color={themed("#7F8BA0", 'color')} />
               </TouchableOpacity>
             </View>
           </View>
@@ -1067,7 +1056,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
               value={quickNoteText}
               onChangeText={setQuickNoteText}
               placeholder="Energy low, craving sweets, remember meal prep…"
-              placeholderTextColor="#8D97A8"
+              placeholderTextColor={themed("#8D97A8", 'color')}
             />
             <Text style={styles.modalHint}>Saved locally and shown in your Daily Briefing.</Text>
             <View style={styles.modalBtns}>
@@ -1108,21 +1097,21 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>{pendingCategoryLabel} — {t('chooseMethod')}</Text>
             <TouchableOpacity style={styles.categoryRow} onPress={() => handleSourceSelect('camera')}>
-              <View style={styles.categoryIcon}><Ionicons name="camera-outline" size={21} color="#101A2B" /></View>
+              <View style={styles.categoryIcon}><Ionicons name="camera-outline" size={21} color={themed("#101A2B", 'color')} /></View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.categoryLabel}>{t('camera')}</Text>
                 <Text style={styles.categorySubtitle}>{t('cameraSub')}</Text>
               </View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.categoryRow} onPress={() => handleSourceSelect('gallery')}>
-              <View style={styles.categoryIcon}><Ionicons name="images-outline" size={21} color="#101A2B" /></View>
+              <View style={styles.categoryIcon}><Ionicons name="images-outline" size={21} color={themed("#101A2B", 'color')} /></View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.categoryLabel}>{t('gallery')}</Text>
                 <Text style={styles.categorySubtitle}>{t('gallerySub')}</Text>
               </View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.categoryRow} onPress={() => handleSourceSelect('text')}>
-              <View style={styles.categoryIcon}><Ionicons name="keypad-outline" size={21} color="#101A2B" /></View>
+              <View style={styles.categoryIcon}><Ionicons name="keypad-outline" size={21} color={themed("#101A2B", 'color')} /></View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.categoryLabel}>{t('typeText')}</Text>
                 <Text style={styles.categorySubtitle}>{t('typeTextSub')}</Text>
@@ -1142,21 +1131,21 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>{t('activitySourceTitle')}</Text>
             <TouchableOpacity style={styles.categoryRow} onPress={() => handleActivitySourceSelect('camera')}>
-              <View style={styles.categoryIcon}><Ionicons name="camera-outline" size={21} color="#101A2B" /></View>
+              <View style={styles.categoryIcon}><Ionicons name="camera-outline" size={21} color={themed("#101A2B", 'color')} /></View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.categoryLabel}>{t('camera')}</Text>
                 <Text style={styles.categorySubtitle}>{t('activityViaImageSub')}</Text>
               </View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.categoryRow} onPress={() => handleActivitySourceSelect('gallery')}>
-              <View style={styles.categoryIcon}><Ionicons name="images-outline" size={21} color="#101A2B" /></View>
+              <View style={styles.categoryIcon}><Ionicons name="images-outline" size={21} color={themed("#101A2B", 'color')} /></View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.categoryLabel}>{t('gallery')}</Text>
                 <Text style={styles.categorySubtitle}>{t('activityViaImageSub')}</Text>
               </View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.categoryRow} onPress={() => handleActivitySourceSelect('text')}>
-              <View style={styles.categoryIcon}><Ionicons name="keypad-outline" size={21} color="#101A2B" /></View>
+              <View style={styles.categoryIcon}><Ionicons name="keypad-outline" size={21} color={themed("#101A2B", 'color')} /></View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.categoryLabel}>{t('typeText')}</Text>
                 <Text style={styles.categorySubtitle}>{t('typeTextSub')}</Text>
@@ -1180,7 +1169,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
               value={textFoodInput}
               onChangeText={setTextFoodInput}
               placeholder={t('foodDescPlaceholder')}
-              placeholderTextColor="#7D8799"
+              placeholderTextColor={themed("#7D8799", 'color')}
               multiline
               autoFocus
             />
@@ -1190,7 +1179,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
                 value={backdateEnabled}
                 onValueChange={(v) => { setBackdateEnabled(v); if (v) setBackdateDate(new Date()); }}
                 trackColor={{ true: '#FF6542', false: '#33415C' }}
-                thumbColor={backdateEnabled ? '#FFFDF7' : '#AAB3C2'}
+                thumbColor={backdateEnabled ? themed('#FFFDF7', 'backgroundColor') : themed('#AAB3C2', 'backgroundColor')}
               />
             </View>
             {backdateEnabled && (
@@ -1221,7 +1210,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
         <View style={styles.centeredOverlay}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>{t('setGoal')}</Text>
-            <TextInput style={styles.modalInput} value={goalInput} onChangeText={setGoalInput} keyboardType="numeric" placeholder="2000" placeholderTextColor="#7D8799" autoFocus />
+            <TextInput style={styles.modalInput} value={goalInput} onChangeText={setGoalInput} keyboardType="numeric" placeholder="2000" placeholderTextColor={themed("#7D8799", 'color')} autoFocus />
             <View style={styles.modalBtns}>
               <TouchableOpacity style={styles.modalCancel} onPress={() => setShowGoalModal(false)}><Text style={styles.modalCancelText}>{t('cancel')}</Text></TouchableOpacity>
               <TouchableOpacity style={styles.modalSave} onPress={saveGoal}><Text style={styles.modalSaveText}>{t('save')}</Text></TouchableOpacity>
@@ -1236,9 +1225,9 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>{t('logActivity')}</Text>
             <Text style={styles.modalLabel}>{t('activityName')}</Text>
-            <TextInput style={styles.modalInput} value={activityName} onChangeText={setActivityName} placeholder={t('activityNamePh')} placeholderTextColor="#7D8799" autoFocus />
+            <TextInput style={styles.modalInput} value={activityName} onChangeText={setActivityName} placeholder={t('activityNamePh')} placeholderTextColor={themed("#7D8799", 'color')} autoFocus />
             <Text style={styles.modalLabel}>{t('duration')}</Text>
-            <TextInput style={styles.modalInput} value={activityDuration} onChangeText={setActivityDuration} keyboardType="numeric" placeholder="30" placeholderTextColor="#7D8799" />
+            <TextInput style={styles.modalInput} value={activityDuration} onChangeText={setActivityDuration} keyboardType="numeric" placeholder="30" placeholderTextColor={themed("#7D8799", 'color')} />
             <Text style={styles.modalHint}>{userProfile ? t('activityWeightHint').replace('%d', String(userProfile.weight)) : t('activityProfileTip')}</Text>
             <View style={styles.backdateRow}>
               <Text style={styles.backdateLabel}>{t('backdate')}</Text>
@@ -1246,7 +1235,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
                 value={backdateEnabled}
                 onValueChange={(v) => { setBackdateEnabled(v); if (v) setBackdateDate(new Date()); }}
                 trackColor={{ true: '#FF6542', false: '#33415C' }}
-                thumbColor={backdateEnabled ? '#FFFDF7' : '#AAB3C2'}
+                thumbColor={backdateEnabled ? themed('#FFFDF7', 'backgroundColor') : themed('#AAB3C2', 'backgroundColor')}
               />
             </View>
             {backdateEnabled && (
@@ -1278,7 +1267,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
               value={activityName}
               onChangeText={setActivityName}
               placeholder={t('activityNamePh')}
-              placeholderTextColor="#7D8799"
+              placeholderTextColor={themed("#7D8799", 'color')}
             />
             <Text style={styles.modalLabel}>{t('duration')}</Text>
             <TextInput
@@ -1287,7 +1276,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
               onChangeText={setActivityDuration}
               keyboardType="numeric"
               placeholder="30"
-              placeholderTextColor="#7D8799"
+              placeholderTextColor={themed("#7D8799", 'color')}
             />
             <Text style={styles.modalLabel}>Kcal dibakar</Text>
             <TextInput
@@ -1296,7 +1285,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
               onChangeText={setPendingActivityKcal}
               keyboardType="numeric"
               placeholder="250"
-              placeholderTextColor="#7D8799"
+              placeholderTextColor={themed("#7D8799", 'color')}
             />
             <View style={styles.modalBtns}>
               <TouchableOpacity style={styles.modalCancel} onPress={() => setShowActivityConfirmModal(false)}>
@@ -1324,7 +1313,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
 
       {/* ── Profile Modal ── */}
       <Modal visible={showProfileModal} transparent animationType="fade" onRequestClose={() => setShowProfileModal(false)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.75)' }}>
+        <View style={{ flex: 1, backgroundColor: themed('rgba(0,0,0,0.75)', 'backgroundColor') }}>
           <ScrollView
             contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 40, paddingHorizontal: 20 }}
             keyboardShouldPersistTaps="handled"
@@ -1351,17 +1340,17 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
                 onChangeText={setProfileWeight}
                 keyboardType="numeric"
                 placeholder="cth: 85.5"
-                placeholderTextColor="#7D8799"
+                placeholderTextColor={themed("#7D8799", 'color')}
               />
               <Text style={styles.modalLabel}>{t('height')}</Text>
               <View style={styles.pickerContainer}>
-                <Picker selectedValue={profileHeight} onValueChange={(v) => setProfileHeight(String(v))} style={{ color: '#FFFDF7', backgroundColor: '#26334A' }} dropdownIconColor="#FF6542">
+                <Picker selectedValue={profileHeight} onValueChange={(v) => setProfileHeight(String(v))} style={{ color: themed('#FFFDF7', 'color'), backgroundColor: themed('#26334A', 'backgroundColor') }} dropdownIconColor="#FF6542">
                   {Array.from({ length: 151 }, (_, i) => { const h = String(100 + i); return <Picker.Item key={h} label={`${h} cm`} value={h} />; })}
                 </Picker>
               </View>
               <Text style={styles.modalLabel}>{t('age')}</Text>
               <View style={styles.pickerContainer}>
-                <Picker selectedValue={profileAge} onValueChange={(v) => setProfileAge(String(v))} style={{ color: '#FFFDF7', backgroundColor: '#26334A' }} dropdownIconColor="#FF6542">
+                <Picker selectedValue={profileAge} onValueChange={(v) => setProfileAge(String(v))} style={{ color: themed('#FFFDF7', 'color'), backgroundColor: themed('#26334A', 'backgroundColor') }} dropdownIconColor="#FF6542">
                   {Array.from({ length: 100 }, (_, i) => { const a = String(1 + i); return <Picker.Item key={a} label={`${a} ${t('yearUnit')}`} value={a} />; })}
                 </Picker>
               </View>
@@ -1413,7 +1402,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
             </TouchableOpacity>
             <TouchableOpacity style={styles.categoryRow} onPress={handleDeleteOption}>
               <Text style={styles.categoryEmoji}>🗑️</Text>
-              <View style={{ flex: 1 }}><Text style={[styles.categoryLabel, { color: '#FF6542' }]}>{t('delete')}</Text></View>
+              <View style={{ flex: 1 }}><Text style={[styles.categoryLabel, { color: themed('#FF6542', 'color') }]}>{t('delete')}</Text></View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowEntryOptions(false)}>
               <Text style={styles.cancelBtnText}>{t('cancel')}</Text>
@@ -1450,7 +1439,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
             {selectedEntry && (<>
               {selectedEntry.imageUri
                 ? <Image source={{ uri: selectedEntry.imageUri }} style={styles.detailImage} />
-                : <View style={[styles.detailImage, styles.noDetailImage]}><Text style={{ fontSize: 48 }}>📝</Text><Text style={{ color: '#7D8799', fontSize: 12, marginTop: 8 }}>{t('textInput')}</Text></View>
+                : <View style={[styles.detailImage, styles.noDetailImage]}><Text style={{ fontSize: 48 }}>📝</Text><Text style={{ color: themed('#7D8799', 'color'), fontSize: 12, marginTop: 8 }}>{t('textInput')}</Text></View>
               }
               <ScrollView style={styles.detailScroll}>
                 <Text style={styles.detailTitle}>{selectedEntry.name}</Text>
@@ -1500,7 +1489,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
               value={imageDetailNote}
               onChangeText={setImageDetailNote}
               placeholder={t('imageExtraPh')}
-              placeholderTextColor="#7D8799"
+              placeholderTextColor={themed("#7D8799", 'color')}
               multiline
             />
             <Text style={styles.modalHint}>{t('imageAiHint')}</Text>
@@ -1510,7 +1499,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
                 value={imageBackdateEnabled}
                 onValueChange={(v) => { setImageBackdateEnabled(v); if (v) setImageBackdateDate(new Date()); }}
                 trackColor={{ true: '#FF6542', false: '#33415C' }}
-                thumbColor={imageBackdateEnabled ? '#FFFDF7' : '#AAB3C2'}
+                thumbColor={imageBackdateEnabled ? themed('#FFFDF7', 'backgroundColor') : themed('#AAB3C2', 'backgroundColor')}
               />
             </View>
             {imageBackdateEnabled && (
@@ -1579,7 +1568,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
               onChangeText={setNewWeight}
               keyboardType="numeric"
               placeholder="cth: 72.5"
-              placeholderTextColor="#7D8799"
+              placeholderTextColor={themed("#7D8799", 'color')}
             />
             <Text style={styles.modalLabel}>DATE</Text>
             <TouchableOpacity style={styles.pickerBtn} onPress={() => setShowWeightDatePicker(true)}>
@@ -1601,7 +1590,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F7F0E1' },
   header: { backgroundColor: '#F7F0E1', paddingHorizontal: 18, paddingTop: 14, paddingBottom: 0 },
   headerTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },

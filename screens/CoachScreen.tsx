@@ -1,19 +1,8 @@
+import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
+import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Linking,
-  LayoutAnimation,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Vibration,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Linking, LayoutAnimation, Modal, ScrollView, StyleSheet, TouchableOpacity, Vibration, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { fsUpsert } from '../firebase';
@@ -91,6 +80,8 @@ interface SessionSet { reps: string; weight: string; done: boolean; warmup?: boo
 interface SessionExercise { name: string; restSeconds: number; notes?: string; sets: SessionSet[]; }
 
 export default function CoachScreen() {
+  const styles = useThemeStyles(baseStyles);
+  const { themed } = useTheme();
   const { lang, t } = useLanguage();
 
   const [view, setView] = useState<'setup' | 'plan' | 'session'>('setup');
@@ -632,10 +623,10 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
 
       <Text style={[styles.secLabel, { marginTop: 20 }]}>{lang === 'en' ? 'CUSTOM DAY 1 · OPTIONAL' : 'CUSTOM DAY 1 · PILIHAN'}</Text>
       <Text style={styles.setupHint}>{lang === 'en' ? 'One exercise per line. LeanLog keeps Day 1 exactly as yours and builds the remaining sessions around it.' : 'Satu latihan setiap baris. LeanLog kekalkan Day 1 tepat seperti pilihan anda dan bina sesi selebihnya di sekelilingnya.'}</Text>
-      <TextInput style={styles.customDayInput} value={customDayOneText} onChangeText={setCustomDayOneText} multiline placeholder={'Contoh:\nBench Press\nCable Row\nLeg Press'} placeholderTextColor="#8A93A1" textAlignVertical="top" />
+      <TextInput style={styles.customDayInput} value={customDayOneText} onChangeText={setCustomDayOneText} multiline placeholder={'Contoh:\nBench Press\nCable Row\nLeg Press'} placeholderTextColor={themed("#8A93A1", 'color')} textAlignVertical="top" />
 
       <TouchableOpacity style={[styles.genBtn, generating && { opacity: 0.6 }]} onPress={generatePlan} disabled={generating}>
-        {generating ? <ActivityIndicator color="#FFFDF7" /> : <Text style={styles.genBtnTxt}>⚡ {t('gymGeneratePlan')}</Text>}
+        {generating ? <ActivityIndicator color={themed("#FFFDF7", 'color')} /> : <Text style={styles.genBtnTxt}>⚡ {t('gymGeneratePlan')}</Text>}
       </TouchableOpacity>
       {generating && <Text style={styles.genHint}>{t('gymGenerating')}</Text>}
       <View style={{ height: 40 }} />
@@ -670,7 +661,7 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
         )}
 
         <View style={styles.todayWorkoutCard}>
-          <View style={styles.todayWorkoutTop}><Text style={styles.todayWorkoutEyebrow}>TODAY'S RECOMMENDATION</Text><Ionicons name="sparkles" size={18} color="#E5B84B" /></View>
+          <View style={styles.todayWorkoutTop}><Text style={styles.todayWorkoutEyebrow}>TODAY'S RECOMMENDATION</Text><Ionicons name="sparkles" size={18} color={themed("#E5B84B", 'color')} /></View>
           <Text style={styles.todayWorkoutTitle}>{recommended.label}</Text>
           <Text style={styles.todayWorkoutMeta}>{recommended.exercises.length} exercises · ±{recommended.exercises.length * 12} min{lastSession ? ` · last: ${lastSession.planDayLabel}` : ''}</Text>
           <Text style={styles.todayWorkoutCoach}>{sleepMinutes > 0 && sleepMinutes < 360 ? 'Sleep was low. Keep the weights steady and leave one rep in reserve.' : 'Continue your rotation. Beat one small number—not your whole body.'}</Text>
@@ -700,7 +691,7 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
                       <View style={styles.exNameRow}>
                         <Text style={styles.exName}>{ex.name}</Text>
                         <TouchableOpacity onPress={() => openYouTube(ex.name)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                          <Ionicons name="logo-youtube" size={16} color="#FF0000" />
+                          <Ionicons name="logo-youtube" size={16} color={themed("#FF0000", 'color')} />
                         </TouchableOpacity>
                       </View>
                       <Text style={styles.exMeta}>
@@ -742,7 +733,7 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
           <View style={styles.sessionProgressTrack}><View style={[styles.sessionProgressFill, { width: `${sessionProgress}%` }]} /></View>
           <View style={styles.sessionProgressMeta}><Text style={styles.sessionProgressText}>{completedSessionSets}/{totalSessionSets} sets complete</Text><Text style={styles.sessionProgressText}>{sessionProgress}%</Text></View>
           {sessionReadiness && <Text style={styles.readinessSummary}>Energy {sessionReadiness.energy}/5 · Soreness {sessionReadiness.soreness}/5 · Sleep {Math.floor(sessionReadiness.sleepMinutes / 60)}h {sessionReadiness.sleepMinutes % 60}m</Text>}
-          <TouchableOpacity style={styles.pauseSessionButton} onPress={pauseSession}><Ionicons name="pause-circle-outline" size={15} color="#E7BB51" /><Text style={styles.pauseSessionText}>PAUSE & KEEP DRAFT</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.pauseSessionButton} onPress={pauseSession}><Ionicons name="pause-circle-outline" size={15} color={themed("#E7BB51", 'color')} /><Text style={styles.pauseSessionText}>PAUSE & KEEP DRAFT</Text></TouchableOpacity>
         </View>
         {sessionExercises.map((ex, exIdx) => (
           <View key={exIdx} style={styles.sesExCard}>
@@ -750,17 +741,17 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
               <View style={styles.sesExNameRow}>
                 <TextInput style={styles.sesExNameInput} value={ex.name} onChangeText={value => updateExerciseName(exIdx, value)} selectTextOnFocus />
                 <TouchableOpacity onPress={() => openYouTube(ex.name)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Ionicons name="logo-youtube" size={18} color="#FF0000" />
+                  <Ionicons name="logo-youtube" size={18} color={themed("#FF0000", 'color')} />
                 </TouchableOpacity>
               </View>
               <TouchableOpacity onPress={() => removeExercise(exIdx)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="close-circle" size={20} color="#FF6542" />
+                <Ionicons name="close-circle" size={20} color={themed("#FF6542", 'color')} />
               </TouchableOpacity>
             </View>
             <View style={styles.exerciseQuickRow}>
               <Text style={styles.sesExMeta}>{t('gymRestTimer')}: {ex.restSeconds}s</Text>
-              <TouchableOpacity onPress={() => moveExercise(exIdx, -1)}><Ionicons name="arrow-up" size={15} color="#68758A" /></TouchableOpacity>
-              <TouchableOpacity onPress={() => moveExercise(exIdx, 1)}><Ionicons name="arrow-down" size={15} color="#68758A" /></TouchableOpacity>
+              <TouchableOpacity onPress={() => moveExercise(exIdx, -1)}><Ionicons name="arrow-up" size={15} color={themed("#68758A", 'color')} /></TouchableOpacity>
+              <TouchableOpacity onPress={() => moveExercise(exIdx, 1)}><Ionicons name="arrow-down" size={15} color={themed("#68758A", 'color')} /></TouchableOpacity>
             </View>
             {latestExercisePerformance(history, ex.name) && <Text style={styles.sessionLastLine}>LAST · {latestExercisePerformance(history, ex.name)!.sets.map((set) => `${set.weight}×${set.reps}`).join(' · ')} · e1RM {latestExercisePerformance(history, ex.name)!.estimated1RM}kg</Text>}
             {progressionSuggestion(history, ex.name) && <Text style={styles.sessionSuggestion}>TODAY · {progressionSuggestion(history, ex.name)!.label}</Text>}
@@ -777,7 +768,7 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
                     onChangeText={v => updateSet(exIdx, si, 'reps', v)}
                     keyboardType="numeric"
                     placeholder="10"
-                    placeholderTextColor="#7D8799"
+                    placeholderTextColor={themed("#7D8799", 'color')}
                     editable={!s.done && !(timer?.running)}
                   />
                   <Text style={styles.setUnit}>min</Text>
@@ -808,7 +799,7 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
                     onChangeText={v => updateSet(exIdx, si, 'weight', v)}
                     keyboardType="numeric"
                     placeholder="0"
-                    placeholderTextColor="#7D8799"
+                    placeholderTextColor={themed("#7D8799", 'color')}
                     editable={!s.done}
                   />
                   <Text style={styles.setUnit}>kg</Text>
@@ -818,11 +809,11 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
                     onChangeText={v => updateSet(exIdx, si, 'reps', v)}
                     keyboardType="numeric"
                     placeholder="0"
-                    placeholderTextColor="#7D8799"
+                    placeholderTextColor={themed("#7D8799", 'color')}
                     editable={!s.done}
                   />
                   <Text style={styles.setUnit}>×</Text>
-                  <TextInput style={styles.rpeInput} value={s.rpe ? String(s.rpe) : ''} onChangeText={v => updateRpe(exIdx, si, v)} keyboardType="numeric" placeholder="RPE" placeholderTextColor="#68758A" editable={!s.done} />
+                  <TextInput style={styles.rpeInput} value={s.rpe ? String(s.rpe) : ''} onChangeText={v => updateRpe(exIdx, si, v)} keyboardType="numeric" placeholder="RPE" placeholderTextColor={themed("#68758A", 'color')} editable={!s.done} />
                   <TouchableOpacity style={[styles.doneBtn, s.done && styles.doneBtnOn]} onPress={() => tickSet(exIdx, si)}>
                     <Text style={[styles.doneTxt, s.done && styles.doneTxtOn]}>{s.done ? '✓' : '○'}</Text>
                   </TouchableOpacity>
@@ -830,7 +821,7 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
               );
             })}
             <View style={styles.setActions}><TouchableOpacity onPress={() => removeSet(exIdx)}><Text style={styles.setActionText}>− SET</Text></TouchableOpacity><TouchableOpacity onPress={() => addSet(exIdx, true)}><Text style={styles.setActionText}>＋ WARM-UP</Text></TouchableOpacity><TouchableOpacity onPress={() => addSet(exIdx)}><Text style={styles.setActionPrimary}>＋ WORK SET</Text></TouchableOpacity></View>
-            <TextInput style={styles.exerciseNoteInput} value={ex.notes || ''} onChangeText={value => updateExerciseNote(exIdx, value)} placeholder="Exercise note · grip, form, pain, setup..." placeholderTextColor="#8A93A1" />
+            <TextInput style={styles.exerciseNoteInput} value={ex.notes || ''} onChangeText={value => updateExerciseNote(exIdx, value)} placeholder="Exercise note · grip, form, pain, setup..." placeholderTextColor={themed("#8A93A1", 'color')} />
           </View>
         ))}
         <View style={styles.addExRow}>
@@ -839,17 +830,17 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
             value={addExName}
             onChangeText={setAddExName}
             placeholder={lang === 'en' ? 'Add exercise...' : 'Tambah latihan...'}
-            placeholderTextColor="#7D8799"
+            placeholderTextColor={themed("#7D8799", 'color')}
             returnKeyType="done"
             onSubmitEditing={addExercise}
           />
           <TouchableOpacity style={styles.addExBtn} onPress={addExercise}>
-            <Ionicons name="add" size={22} color="#FFFDF7" />
+            <Ionicons name="add" size={22} color={themed("#FFFDF7", 'color')} />
           </TouchableOpacity>
         </View>
         <TouchableOpacity style={[styles.finishBtn, estimatingKcal && { opacity: 0.7 }]} onPress={finishSession} disabled={estimatingKcal}>
           {estimatingKcal
-            ? <ActivityIndicator color="#FFFDF7" />
+            ? <ActivityIndicator color={themed("#FFFDF7", 'color')} />
             : <Text style={styles.finishTxt}>🏁  {t('gymFinishSession')}</Text>}
         </TouchableOpacity>
         <View style={{ height: 40 }} />
@@ -866,8 +857,8 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
       <Modal visible={!!pendingDay} transparent animationType="fade" onRequestClose={() => setPendingDay(null)}>
         <View style={styles.modalOverlay}>
           <View style={styles.readinessModal}>
-            <View style={styles.modalHeader}><View><Text style={styles.modalEyebrow}>READINESS CHECK</Text><Text style={styles.modalTitle}>How are we training?</Text></View><TouchableOpacity onPress={() => setPendingDay(null)}><Ionicons name="close" size={23} color="#101A2B" /></TouchableOpacity></View>
-            <View style={styles.sleepSignal}><Ionicons name="moon-outline" size={20} color="#5C5AA3" /><View><Text style={styles.sleepSignalValue}>{Math.floor(sleepMinutes / 60)}h {sleepMinutes % 60}m sleep</Text><Text style={styles.sleepSignalHint}>{sleepMinutes > 0 && sleepMinutes < 360 ? 'Low recovery signal · keep one rep in reserve' : 'Recovery signal from Health Connect'}</Text></View></View>
+            <View style={styles.modalHeader}><View><Text style={styles.modalEyebrow}>READINESS CHECK</Text><Text style={styles.modalTitle}>How are we training?</Text></View><TouchableOpacity onPress={() => setPendingDay(null)}><Ionicons name="close" size={23} color={themed("#101A2B", 'color')} /></TouchableOpacity></View>
+            <View style={styles.sleepSignal}><Ionicons name="moon-outline" size={20} color={themed("#5C5AA3", 'color')} /><View><Text style={styles.sleepSignalValue}>{Math.floor(sleepMinutes / 60)}h {sleepMinutes % 60}m sleep</Text><Text style={styles.sleepSignalHint}>{sleepMinutes > 0 && sleepMinutes < 360 ? 'Low recovery signal · keep one rep in reserve' : 'Recovery signal from Health Connect'}</Text></View></View>
             <Text style={styles.readinessLabel}>ENERGY · {energy}/5</Text>
             <View style={styles.scoreRow}>{[1,2,3,4,5].map(score => <TouchableOpacity key={score} style={[styles.scoreButton, energy === score && styles.scoreButtonActive]} onPress={() => setEnergy(score)}><Text style={[styles.scoreText, energy === score && styles.scoreTextActive]}>{score}</Text></TouchableOpacity>)}</View>
             <Text style={styles.readinessLabel}>SORENESS · {soreness}/5</Text>
@@ -882,7 +873,7 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
         <View style={styles.historyOverlay}>
           <View style={styles.historySheet}>
             <View style={styles.historyHandle} />
-            <View style={styles.modalHeader}><View><Text style={styles.modalEyebrow}>TRAINING REPORT</Text><Text style={styles.modalTitle}>Proof you showed up.</Text></View><TouchableOpacity onPress={() => setShowHistory(false)}><Ionicons name="close" size={23} color="#101A2B" /></TouchableOpacity></View>
+            <View style={styles.modalHeader}><View><Text style={styles.modalEyebrow}>TRAINING REPORT</Text><Text style={styles.modalTitle}>Proof you showed up.</Text></View><TouchableOpacity onPress={() => setShowHistory(false)}><Ionicons name="close" size={23} color={themed("#101A2B", 'color')} /></TouchableOpacity></View>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
               <View style={styles.reportStats}>
                 <View style={styles.reportStat}><Text style={styles.reportStatValue}>{workoutHistorySummary(history).sessions}</Text><Text style={styles.reportStatLabel}>sessions / 30d</Text></View>
@@ -911,7 +902,7 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
 }
 
 const G = '#FF6542';
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F7F0E1' },
   scroll: { padding: 18, paddingBottom: 110 },
   pageHeader: { color: '#101A2B', fontSize: 32, lineHeight: 37, fontWeight: '800', fontFamily: 'serif', letterSpacing: -0.8, marginBottom: 18 },

@@ -1,18 +1,8 @@
+import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
+import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Modal, Platform, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { auth, signOut, fsUpsert, fsSetSettings, fsFetchAll, fsFetchSettings, fsUploadAppState, fsFetchAppState } from '../firebase';
@@ -32,6 +22,7 @@ import { getNagDays, getNagTimes, isNagModeEnabled, setNagDays, setNagModeEnable
 import LeanLogChronicle from '../components/LeanLogChronicle';
 import { RedCoinsBackupSettings } from '../components/RedCoinsBackupSettings';
 import { RedCoinsDataCheck } from '../components/RedCoinsDataCheck';
+import { AppearanceSettings } from '../components/AppearanceSettings';
 import { chooseBluecoinsFolder, getBluecoinsSourceMetadata } from '../services/bluecoins';
 import { stageRedCoinsImport, commitRedCoinsImport } from '../services/redcoinsImport';
 import { ensureBluecoinsBackgroundSync } from '../services/bluecoinsBackground';
@@ -49,6 +40,8 @@ const timeStrToDate = (timeStr: string): Date => {
 const REMINDER_KEY = 'reminders';
 
 function BluecoinsImportSettings() {
+  const styles = useThemeStyles(baseStyles);
+  const { themed } = useTheme();
   const [busy, setBusy] = useState(false);
   const [source, setSource] = useState<Awaited<ReturnType<typeof getBluecoinsSourceMetadata>>>(null);
   useEffect(() => { getBluecoinsSourceMetadata().then(setSource); void ensureBluecoinsBackgroundSync(); }, []);
@@ -80,9 +73,9 @@ function BluecoinsImportSettings() {
   };
   return <View style={styles.card}>
     <Text style={styles.actionSub}>{source ? `${source.name}\nLast source read: ${new Date(source.syncedAt).toLocaleString('en-MY')}` : 'Optional Bluecoins import. RedCoins owns your saved ledger and balances.'}</Text>
-    <TouchableOpacity disabled={busy} style={styles.actionRow} onPress={() => { void importBackup(false); }}><View style={styles.actionIcon}><Ionicons name="cloud-download-outline" size={19} color="#101A2B" /></View><Text style={styles.actionTitle}>{busy ? 'Preparing import…' : 'Preview latest backup'}</Text></TouchableOpacity>
+    <TouchableOpacity disabled={busy} style={styles.actionRow} onPress={() => { void importBackup(false); }}><View style={styles.actionIcon}><Ionicons name="cloud-download-outline" size={19} color={themed("#101A2B", 'color')} /></View><Text style={styles.actionTitle}>{busy ? 'Preparing import…' : 'Preview latest backup'}</Text></TouchableOpacity>
     <View style={styles.divider} />
-    <TouchableOpacity disabled={busy} style={styles.actionRow} onPress={() => { void importBackup(true); }}><View style={styles.actionIcon}><Ionicons name="folder-open-outline" size={19} color="#101A2B" /></View><Text style={styles.actionTitle}>Choose import source</Text></TouchableOpacity>
+    <TouchableOpacity disabled={busy} style={styles.actionRow} onPress={() => { void importBackup(true); }}><View style={styles.actionIcon}><Ionicons name="folder-open-outline" size={19} color={themed("#101A2B", 'color')} /></View><Text style={styles.actionTitle}>Choose import source</Text></TouchableOpacity>
     <Text style={styles.actionSub}>Import runs only after your confirmation. No background Bluecoins sync.</Text>
   </View>;
 }
@@ -131,11 +124,14 @@ async function cancelNotif(notifId: string) {
 }
 
 function SettingsGroup({ title, summary, initiallyOpen = false, children }: { title: string; summary: string; initiallyOpen?: boolean; children: React.ReactNode }) {
+  const { themed } = useTheme();
   const [open, setOpen] = useState(initiallyOpen);
-  return <View style={{marginBottom:16}}><TouchableOpacity accessibilityRole="button" accessibilityState={{expanded:open}} onPress={()=>setOpen(value=>!value)} style={{backgroundColor:'#FFFDF7',borderWidth:1,borderColor:'#E4DFD3',borderRadius:20,padding:18,flexDirection:'row',alignItems:'center',gap:12}}><View style={{flex:1}}><Text style={{color:'#101A2B',fontSize:17,fontWeight:'700'}}>{title}</Text><Text style={{color:'#737A85',fontSize:11,lineHeight:17,marginTop:5}}>{summary}</Text></View><Ionicons name={open?'chevron-up':'chevron-down'} size={18} color="#737A85" /></TouchableOpacity>{open && <View style={{paddingTop:12}}>{children}</View>}</View>;
+  return <View style={{marginBottom:16}}><TouchableOpacity accessibilityRole="button" accessibilityState={{expanded:open}} onPress={()=>setOpen(value=>!value)} style={{backgroundColor:themed('#FFFDF7', 'backgroundColor'),borderWidth:1,borderColor:themed('#E4DFD3', 'borderColor'),borderRadius:20,padding:18,flexDirection:'row',alignItems:'center',gap:12}}><View style={{flex:1}}><Text style={{color:themed('#101A2B', 'color'),fontSize:17,fontWeight:'700'}}>{title}</Text><Text style={{color:themed('#737A85', 'color'),fontSize:11,lineHeight:17,marginTop:5}}>{summary}</Text></View><Ionicons name={open?'chevron-up':'chevron-down'} size={18} color={themed("#737A85", 'color')} /></TouchableOpacity>{open && <View style={{paddingTop:12}}>{children}</View>}</View>;
 }
 
 export default function SettingsScreen() {
+  const styles = useThemeStyles(baseStyles);
+  const { themed } = useTheme();
   const { lang, setLang, t } = useLanguage();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [showAddReminder, setShowAddReminder] = useState(false);
@@ -460,7 +456,8 @@ export default function SettingsScreen() {
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
 
-        <SettingsGroup title="Personal preferences" summary="Language and nutrition framework" initiallyOpen>
+        <SettingsGroup title="Personal preferences" summary="Appearance, language and nutrition framework" initiallyOpen>
+        <AppearanceSettings />
         <Text style={styles.sectionLabel}>PERSONAL RHYTHM</Text>
         <View style={styles.preferenceCard}>
           <View style={styles.preferenceBlock}>
@@ -497,7 +494,7 @@ export default function SettingsScreen() {
               [{ text: 'OK' }]
             );
           }}>
-            <View style={styles.actionIcon}><Ionicons name="analytics-outline" size={19} color="#101A2B" /></View>
+            <View style={styles.actionIcon}><Ionicons name="analytics-outline" size={19} color={themed("#101A2B", 'color')} /></View>
             <View style={{ flex: 1 }}>
               <Text style={styles.actionTitle}>Cara Makro Dikira</Text>
               <Text style={styles.actionSub}>Ketahui pengiraan Protein, Karbo & Lemak</Text>
@@ -513,7 +510,7 @@ export default function SettingsScreen() {
               <Text style={styles.nagTitle}>🔥 Nag Mode</Text>
               <Text style={styles.nagSubtitle}>Four daily checkpoints on your schedule. One tiny meal will not silence the coach.</Text>
             </View>
-            {nagSaving ? <ActivityIndicator color="#FF6542" /> : <Switch value={nagMode} onValueChange={toggleNagMode} trackColor={{ false: '#D8CEBE', true: '#FF856B' }} thumbColor={nagMode ? '#FFFDF7' : '#FFFFFF'} />}
+            {nagSaving ? <ActivityIndicator color={themed("#FF6542", 'color')} /> : <Switch value={nagMode} onValueChange={toggleNagMode} trackColor={{ false: '#D8CEBE', true: '#FF856B' }} thumbColor={nagMode ? themed('#FFFDF7', 'backgroundColor') : themed('#FFFFFF', 'backgroundColor')} />}
           </View>
           <View style={styles.nagQuote}>
             <Text style={styles.nagQuoteTime}>3:00 PM · EXAMPLE</Text>
@@ -562,10 +559,10 @@ export default function SettingsScreen() {
                   value={r.enabled}
                   onValueChange={() => toggleReminder(r)}
                   trackColor={{ true: '#FF6542', false: '#33415C' }}
-                  thumbColor={r.enabled ? '#FFFDF7' : '#AAB3C2'}
+                  thumbColor={r.enabled ? themed('#FFFDF7', 'backgroundColor') : themed('#AAB3C2', 'backgroundColor')}
                 />
                 <TouchableOpacity onPress={() => deleteReminder(r)} style={styles.deleteBtn}>
-                  <Text style={{ color: '#FF6542', fontSize: 16 }}>🗑️</Text>
+                  <Text style={{ color: themed('#FF6542', 'color'), fontSize: 16 }}>🗑️</Text>
                 </TouchableOpacity>
               </TouchableOpacity>
             ))
@@ -600,18 +597,18 @@ export default function SettingsScreen() {
         <View style={styles.syncCard}>
           <View style={styles.syncHeader}><Text style={styles.syncKicker}>YOUR DATA, YOUR EXIT</Text><Text style={styles.syncTitle}>Keep a second copy.</Text><Text style={styles.syncSub}>A manual checkpoint for the days you change phone or need to roll back.</Text></View>
           <TouchableOpacity style={styles.syncAction} onPress={uploadToCloud} disabled={syncing}>
-            <View style={styles.syncIcon}><Ionicons name="cloud-upload-outline" size={20} color="#101A2B" /></View><View style={{ flex: 1 }}>
+            <View style={styles.syncIcon}><Ionicons name="cloud-upload-outline" size={20} color={themed("#101A2B", 'onAccent')} /></View><View style={{ flex: 1 }}>
               <Text style={styles.syncActionTitle}>{t('uploadToCloud')}</Text>
               <Text style={styles.syncActionSub}>{t('uploadDesc')}</Text>
             </View>
-            {syncing && <ActivityIndicator size="small" color="#FF6542" />}
+            {syncing && <ActivityIndicator size="small" color={themed("#FF6542", 'color')} />}
           </TouchableOpacity>
           <TouchableOpacity style={styles.syncAction} onPress={restoreFromCloud} disabled={syncing}>
-            <View style={[styles.syncIcon, styles.syncIconOutline]}><Ionicons name="cloud-download-outline" size={20} color="#FFF4DB" /></View><View style={{ flex: 1 }}>
+            <View style={[styles.syncIcon, styles.syncIconOutline]}><Ionicons name="cloud-download-outline" size={20} color={themed("#FFF4DB", 'color')} /></View><View style={{ flex: 1 }}>
               <Text style={styles.syncActionTitle}>{t('restoreData')}</Text>
               <Text style={styles.syncActionSub}>{t('restoreDesc')}</Text>
             </View>
-            <Ionicons name="arrow-forward" size={18} color="#7F8BA0" />
+            <Ionicons name="arrow-forward" size={18} color={themed("#7F8BA0", 'color')} />
           </TouchableOpacity>
           {syncMsg !== '' && (
             <Text style={styles.syncMsg}>{syncMsg}</Text>
@@ -634,7 +631,7 @@ export default function SettingsScreen() {
           </View>
           <View style={styles.divider} />
           <TouchableOpacity style={styles.actionRow} onPress={handleLogout}>
-            <Text style={[styles.actionTitle, { color: '#FF6542' }]}>{t('logOut')}</Text>
+            <Text style={[styles.actionTitle, { color: themed('#FF6542', 'color') }]}>{t('logOut')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -642,7 +639,7 @@ export default function SettingsScreen() {
         <Text style={styles.sectionLabel}>App</Text>
         <View style={styles.card}>
           <TouchableOpacity style={styles.actionRow} onPress={() => setShowChronicle(true)}>
-            <View style={styles.actionIcon}><Ionicons name="book-outline" size={19} color="#101A2B" /></View>
+            <View style={styles.actionIcon}><Ionicons name="book-outline" size={19} color={themed("#101A2B", 'color')} /></View>
             <View style={{ flex: 1 }}>
               <Text style={styles.actionTitle}>Hikayat LeanLog</Text>
               <Text style={styles.actionSub}>Baca perjalanan lengkap dari zaman sebelum v1.0</Text>
@@ -651,18 +648,18 @@ export default function SettingsScreen() {
           </TouchableOpacity>
           <View style={styles.divider} />
           <TouchableOpacity style={styles.actionRow} onPress={checkForUpdate} disabled={checkingUpdate}>
-            <View style={styles.actionIcon}><Ionicons name="refresh-outline" size={19} color="#101A2B" /></View>
+            <View style={styles.actionIcon}><Ionicons name="refresh-outline" size={19} color={themed("#101A2B", 'color')} /></View>
             <View style={{ flex: 1 }}>
               <Text style={styles.actionTitle}>Semak Update</Text>
               <Text style={styles.actionSub}>Semak sama ada ada versi terbaru</Text>
             </View>
-            {checkingUpdate && <ActivityIndicator size="small" color="#FF6542" />}
+            {checkingUpdate && <ActivityIndicator size="small" color={themed("#FF6542", 'color')} />}
           </TouchableOpacity>
           <View style={styles.divider} />
           <TouchableOpacity style={styles.actionRow} onPress={() => {
             Linking.openURL('mailto:umarislah86@gmail.com?subject=LeanLog%20Maklum%20Balas&body=Versi%3A%201.3.3%0A%0AMaklum%20balas%20saya%3A%0A');
           }}>
-            <View style={styles.actionIcon}><Ionicons name="chatbubble-ellipses-outline" size={19} color="#101A2B" /></View>
+            <View style={styles.actionIcon}><Ionicons name="chatbubble-ellipses-outline" size={19} color={themed("#101A2B", 'color')} /></View>
             <View style={{ flex: 1 }}>
               <Text style={styles.actionTitle}>Hantar Maklum Balas</Text>
               <Text style={styles.actionSub}>Cadangan, masalah atau sebarang pertanyaan</Text>
@@ -673,7 +670,7 @@ export default function SettingsScreen() {
 
         <View style={{ height: 20 }} />
 
-        <Text style={{ color: '#26334A', fontSize: 11, textAlign: 'center', marginBottom: 32, letterSpacing: 0.5 }}>
+        <Text style={{ color: themed('#26334A', 'color'), fontSize: 11, textAlign: 'center', marginBottom: 32, letterSpacing: 0.5 }}>
           LeanLog · Dibina dengan ❤️ oleh Umarosli
         </Text>
       </ScrollView>
@@ -689,7 +686,7 @@ export default function SettingsScreen() {
               value={reminderName}
               onChangeText={setReminderName}
               placeholder={t('reminderNamePh')}
-              placeholderTextColor="#7D8799"
+              placeholderTextColor={themed("#7D8799", 'color')}
               autoFocus
             />
             <Text style={styles.modalLabel}>{t('reminderTime')}</Text>
@@ -719,7 +716,7 @@ export default function SettingsScreen() {
               value={editReminderName}
               onChangeText={setEditReminderName}
               placeholder={t('reminderNamePh')}
-              placeholderTextColor="#7D8799"
+              placeholderTextColor={themed("#7D8799", 'color')}
               autoFocus
             />
             <Text style={styles.modalLabel}>{t('reminderTime')}</Text>
@@ -766,7 +763,7 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F7F0E1' },
   header: { backgroundColor: '#F7F0E1', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 },
   headerEyebrow: { color: '#C9472C', fontSize: 9, fontWeight: '900', letterSpacing: 1.8, marginBottom: 5 },

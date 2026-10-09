@@ -1,5 +1,7 @@
+import { ThemeText as Text } from '../components/ThemePrimitives';
+import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 
 interface Props {
@@ -11,6 +13,8 @@ const HUNDREDS = [0, 1, 2];
 const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 export default function WeightColumnPicker({ value, onChange }: Props) {
+  const s = useThemeStyles(baseS);
+  const { themed } = useTheme();
   const num = parseFloat(value) || 0;
   const intPart = Math.floor(num);
   const h = Math.floor(intPart / 100);
@@ -30,7 +34,7 @@ export default function WeightColumnPicker({ value, onChange }: Props) {
           style={s.picker}
           dropdownIconColor="#FF6542"
         >
-          {HUNDREDS.map(n => <Picker.Item key={n} label={String(n)} value={n} color="#FFFDF7" />)}
+          {HUNDREDS.map(n => <Picker.Item key={n} label={String(n)} value={n} color={themed("#FFFDF7", 'color')} />)}
         </Picker>
         <Text style={s.colLabel}>100</Text>
       </View>
@@ -41,7 +45,7 @@ export default function WeightColumnPicker({ value, onChange }: Props) {
           style={s.picker}
           dropdownIconColor="#FF6542"
         >
-          {DIGITS.map(n => <Picker.Item key={n} label={String(n)} value={n} color="#FFFDF7" />)}
+          {DIGITS.map(n => <Picker.Item key={n} label={String(n)} value={n} color={themed("#FFFDF7", 'color')} />)}
         </Picker>
         <Text style={s.colLabel}>10</Text>
       </View>
@@ -52,7 +56,7 @@ export default function WeightColumnPicker({ value, onChange }: Props) {
           style={s.picker}
           dropdownIconColor="#FF6542"
         >
-          {DIGITS.map(n => <Picker.Item key={n} label={String(n)} value={n} color="#FFFDF7" />)}
+          {DIGITS.map(n => <Picker.Item key={n} label={String(n)} value={n} color={themed("#FFFDF7", 'color')} />)}
         </Picker>
         <Text style={s.colLabel}>1</Text>
       </View>
@@ -64,7 +68,7 @@ export default function WeightColumnPicker({ value, onChange }: Props) {
           style={s.picker}
           dropdownIconColor="#FF6542"
         >
-          {DIGITS.map(n => <Picker.Item key={n} label={String(n)} value={n} color="#FFFDF7" />)}
+          {DIGITS.map(n => <Picker.Item key={n} label={String(n)} value={n} color={themed("#FFFDF7", 'color')} />)}
         </Picker>
         <Text style={s.colLabel}>0.1</Text>
       </View>
@@ -73,7 +77,7 @@ export default function WeightColumnPicker({ value, onChange }: Props) {
   );
 }
 
-const s = StyleSheet.create({
+const baseS = StyleSheet.create({
   wrap: {
     flexDirection: 'row',
     alignItems: 'center',

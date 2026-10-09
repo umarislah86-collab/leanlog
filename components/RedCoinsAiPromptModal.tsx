@@ -1,5 +1,7 @@
+import { ThemeText as Text } from '../components/ThemePrimitives';
+import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import React, { useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
@@ -9,6 +11,8 @@ import { AI_REDUCTION_TARGETS, buildRedCoinsAiPrompt, type AiPromptScope } from 
 import type { RedCoinsState } from '../services/redcoins';
 
 export function RedCoinsAiPromptModal({ visible, state, scope, close }: { visible: boolean; state: RedCoinsState; scope: AiPromptScope; close: () => void }) {
+  const s = useThemeStyles(baseS);
+  const { themed } = useTheme();
   const [target, setTarget] = useState(10);
   const [lookback, setLookback] = useState<3 | 6>(3);
   const [busy, setBusy] = useState(false);
@@ -40,18 +44,18 @@ export function RedCoinsAiPromptModal({ visible, state, scope, close }: { visibl
     <View style={s.overlay}>
       <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Close AI prompt" />
       <View style={s.card}>
-        <View style={s.header}><View style={{ flex: 1 }}><Text style={s.eyebrow}>REDCOINS / AI HANDOFF</Text><Text style={s.title}>Read the money story.</Text></View><TouchableOpacity onPress={close} style={s.close} accessibilityLabel="Close"><Ionicons name="close" size={21} color="#111A2A" /></TouchableOpacity></View>
+        <View style={s.header}><View style={{ flex: 1 }}><Text style={s.eyebrow}>REDCOINS / AI HANDOFF</Text><Text style={s.title}>Read the money story.</Text></View><TouchableOpacity onPress={close} style={s.close} accessibilityLabel="Close"><Ionicons name="close" size={21} color={themed("#111A2A", 'color')} /></TouchableOpacity></View>
         <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={s.content}>
           <Text style={s.scope}>{scope.label}</Text>
           <Text style={s.hint}>Generate locally, then copy or attach the file to any AI. No API key; nothing is sent automatically.</Text>
           <Text style={s.label}>EXPENSE REDUCTION SCENARIO</Text>
-          <View style={s.picker}><Picker style={{ color: '#111A2A' }} dropdownIconColor="#111A2A" selectedValue={target} onValueChange={value => setTarget(Number(value))} enabled={!busy}>{AI_REDUCTION_TARGETS.map(value => <Picker.Item color="#111A2A" key={value} label={`${value}%${value === 10 ? ' · default' : ''}`} value={value} />)}</Picker></View>
+          <View style={s.picker}><Picker style={{ color: themed('#111A2A', 'color') }} dropdownIconColor="#111A2A" selectedValue={target} onValueChange={value => setTarget(Number(value))} enabled={!busy}>{AI_REDUCTION_TARGETS.map(value => <Picker.Item color={themed("#111A2A", 'color')} key={value} label={`${value}%${value === 10 ? ' · default' : ''}`} value={value} />)}</Picker></View>
           <Text style={s.label}>BASELINE</Text>
-          <View style={s.picker}><Picker style={{ color: '#111A2A' }} dropdownIconColor="#111A2A" selectedValue={lookback} onValueChange={value => setLookback(Number(value) as 3 | 6)} enabled={!busy}><Picker.Item color="#111A2A" label="Previous 3 completed periods" value={3} /><Picker.Item color="#111A2A" label="Previous 6 completed periods" value={6} /></Picker></View>
+          <View style={s.picker}><Picker style={{ color: themed('#111A2A', 'color') }} dropdownIconColor="#111A2A" selectedValue={lookback} onValueChange={value => setLookback(Number(value) as 3 | 6)} enabled={!busy}><Picker.Item color={themed("#111A2A", 'color')} label="Previous 3 completed periods" value={3} /><Picker.Item color={themed("#111A2A", 'color')} label="Previous 6 completed periods" value={6} /></Picker></View>
           {report && <View style={s.summary}><Text style={s.summaryTitle}>{report.data.selected.transactionIds.length} actual entries · {report.data.baseline.availablePeriods}/{lookback} baseline periods</Text><Text style={s.hint}>Selected recorded expense RM {report.data.selected.metrics.expense.toFixed(2)} · {target}% scenario RM {report.data.goal.selectedRecordedExpenseReduction.toFixed(2)}. A scenario is not guaranteed savings.</Text><Text style={s.hint}>Includes full referenced transactions and current account snapshots. Future entries stay separate; loan repayments and card settlements are distinguished.</Text></View>}
           {report?.data.warnings.map(warning => <Text key={warning} style={s.warning}>{warning}</Text>)}
           {result?.error && <Text style={s.warning}>{result.error}</Text>}
-          <TouchableOpacity onPress={() => setPreview(value => !value)} style={s.previewButton}><Text style={s.previewLabel}>{preview ? 'HIDE PROMPT PREVIEW' : 'PREVIEW GENERATED PROMPT'}</Text><Ionicons name={preview ? 'chevron-up' : 'chevron-down'} size={16} color="#7C8290" /></TouchableOpacity>
+          <TouchableOpacity onPress={() => setPreview(value => !value)} style={s.previewButton}><Text style={s.previewLabel}>{preview ? 'HIDE PROMPT PREVIEW' : 'PREVIEW GENERATED PROMPT'}</Text><Ionicons name={preview ? 'chevron-up' : 'chevron-down'} size={16} color={themed("#7C8290", 'color')} /></TouchableOpacity>
           {preview && report && <Text selectable style={s.preview}>{report.prompt}</Text>}
         </ScrollView>
         <View style={s.actions}><TouchableOpacity disabled={!report || busy} style={[s.save, (!report || busy) && s.disabled]} onPress={() => { void run('save'); }}><Text style={s.saveText}>SAVE .TXT</Text></TouchableOpacity><TouchableOpacity disabled={!report || busy} style={[s.copy, (!report || busy) && s.disabled]} onPress={() => { void run('copy'); }}><Text style={s.copyText}>{busy ? 'WORKING…' : 'COPY PROMPT'}</Text></TouchableOpacity></View>
@@ -60,7 +64,7 @@ export function RedCoinsAiPromptModal({ visible, state, scope, close }: { visibl
   </Modal>;
 }
 
-const s = StyleSheet.create({
+const baseS = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: '#111A2A88', justifyContent: 'center', padding: 20 },
   card: { backgroundColor: '#FFF9EA', borderRadius: 25, maxHeight: '90%', padding: 20 },
   header: { flexDirection: 'row', gap: 10, alignItems: 'center', marginBottom: 12 },

@@ -1,6 +1,8 @@
+import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
+import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert, AppState, BackHandler, InteractionManager, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, AppState, BackHandler, InteractionManager, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -95,6 +97,8 @@ const ICON_LIBRARY = [
 ];
 
 export default function RedCoinsScreen({ navigation, route }: any) {
+  const s = useThemeStyles(baseS);
+  const { themed } = useTheme();
   const [state, setState] = useState<RedCoinsState | null>(null);
   const [bluecoins, setBluecoins] = useState<BluecoinsSummary | null>(null);
   const summaryRequest = useRef(0);
@@ -1313,7 +1317,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         <View style={s.dashCard}>
           <TouchableOpacity style={s.dashHeadRow} onPress={() => toggleCard('daily')}>
             <Text style={s.dashHead}>Daily Summary</Text>
-            <Ionicons name={collapsedCards.includes('daily') ? 'chevron-forward' : 'chevron-down'} size={16} color={C.ink} />
+            <Ionicons name={collapsedCards.includes('daily') ? 'chevron-forward' : 'chevron-down'} size={16} color={themed(C.ink, 'color')} />
           </TouchableOpacity>
           {!collapsedCards.includes('daily') && (
             <>
@@ -1340,7 +1344,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         <View style={s.dashCard}>
           <View style={s.calendarHead}>
             <TouchableOpacity style={s.calendarArrow} onPress={() => setCalendarCursor((value) => new Date(value.getFullYear(), value.getMonth() - 1, 1))}>
-              <Ionicons name="chevron-back" size={17} color={C.ink} />
+              <Ionicons name="chevron-back" size={17} color={themed(C.ink, 'color')} />
             </TouchableOpacity>
             <Text style={s.dashHead}>
               {calendarCursor.toLocaleDateString('en-MY', {
@@ -1349,7 +1353,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
               })}
             </Text>
             <TouchableOpacity style={s.calendarArrow} onPress={() => setCalendarCursor((value) => new Date(value.getFullYear(), value.getMonth() + 1, 1))}>
-              <Ionicons name="chevron-forward" size={17} color={C.ink} />
+              <Ionicons name="chevron-forward" size={17} color={themed(C.ink, 'color')} />
             </TouchableOpacity>
           </View>
           <View style={s.calendarGrid}>
@@ -1362,23 +1366,23 @@ export default function RedCoinsScreen({ navigation, route }: any) {
               <TouchableOpacity key={day.key} onPress={() => openDashboardFilter('day', day.key)} style={[s.calendarDay, day.key === dayKey(today.toISOString()) && s.calendarToday, day.muted && { opacity: 0.3 }]}>
                 <Text style={s.calendarNumber}>{day.date.getDate()}</Text>
                 <View style={s.calendarDots}>
-                  {day.types.has('expense') && <View style={[s.calendarDot, { backgroundColor: C.coral }]} />}
-                  {day.types.has('income') && <View style={[s.calendarDot, { backgroundColor: '#18A879' }]} />}
-                  {day.types.has('transfer') && <View style={[s.calendarDot, { backgroundColor: C.blue }]} />}
+                  {day.types.has('expense') && <View style={[s.calendarDot, { backgroundColor: themed(C.coral, 'backgroundColor') }]} />}
+                  {day.types.has('income') && <View style={[s.calendarDot, { backgroundColor: themed('#18A879', 'backgroundColor') }]} />}
+                  {day.types.has('transfer') && <View style={[s.calendarDot, { backgroundColor: themed(C.blue, 'backgroundColor') }]} />}
                 </View>
               </TouchableOpacity>
             ))}
           </View>
           <View style={s.calendarKey}>
             <Text style={s.calendarKeyText}>● Expense</Text>
-            <Text style={[s.calendarKeyText, { color: '#18A879' }]}>● Income</Text>
-            <Text style={[s.calendarKeyText, { color: C.blue }]}>● Transfer</Text>
+            <Text style={[s.calendarKeyText, { color: themed('#18A879', 'color') }]}>● Income</Text>
+            <Text style={[s.calendarKeyText, { color: themed(C.blue, 'color') }]}>● Transfer</Text>
           </View>
         </View>
         <View style={s.dashCard}>
           <TouchableOpacity style={s.dashHeadRow} onPress={() => toggleCard('budget')}>
             <Text style={s.dashHead}>Budget Summary</Text>
-            <Ionicons name={collapsedCards.includes('budget') ? 'chevron-forward' : 'chevron-down'} size={16} color={C.ink} />
+            <Ionicons name={collapsedCards.includes('budget') ? 'chevron-forward' : 'chevron-down'} size={16} color={themed(C.ink, 'color')} />
           </TouchableOpacity>
           {!collapsedCards.includes('budget') && (
             <>
@@ -1419,7 +1423,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           <View style={s.dashHeadRow}>
             <TouchableOpacity onPress={() => toggleCard('favorites')} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text style={s.dashHead}>Favorite Accounts</Text>
-              <Ionicons name={collapsedCards.includes('favorites') ? 'chevron-forward' : 'chevron-down'} size={16} color={C.ink} />
+              <Ionicons name={collapsedCards.includes('favorites') ? 'chevron-forward' : 'chevron-down'} size={16} color={themed(C.ink, 'color')} />
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setFavoritesOpen(true)} accessibilityLabel="Choose favorite accounts" style={{ padding: 10 }}>
               <Text style={s.balanceSheetText}>EDIT</Text>
@@ -1431,7 +1435,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
               {favoriteAccounts.map((account) => (
                 <TouchableOpacity key={account.id} style={s.favoriteRow} onPress={() => openDashboardFilter('account', account.name)}>
                   <Text style={s.favoriteName}>{account.name}</Text>
-                  <Text style={[s.favoriteBalance, account.balance < 0 && { color: C.coral }]}>
+                  <Text style={[s.favoriteBalance, account.balance < 0 && { color: themed(C.coral, 'color') }]}>
                     {account.balance < 0 ? '− ' : ''}
                     {money(account.balance)}
                   </Text>
@@ -1455,7 +1459,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                       s.cashBar,
                       {
                         height: Math.max(3, (month.outgoing / flowMax) * 110),
-                        backgroundColor: C.coral,
+                        backgroundColor: themed(C.coral, 'backgroundColor'),
                       },
                     ]}
                   />
@@ -1464,7 +1468,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                       s.cashBar,
                       {
                         height: Math.max(3, (month.incoming / flowMax) * 110),
-                        backgroundColor: '#18A879',
+                        backgroundColor: themed('#18A879', 'backgroundColor'),
                       },
                     ]}
                   />
@@ -1476,7 +1480,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         </View>
         <View style={s.hero}>
           <Text style={s.kicker}>TRUE CASH AVAILABLE</Text>
-          <Text style={[s.heroMoney, trueSpendable < 0 && { color: '#FF8069' }]}>
+          <Text style={[s.heroMoney, trueSpendable < 0 && { color: themed('#FF8069', 'color') }]}>
             {trueSpendable < 0 ? '− ' : ''}
             {money(trueSpendable)}
           </Text>
@@ -1506,31 +1510,31 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       <View style={s.ledgerTools}>
         <LedgerSearch value={search} onChange={updateLedgerSearch} />
         <TouchableOpacity style={s.filterButton} onPress={() => setFilterOpen(true)}>
-          <Ionicons name="options" size={17} color={C.white} />
+          <Ionicons name="options" size={17} color={themed(C.white, 'color')} />
           {(filterTypes.length + filterAccounts.length + filterCategories.length + filterSubcategories.length + (filterDateMode !== 'all' ? 1 : 0)) > 0 && (
-            <Text style={{ color: C.white, fontSize: 10, fontWeight: '900', marginLeft: 4 }}>{filterTypes.length + filterAccounts.length + filterCategories.length + filterSubcategories.length + (filterDateMode !== 'all' ? 1 : 0)}</Text>
+            <Text style={{ color: themed(C.white, 'color'), fontSize: 10, fontWeight: '900', marginLeft: 4 }}>{filterTypes.length + filterAccounts.length + filterCategories.length + filterSubcategories.length + (filterDateMode !== 'all' ? 1 : 0)}</Text>
           )}
         </TouchableOpacity>
       </View>
       <View style={s.ledgerPeriodBar}>
         <TouchableOpacity style={s.ledgerPeriodArrow} accessibilityLabel="Previous ledger period" disabled={filterDateMode !== 'month' && (filterDateMode !== 'cycle' || !ledgerCycle || ledgerCycleOffset >= ledgerCycle.count - 1)} onPress={() => changeLedgerPeriod(filterDateMode === 'month' ? 'month' : 'cycle', -1)}>
-          <Ionicons name="chevron-back" size={19} color={filterDateMode === 'month' || filterDateMode === 'cycle' && ledgerCycle && ledgerCycleOffset < ledgerCycle.count - 1 ? C.ink : '#B9B3A8'} />
+          <Ionicons name="chevron-back" size={19} color={filterDateMode === 'month' || filterDateMode === 'cycle' && ledgerCycle && ledgerCycleOffset < ledgerCycle.count - 1 ? themed(C.ink, 'color') : themed('#B9B3A8', 'color')} />
         </TouchableOpacity>
         <TouchableOpacity style={s.ledgerPeriodLabel} accessibilityLabel="Choose cycle, month or all dates" onPress={chooseLedgerPeriodMode}>
           <Text style={s.ledgerPeriodMode}>{reportLedgerWindow ? 'REPORT WINDOW · ACTUAL ENTRIES' : filterDateMode === 'cycle' ? 'SALARY CYCLE' : filterDateMode === 'month' ? 'CALENDAR MONTH' : filterDateMode === 'all' ? 'DATE WINDOW' : 'CUSTOM DATES'}</Text>
-          <Text style={s.ledgerPeriodTitle} numberOfLines={1}>{filterDateMode === 'cycle' ? ledgerCycle?.month || 'Choose salary source' : filterDateLabel || 'All dates'} <Ionicons name="chevron-down" size={10} color={C.muted} /></Text>
+          <Text style={s.ledgerPeriodTitle} numberOfLines={1}>{filterDateMode === 'cycle' ? ledgerCycle?.month || 'Choose salary source' : filterDateLabel || 'All dates'} <Ionicons name="chevron-down" size={10} color={themed(C.muted, 'color')} /></Text>
           {filterDateMode === 'cycle' && ledgerSalary && <Text style={s.ledgerPeriodMeta} numberOfLines={1}>{ledgerSalary.label} · {filterStartDay} → {filterEndDay}</Text>}
         </TouchableOpacity>
         <TouchableOpacity style={s.ledgerPeriodArrow} accessibilityLabel="Next ledger period" disabled={filterDateMode !== 'month' && (filterDateMode !== 'cycle' || !ledgerCycle || ledgerCycleOffset === 0)} onPress={() => changeLedgerPeriod(filterDateMode === 'month' ? 'month' : 'cycle', 1)}>
-          <Ionicons name="chevron-forward" size={19} color={filterDateMode === 'month' || filterDateMode === 'cycle' && ledgerCycle && ledgerCycleOffset > 0 ? C.ink : '#B9B3A8'} />
+          <Ionicons name="chevron-forward" size={19} color={filterDateMode === 'month' || filterDateMode === 'cycle' && ledgerCycle && ledgerCycleOffset > 0 ? themed(C.ink, 'color') : themed('#B9B3A8', 'color')} />
         </TouchableOpacity>
       </View>
       <View style={s.ledgerSummaryLinkRow}>
         <Text style={[s.selectedTotalMeta, { flex: 1 }]}>{matchingLedgerEntries.length} matching transactions{filterDateLabel ? ` · ${filterDateLabel}` : ''}</Text>
         <TouchableOpacity onPress={() => setLedgerSummaryScope('filtered')} style={s.ledgerSummaryButton} accessibilityLabel="Show totals for all matching transactions">
-          <Ionicons name="calculator-outline" size={13} color={C.ink} /><Text style={s.ledgerSummaryButtonText}>TOTALS</Text>
+          <Ionicons name="calculator-outline" size={13} color={themed(C.ink, 'color')} /><Text style={s.ledgerSummaryButtonText}>TOTALS</Text>
         </TouchableOpacity>
-        {copiedEntries.length > 0 && <TouchableOpacity onPress={() => { Keyboard.dismiss(); setBatchOpen('paste'); }} style={s.ledgerSummaryButton} accessibilityLabel="Paste copied transactions"><Ionicons name="duplicate-outline" size={13} color={C.ink} /><Text style={s.ledgerSummaryButtonText}>PASTE ({copiedEntries.length})</Text></TouchableOpacity>}
+        {copiedEntries.length > 0 && <TouchableOpacity onPress={() => { Keyboard.dismiss(); setBatchOpen('paste'); }} style={s.ledgerSummaryButton} accessibilityLabel="Paste copied transactions"><Ionicons name="duplicate-outline" size={13} color={themed(C.ink, 'color')} /><Text style={s.ledgerSummaryButtonText}>PASTE ({copiedEntries.length})</Text></TouchableOpacity>}
       </View>
       {selectedIds.length > 0 && (
         <View style={s.selectionBar}>
@@ -1589,7 +1593,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       }}
     />
   );
-  const Categories = () => <><TouchableOpacity style={s.automationCard} onPress={() => setCategoriesOpen(false)}><Ionicons name="arrow-back" size={20} color={C.ink}/><Text style={s.automationTitle}>Back to Accounts</Text></TouchableOpacity>
+  const Categories = () => <><TouchableOpacity style={s.automationCard} onPress={() => setCategoriesOpen(false)}><Ionicons name="arrow-back" size={20} color={themed(C.ink, 'color')}/><Text style={s.automationTitle}>Back to Accounts</Text></TouchableOpacity>
         <Title
           eyebrow="CATEGORIES"
           title="Built around your life."
@@ -1615,7 +1619,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                   setDraftSub('');
                   setDraftIcon(c.icon || inferFinanceIcon(c.name, c.name));
                   setManageOpen('category');
-                }} hitSlop={8}><Ionicons name="create-outline" size={16} color={C.muted} /></TouchableOpacity>
+                }} hitSlop={8}><Ionicons name="create-outline" size={16} color={themed(C.muted, 'color')} /></TouchableOpacity>
               </View>
               {c.subcategories.map((sub) => <TouchableOpacity key={sub} style={s.subcategoryManageRow} onPress={() => {
                 setDraftParent(c.name);
@@ -1624,7 +1628,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                 setDraftSub(sub);
                 setDraftIcon(c.subcategoryIcons?.[sub] || inferFinanceIcon(sub, c.name));
                 setManageOpen('sub');
-              }}><Text style={s.categorySubs}>{sub}</Text><Ionicons name="chevron-forward" size={14} color={C.muted} /></TouchableOpacity>)}
+              }}><Text style={s.categorySubs}>{sub}</Text><Ionicons name="chevron-forward" size={14} color={themed(C.muted, 'color')} /></TouchableOpacity>)}
             </View>
             <TouchableOpacity
               onPress={() => {
@@ -1672,7 +1676,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
             setManageOpen('account');
           }}
         />
-        <TouchableOpacity style={s.automationCard} onPress={() => setCategoriesOpen(true)}><View style={{flex:1}}><Text style={s.automationTitle}>Manage categories</Text><Text style={s.automationCopy}>Categories, subcategories and icons</Text></View><Ionicons name="chevron-forward" size={18} color={C.ink}/></TouchableOpacity>
+        <TouchableOpacity style={s.automationCard} onPress={() => setCategoriesOpen(true)}><View style={{flex:1}}><Text style={s.automationTitle}>Manage categories</Text><Text style={s.automationCopy}>Categories, subcategories and icons</Text></View><Ionicons name="chevron-forward" size={18} color={themed(C.ink, 'color')}/></TouchableOpacity>
         {(['Bank', 'Cash', 'Credit card', 'Liability', 'Investment'] as RedCoinsAccountType[]).map((type) => {
           const rows = state.accounts.filter((account) => account.type === type);
           if (!rows.length) return null;
@@ -1688,8 +1692,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                   <Text style={s.accountListName}>{a.name}</Text>
                   <Text style={s.accountListMeta}>{a.type} · tap to view ledger</Text>
                 </View>
-                <Text style={[s.accountListBalance, a.balance < 0 && { color: C.coral }]}>{a.balance < 0 ? '− ' : ''}{money(a.balance)}</Text>
-                <TouchableOpacity style={[s.accountEdit, { alignItems: 'center' }]} accessibilityLabel={`Semak ${a.name} dengan bank`} onPress={() => setBankReviewAccountId(a.id)} hitSlop={8}><Ionicons name="checkmark-done-outline" size={19} color="#168A65" /><Text style={{ fontSize: 7, fontWeight: '800', color: '#168A65' }}>SEMAK</Text></TouchableOpacity>
+                <Text style={[s.accountListBalance, a.balance < 0 && { color: themed(C.coral, 'color') }]}>{a.balance < 0 ? '− ' : ''}{money(a.balance)}</Text>
+                <TouchableOpacity style={[s.accountEdit, { alignItems: 'center' }]} accessibilityLabel={`Semak ${a.name} dengan bank`} onPress={() => setBankReviewAccountId(a.id)} hitSlop={8}><Ionicons name="checkmark-done-outline" size={19} color={themed("#168A65", 'color')} /><Text style={{ fontSize: 7, fontWeight: '800', color: themed('#168A65', 'color') }}>SEMAK</Text></TouchableOpacity>
                 <TouchableOpacity style={s.accountEdit} onPress={() => {
                   setEditingAccountId(a.id);
                   setDraftName(a.name);
@@ -1697,7 +1701,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                   setDraftBalance(String(a.balance));
                   setDraftIcon(a.icon || inferFinanceIcon(a.name, a.type));
                   setManageOpen('account');
-                }} hitSlop={8}><Ionicons name="create-outline" size={17} color={C.muted} /></TouchableOpacity>
+                }} hitSlop={8}><Ionicons name="create-outline" size={17} color={themed(C.muted, 'color')} /></TouchableOpacity>
               </TouchableOpacity>
             ))}
           </View>;
@@ -1712,7 +1716,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           </TouchableOpacity>
           {awaiting && (
             <TouchableOpacity style={s.confirmImport} onPress={async () => persist(confirmRedCoinsExport(state, awaiting.id))}>
-              <Ionicons name="checkmark-circle" size={17} color={C.ink} />
+              <Ionicons name="checkmark-circle" size={17} color={themed(C.ink, 'onAccent')} />
               <Text style={s.confirmImportText}>MARK {awaiting.entryIds.length} AS IMPORTED</Text>
             </TouchableOpacity>
           )}
@@ -1731,7 +1735,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                 <Text style={s.entryName}>{batch.entryIds.length} entries</Text>
                 <Text style={s.entryMeta}>{new Date(batch.createdAt).toLocaleString('en-MY')}</Text>
               </View>
-              <Text style={[s.exportStatus, batch.confirmedAt && { color: '#379B73' }]}>{batch.confirmedAt ? 'IMPORTED' : 'AWAITING'}</Text>
+              <Text style={[s.exportStatus, batch.confirmedAt && { color: themed('#379B73', 'color') }]}>{batch.confirmedAt ? 'IMPORTED' : 'AWAITING'}</Text>
             </View>
           ))}
           {!state.exportBatches?.length && <Empty text="No export batches yet." />}
@@ -1741,31 +1745,31 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   };
   const Plan = () => (
     <>
-      {planPage !== 'overview' && <TouchableOpacity style={s.automationCard} onPress={() => setPlanPage('overview')}><Ionicons name="arrow-back" size={20} color={C.ink}/><Text style={s.automationTitle}>Back to Plan</Text></TouchableOpacity>}
+      {planPage !== 'overview' && <TouchableOpacity style={s.automationCard} onPress={() => setPlanPage('overview')}><Ionicons name="arrow-back" size={20} color={themed(C.ink, 'color')}/><Text style={s.automationTitle}>Back to Plan</Text></TouchableOpacity>}
       {planPage === 'overview' && <>
         <Title eyebrow="PLAN" title="Give every ringgit a job." />
-        {([ ['budgets','Budgets',`${money(state.monthlyBudget)} cycle ceiling · ${money(allocatedBudget)} planning allocation`], ['guards','Spending guards',`${bluecoins?.spendingGuards.length || 0} limits watching your spending`], ['automation','Reminders & auto-log',`${state.reminders.filter(r=>r.enabled).length} active schedules · ${detections.length} detected payments to review`] ] as const).map(([page,title,copy]) => <TouchableOpacity key={page} style={s.automationCard} onPress={() => setPlanPage(page)}><View style={{flex:1}}><Text style={s.automationTitle}>{title}</Text><Text style={s.automationCopy}>{copy}</Text></View><Ionicons name="chevron-forward" size={18} color={C.ink}/></TouchableOpacity>)}
+        {([ ['budgets','Budgets',`${money(state.monthlyBudget)} cycle ceiling · ${money(allocatedBudget)} planning allocation`], ['guards','Spending guards',`${bluecoins?.spendingGuards.length || 0} limits watching your spending`], ['automation','Reminders & auto-log',`${state.reminders.filter(r=>r.enabled).length} active schedules · ${detections.length} detected payments to review`] ] as const).map(([page,title,copy]) => <TouchableOpacity key={page} style={s.automationCard} onPress={() => setPlanPage(page)}><View style={{flex:1}}><Text style={s.automationTitle}>{title}</Text><Text style={s.automationCopy}>{copy}</Text></View><Ionicons name="chevron-forward" size={18} color={themed(C.ink, 'color')}/></TouchableOpacity>)}
       </>}
       {planPage === 'automation' && <>
       <Title eyebrow="AUTOMATION" title="Scheduled & detected." />
       <TouchableOpacity style={s.automationCard} onPress={() => setReminderManagerOpen(true)} activeOpacity={0.8}>
-        <View style={s.automationIcon}><Ionicons name="repeat" size={21} color={C.ink} /></View>
+        <View style={s.automationIcon}><Ionicons name="repeat" size={21} color={themed(C.ink, 'onAccent')} /></View>
         <View style={{ flex: 1 }}>
           <Text style={s.eyebrow}>AUTOMATION</Text>
           <Text style={s.automationTitle}>Reminders & Auto-log</Text>
           <Text style={s.automationCopy}>{state.reminders.length ? `${state.reminders.filter((reminder) => reminder.enabled).length} active · ${state.reminders.filter((reminder) => reminder.automaticLog).length} auto-log` : 'Build recurring transactions from the logger.'}</Text>
         </View>
-        <Ionicons name="arrow-forward" size={18} color={C.ink} />
+        <Ionicons name="arrow-forward" size={18} color={themed(C.ink, 'color')} />
       </TouchableOpacity>
       <View style={s.detectorCard}>
-        <View style={[s.detectorIcon, notificationAccess && { backgroundColor: C.mint }]}>
-          <Ionicons name={notificationAccess ? 'notifications' : 'notifications-off'} size={20} color={C.ink} />
+        <View style={[s.detectorIcon, notificationAccess && { backgroundColor: themed(C.mint, 'backgroundColor') }]}>
+          <Ionicons name={notificationAccess ? 'notifications' : 'notifications-off'} size={20} color={themed(C.ink, 'color')} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={s.detectorTitle}>Transaction detector</Text>
           <Text style={s.detectorCopy}>{notificationAccess ? 'Active · eligible payment alerts are checked locally.' : 'Enable Notification access to catch eligible payments.'}</Text>
         </View>
-        <TouchableOpacity style={[s.detectorButton, notificationAccess && { backgroundColor: '#DDF1E7' }]} onPress={() => BluecoinsDriveReader?.openNotificationAccessSettingsAsync?.().catch(() => Alert.alert('Unavailable', 'Notification access settings could not be opened on this device.'))}>
+        <TouchableOpacity style={[s.detectorButton, notificationAccess && { backgroundColor: themed('#DDF1E7', 'backgroundColor') }]} onPress={() => BluecoinsDriveReader?.openNotificationAccessSettingsAsync?.().catch(() => Alert.alert('Unavailable', 'Notification access settings could not be opened on this device.'))}>
           <Text style={s.detectorButtonText}>{notificationAccess ? 'MANAGE' : 'ENABLE'}</Text>
         </TouchableOpacity>
       </View>
@@ -1797,7 +1801,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
               <Text style={s.detectionReviewText}>REVIEW</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => dismissDetection(detection.id)}>
-              <Ionicons name="close-circle" size={20} color={C.muted} />
+              <Ionicons name="close-circle" size={20} color={themed(C.muted, 'color')} />
             </TouchableOpacity>
           </View>
         ))}
@@ -1819,7 +1823,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
               s.budgetFill,
               {
                 width: `${Math.min(100, (allocatedBudget / Math.max(1, state.monthlyBudget)) * 100)}%`,
-                backgroundColor: allocatedBudget > state.monthlyBudget ? C.coral : C.blue,
+                backgroundColor: allocatedBudget > state.monthlyBudget ? themed(C.coral, 'backgroundColor') : themed(C.blue, 'backgroundColor'),
               },
             ]}
           />
@@ -1857,7 +1861,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
             <TouchableOpacity style={s.budgetCategoryHead} onPress={() => setExpandedBudgetCategories((current) => (current.includes(group.name) ? current.filter((name) => name !== group.name) : [...current, group.name]))}>
               <View style={{ flex: 1 }}>
                 <Text style={s.budgetCategoryName}>
-                  {ICON_LIBRARY.includes(group.icon) ? <Ionicons name={group.icon as any} size={14} color={C.ink} /> : group.icon} {group.name}
+                  {ICON_LIBRARY.includes(group.icon) ? <Ionicons name={group.icon as any} size={14} color={themed(C.ink, 'color')} /> : group.icon} {group.name}
                 </Text>
                 <Text style={s.budgetCategoryMeta}>{money(groupSpent)} spent this cycle · allocation is a planning equivalent</Text>
               </View>
@@ -1865,7 +1869,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                 <Text style={s.budgetCategoryAmount}>{money(groupBudget)}</Text>
                 <Text style={s.budgetCategoryLabel}>MONTHLY PLAN EQ.</Text>
               </View>
-              <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={17} color={C.muted} />
+              <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={17} color={themed(C.muted, 'color')} />
             </TouchableOpacity>
             <View style={s.categoryBudgetProgress}>
               <View style={s.subBudgetTrack}>
@@ -1874,7 +1878,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                     s.subBudgetFill,
                     {
                       width: `${groupBudget ? Math.min(100, (groupSpent / groupBudget) * 100) : 0}%`,
-                      backgroundColor: groupBudget > 0 && groupSpent > groupBudget ? C.coral : C.blue,
+                      backgroundColor: groupBudget > 0 && groupSpent > groupBudget ? themed(C.coral, 'backgroundColor') : themed(C.blue, 'backgroundColor'),
                     },
                   ]}
                 />
@@ -1900,8 +1904,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                         <Text style={s.subBudgetName}>{sub}</Text>
                         <Text style={s.subBudgetSpent}>{periodLabel}</Text><Text style={s.subBudgetSpent}>{money(used)} spent{period && choices.periods[0].reserve ? ` · reserve suggestion ${money(period.monthlyReserve)}/month` : ''}</Text>
                       </View>
-                      <Text style={[s.subBudgetLimit, !limit && { color: C.muted }]}>{choices.conflict ? 'RESOLVE' : limit ? money(limit) : 'SET BUDGET'}</Text>
-                      <Ionicons name="chevron-forward" size={15} color={C.muted} />
+                      <Text style={[s.subBudgetLimit, !limit && { color: themed(C.muted, 'color') }]}>{choices.conflict ? 'RESOLVE' : limit ? money(limit) : 'SET BUDGET'}</Text>
+                      <Ionicons name="chevron-forward" size={15} color={themed(C.muted, 'color')} />
                     </View>
                     {limit > 0 && !choices.conflict && (
                       <View style={s.subBudgetTrack}>
@@ -1910,7 +1914,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                             s.subBudgetFill,
                             {
                               width: `${Math.min(100, percent)}%`,
-                              backgroundColor: percent > 100 ? C.coral : C.blue,
+                              backgroundColor: percent > 100 ? themed(C.coral, 'backgroundColor') : themed(C.blue, 'backgroundColor'),
                             },
                           ]}
                         />
@@ -1922,11 +1926,11 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           </View>
         );
       })}
-      {(state.termBudgets || []).filter(b=>!state.categories.some(c=>c.name===b.category && (!b.subcategory || c.subcategories.includes(b.subcategory)))).map(b=><TouchableOpacity key={b.id} style={s.automationCard} onPress={()=>openBudgetEditor(b.category,b.subcategory || '')}><View style={{flex:1}}><Text style={s.automationTitle}>Budget target unavailable</Text><Text style={s.automationCopy}>{b.category} / {b.subcategory || 'whole category'} · {money(b.amount)}. Review/remove this saved setup, then recreate under a current target.</Text></View><Ionicons name="chevron-forward" size={18} color={C.coral}/></TouchableOpacity>)}
+      {(state.termBudgets || []).filter(b=>!state.categories.some(c=>c.name===b.category && (!b.subcategory || c.subcategories.includes(b.subcategory)))).map(b=><TouchableOpacity key={b.id} style={s.automationCard} onPress={()=>openBudgetEditor(b.category,b.subcategory || '')}><View style={{flex:1}}><Text style={s.automationTitle}>Budget target unavailable</Text><Text style={s.automationCopy}>{b.category} / {b.subcategory || 'whole category'} · {money(b.amount)}. Review/remove this saved setup, then recreate under a current target.</Text></View><Ionicons name="chevron-forward" size={18} color={themed(C.coral, 'color')}/></TouchableOpacity>)}
       <View style={s.card}>
         <Text style={s.cardTitle}>Cash reality</Text>
         <Text style={s.realityLabel}>TRUE CASH AVAILABLE</Text>
-        <Text style={[s.realityNumber, trueSpendable < 0 && { color: C.coral }]}>
+        <Text style={[s.realityNumber, trueSpendable < 0 && { color: themed(C.coral, 'color') }]}>
           {trueSpendable < 0 ? '− ' : ''}
           {money(trueSpendable)}
         </Text>
@@ -1943,7 +1947,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
             await setCashRealityAccounts(selected);
             await refreshLiveBluecoins();
           }}>
-            <Ionicons name={candidate.selected ? 'checkmark-circle' : 'ellipse-outline'} size={18} color={candidate.selected ? C.ink : C.muted} />
+            <Ionicons name={candidate.selected ? 'checkmark-circle' : 'ellipse-outline'} size={18} color={candidate.selected ? themed(C.ink, 'color') : themed(C.muted, 'color')} />
             <Text style={s.cashSelectName}>{candidate.name}</Text><Text style={s.cashSelectAmount}>{money(candidate.balance)}</Text>
           </TouchableOpacity>
         ))}
@@ -1956,7 +1960,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           setBluecoins((value) => value ? { ...value, monthly: { ...value.monthly, fixedCommitmentSelection: next, fixedCommitmentOptions: value.monthly.fixedCommitmentOptions.map((item) => ({ ...item, selected: next.includes(item.key) })) } } : value);
           await setBluecoinsFixedCommitments(next);
           await refreshLiveBluecoins();
-        }}><Ionicons name={option.selected ? 'checkbox' : 'square-outline'} size={18} color={option.selected ? C.coral : C.muted} /><View style={{flex: 1}}><Text style={s.cashSelectName}>{option.label}</Text><Text style={s.guardMeta}>Last paid {option.lastUsed}</Text></View><Text style={s.cashSelectAmount}>{money(option.lastAmount)}</Text></TouchableOpacity>)}
+        }}><Ionicons name={option.selected ? 'checkbox' : 'square-outline'} size={18} color={option.selected ? themed(C.coral, 'color') : themed(C.muted, 'color')} /><View style={{flex: 1}}><Text style={s.cashSelectName}>{option.label}</Text><Text style={s.guardMeta}>Last paid {option.lastUsed}</Text></View><Text style={s.cashSelectAmount}>{money(option.lastAmount)}</Text></TouchableOpacity>)}
       </View>}
       <View style={s.expectedCard}>
         <View style={s.expectedHero}>
@@ -1978,7 +1982,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         {bluecoins?.monthly.expectedFixedCommitments.items.map((commitment) => (
           <View key={commitment.key} style={s.expectedRow}>
             <View style={[s.expectedStatus, commitment.status === 'paid' && s.expectedStatusPaid]}>
-              <Ionicons name={commitment.status === 'paid' ? 'checkmark' : 'time-outline'} size={13} color={commitment.status === 'paid' ? '#168A65' : C.coral} />
+              <Ionicons name={commitment.status === 'paid' ? 'checkmark' : 'time-outline'} size={13} color={commitment.status === 'paid' ? themed('#168A65', 'color') : themed(C.coral, 'color')} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={s.expectedName}>{commitment.label.split(' | ').pop()}</Text>
@@ -1988,7 +1992,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
             </View>
             <View style={s.expectedAmounts}>
               <Text style={s.expectedAmount}>{money(commitment.expectedAmount)}</Text>
-              <Text style={[s.expectedState, commitment.status === 'paid' && { color: '#168A65' }]}>{commitment.status === 'paid' ? `PAID ${money(commitment.currentAmount)}` : 'DUE'}</Text>
+              <Text style={[s.expectedState, commitment.status === 'paid' && { color: themed('#168A65', 'color') }]}>{commitment.status === 'paid' ? `PAID ${money(commitment.currentAmount)}` : 'DUE'}</Text>
             </View>
           </View>
         ))}
@@ -2001,17 +2005,17 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         {bluecoins?.spendingGuards.map((guard) => (
           <View key={guard.id} style={s.guardCardRow}>
           <TouchableOpacity style={s.guardRow} onPress={() => { setExpandedGuardPart(null); setExpandedGuardId((value) => value === guard.id ? null : guard.id); }} activeOpacity={0.8}>
-            <View style={[s.guardDot, { backgroundColor: guard.level === 'breached' || guard.level === 'slow-down' ? C.coral : guard.level === 'heads-up' ? C.gold : C.mint }]} />
+            <View style={[s.guardDot, { backgroundColor: guard.level === 'breached' || guard.level === 'slow-down' ? themed(C.coral, 'backgroundColor') : guard.level === 'heads-up' ? themed(C.gold, 'backgroundColor') : themed(C.mint, 'backgroundColor') }]} />
             <View style={{ flex: 1 }}>
               <View style={s.guardLine}><Text style={s.guardName}>{guard.name}</Text><Text style={s.guardPercent}>{guard.percent.toFixed(0)}%</Text></View>
               <Text style={s.guardMeta}>{guard.scope.toUpperCase()} · {money(guard.spent)} / {money(guard.limit)}</Text>
               <View style={s.budgetTrack}><View style={[s.budgetFill, { width: `${Math.min(100, guard.percent)}%` }]} /></View>
             </View>
-            <TouchableOpacity onPress={(event) => { event.stopPropagation(); setGuardDraft({ id: guard.id, name: guard.name, scope: guard.scope, target: guard.target, limit: String(guard.limit) }); setGuardEditorOpen(true); }}><Ionicons name="create-outline" size={17} color={C.muted} /></TouchableOpacity>
+            <TouchableOpacity onPress={(event) => { event.stopPropagation(); setGuardDraft({ id: guard.id, name: guard.name, scope: guard.scope, target: guard.target, limit: String(guard.limit) }); setGuardEditorOpen(true); }}><Ionicons name="create-outline" size={17} color={themed(C.muted, 'color')} /></TouchableOpacity>
           </TouchableOpacity>
             {expandedGuardId === guard.id && <View style={s.guardDetails}>
               <Text style={s.guardDetailsTitle}>WHERE IT WENT</Text>
-              {guard.breakdown.map((part) => <View key={part.name}><TouchableOpacity style={s.guardDetailRow} onPress={() => setExpandedGuardPart((value) => value === part.name ? null : part.name)}><Text style={s.guardDetailName}>{part.name}</Text><Text style={s.guardDetailAmount}>{money(part.amount)} · {part.share.toFixed(0)}%</Text><Ionicons name={expandedGuardPart === part.name ? 'chevron-up' : 'chevron-down'} size={13} color={C.muted} /></TouchableOpacity>
+              {guard.breakdown.map((part) => <View key={part.name}><TouchableOpacity style={s.guardDetailRow} onPress={() => setExpandedGuardPart((value) => value === part.name ? null : part.name)}><Text style={s.guardDetailName}>{part.name}</Text><Text style={s.guardDetailAmount}>{money(part.amount)} · {part.share.toFixed(0)}%</Text><Ionicons name={expandedGuardPart === part.name ? 'chevron-up' : 'chevron-down'} size={13} color={themed(C.muted, 'color')} /></TouchableOpacity>
                 {expandedGuardPart === part.name && guard.transactions.filter((charge) => guard.scope === 'subcategory' ? charge.itemName === part.name : charge.subcategory === part.name).map((charge, index) => <View key={`${charge.itemName}-${index}`} style={s.guardChargeRow}><View style={{flex: 1}}><Text style={s.guardDetailName}>{charge.itemName}</Text><Text style={s.guardMeta}>{charge.date} · {charge.category} / {charge.subcategory}</Text></View><Text style={s.guardDetailAmount}>{money(charge.amount)}</Text></View>)}
               </View>)}
             </View>}
@@ -2082,16 +2086,16 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         </View>
         <Text style={s.reportPeriodDates}>{reportDate(report.start)} → {report.ongoing ? 'Today · ongoing' : reportDate(report.displayEnd)}</Text>
         {reportMode === 'salary-cycle' && <View style={s.reportCycleNav}>
-          <TouchableOpacity disabled={report.safeOffset >= report.maxOffset} onPress={(event) => { event.stopPropagation(); setReportCycleOffset((value) => Math.min(report.maxOffset, value + 1)); }} style={[s.reportArrow, report.safeOffset >= report.maxOffset && s.reportArrowDisabled]}><Ionicons name="chevron-back" size={17} color={C.ink} /></TouchableOpacity>
+          <TouchableOpacity disabled={report.safeOffset >= report.maxOffset} onPress={(event) => { event.stopPropagation(); setReportCycleOffset((value) => Math.min(report.maxOffset, value + 1)); }} style={[s.reportArrow, report.safeOffset >= report.maxOffset && s.reportArrowDisabled]}><Ionicons name="chevron-back" size={17} color={themed(C.ink, 'color')} /></TouchableOpacity>
           <Text style={s.reportCycleNavText}>{report.safeOffset === 0 ? 'LATEST CYCLE' : `${report.safeOffset} CYCLE${report.safeOffset > 1 ? 'S' : ''} AGO`}</Text>
-          <TouchableOpacity disabled={report.safeOffset === 0} onPress={(event) => { event.stopPropagation(); setReportCycleOffset((value) => Math.max(0, value - 1)); }} style={[s.reportArrow, report.safeOffset === 0 && s.reportArrowDisabled]}><Ionicons name="chevron-forward" size={17} color={C.ink} /></TouchableOpacity>
+          <TouchableOpacity disabled={report.safeOffset === 0} onPress={(event) => { event.stopPropagation(); setReportCycleOffset((value) => Math.max(0, value - 1)); }} style={[s.reportArrow, report.safeOffset === 0 && s.reportArrowDisabled]}><Ionicons name="chevron-forward" size={17} color={themed(C.ink, 'color')} /></TouchableOpacity>
         </View>}
       </TouchableOpacity>
 
       <View style={s.grid}>
-        <Stat label="INCOME" value={report.income} color="#168A65" onPress={() => openReportMetricLedger('income')} />
-        <Stat label="EXPENSE" value={report.expense} color={C.coral} onPress={() => openReportMetricLedger('expense')} />
-        <Stat label="NET RETAINED" value={report.net} color={report.net >= 0 ? C.blue : C.coral} />
+        <Stat label="INCOME" value={report.income} color={themed("#168A65", 'color')} onPress={() => openReportMetricLedger('income')} />
+        <Stat label="EXPENSE" value={report.expense} color={themed(C.coral, 'color')} onPress={() => openReportMetricLedger('expense')} />
+        <Stat label="NET RETAINED" value={report.net} color={report.net >= 0 ? themed(C.blue, 'color') : themed(C.coral, 'color')} />
       </View>
       <View style={s.reportFacts}>
         <TouchableOpacity style={s.reportFact} accessibilityRole="button" accessibilityLabel="Show report transfers in ledger" onPress={() => openReportMetricLedger('transfer')}><Text style={s.reportFactLabel}>TRANSFERS ↗</Text><Text style={s.reportFactValue}>{money(report.transfer)}</Text></TouchableOpacity>
@@ -2101,7 +2105,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
 
       {reportAnalysisScope && <RedCoinsAnalysis state={state} scope={reportAnalysisScope} classify={async (key, value) => { const current = await loadRedCoins(); await persist({ ...current, analysisExpenseClasses: { ...current.analysisExpenseClasses, [key]: value } }); }} inspect={editEntry} openSubcategory={openAnalysisSubcategoryLedger} />}
       <TouchableOpacity style={s.card} onPress={() => setAiPromptOpen(true)} activeOpacity={0.8}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><View style={{ flex: 1 }}><Text style={s.eyebrow}>AI HANDOFF</Text><Text style={s.cardTitle}>A second look at your spending.</Text><Text style={s.reportSectionHint}>Generate a prompt for this report · choose a realistic 5–25% reduction scenario · copy or save.</Text></View><Ionicons name="document-text-outline" size={24} color={C.ink} /></View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><View style={{ flex: 1 }}><Text style={s.eyebrow}>AI HANDOFF</Text><Text style={s.cardTitle}>A second look at your spending.</Text><Text style={s.reportSectionHint}>Generate a prompt for this report · choose a realistic 5–25% reduction scenario · copy or save.</Text></View><Ionicons name="document-text-outline" size={24} color={themed(C.ink, 'color')} /></View>
       </TouchableOpacity>
 
       <View style={s.card}>
@@ -2116,7 +2120,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                 <View style={s.reportCategoryLine}><Text style={s.reportName}>{name}</Text><Text style={s.reportValue}>{money(group.amount)}</Text></View>
                 <View style={s.reportTrack}><View style={[s.reportFill, { width: `${report.expense ? Math.min(100, (group.amount / report.expense) * 100) : 0}%` }]} /></View>
               </View>
-              <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={15} color={C.muted} />
+              <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={15} color={themed(C.muted, 'color')} />
             </TouchableOpacity>
             {expanded && <View style={s.reportDrilldown}>
               {[...group.subcategories].sort((a, b) => b[1] - a[1]).map(([subcategoryName, amount]) => <View key={subcategoryName}>
@@ -2132,7 +2136,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       <View style={s.card}>
         <Text style={s.cardTitle}>Account movement</Text>
         <Text style={s.reportSectionHint}>Transfers move cash between accounts but do not count as expense.</Text>
-        {report.accountMovement.map(([name, movement]) => <View key={name} style={s.reportAccountRow}><View style={{ flex: 1 }}><Text style={s.reportName}>{name}</Text><Text style={s.reportChargeMeta}>In {money(movement.incoming)} · Out {money(movement.outgoing)}</Text></View><Text style={[s.reportAccountNet, { color: movement.incoming - movement.outgoing >= 0 ? '#168A65' : C.coral }]}>{movement.incoming - movement.outgoing >= 0 ? '+' : '− '}{money(movement.incoming - movement.outgoing)}</Text></View>)}
+        {report.accountMovement.map(([name, movement]) => <View key={name} style={s.reportAccountRow}><View style={{ flex: 1 }}><Text style={s.reportName}>{name}</Text><Text style={s.reportChargeMeta}>In {money(movement.incoming)} · Out {money(movement.outgoing)}</Text></View><Text style={[s.reportAccountNet, { color: movement.incoming - movement.outgoing >= 0 ? themed('#168A65', 'color') : themed(C.coral, 'color') }]}>{movement.incoming - movement.outgoing >= 0 ? '+' : '− '}{money(movement.incoming - movement.outgoing)}</Text></View>)}
         {!report.accountMovement.length && <Empty text="No account movement in this period." />}
       </View>
     </>
@@ -2142,7 +2146,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     <SafeAreaView style={s.safe}>
       <View style={s.header}>
         <TouchableOpacity onPress={goBackInsideRedCoins} style={s.back}>
-          <Ionicons name="arrow-back" size={21} color={C.ink} />
+          <Ionicons name="arrow-back" size={21} color={themed(C.ink, 'color')} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={s.brand}>REDCOINS</Text>
@@ -2160,7 +2164,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
               renderDay={(section) => (
                 <View style={s.ledgerDate}>
                   <Text style={s.ledgerDateText} numberOfLines={1}>{section.title}</Text>
-                  <Text style={[s.ledgerDayTotal, section.total > 0 && { color: '#168A65' }]} numberOfLines={1}>
+                  <Text style={[s.ledgerDayTotal, section.total > 0 && { color: themed('#168A65', 'color') }]} numberOfLines={1}>
                     {section.total > 0 ? '+' : section.total < 0 ? '− ' : ''}
                     {money(section.total)}
                   </Text>
@@ -2197,9 +2201,9 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       <Modal visible={reminderManagerOpen} animationType="slide" onRequestClose={() => setReminderManagerOpen(false)}>
         <SafeAreaView style={s.reminderScreen}>
           <View style={s.reminderHeader}>
-            <TouchableOpacity style={s.back} onPress={() => setReminderManagerOpen(false)}><Ionicons name="arrow-back" size={21} color={C.ink} /></TouchableOpacity>
+            <TouchableOpacity style={s.back} onPress={() => setReminderManagerOpen(false)}><Ionicons name="arrow-back" size={21} color={themed(C.ink, 'color')} /></TouchableOpacity>
             <View style={{ flex: 1 }}><Text style={s.eyebrow}>REDCOINS AUTOMATION</Text><Text style={s.reminderScreenTitle}>Reminders & Auto-log.</Text></View>
-            <TouchableOpacity style={s.reminderAdd} onPress={() => { setReminderManagerOpen(false); createReminderSchedule(); }}><Ionicons name="add" size={20} color={C.white} /></TouchableOpacity>
+            <TouchableOpacity style={s.reminderAdd} onPress={() => { setReminderManagerOpen(false); createReminderSchedule(); }}><Ionicons name="add" size={20} color={themed(C.white, 'color')} /></TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={s.reminderScreenBody} showsVerticalScrollIndicator={false}>
             <View style={s.reminderExplainer}><Text style={s.reminderExplainerTitle}>One schedule, two behaviours.</Text><Text style={s.reminderExplainerCopy}>Reminder-only waits for your confirmation. Auto-log records the transaction when due. Both notify you.</Text>
@@ -2211,32 +2215,32 @@ export default function RedCoinsScreen({ navigation, route }: any) {
               const canLogNow = !!pendingReminderOccurrence(state, reminder) && missing.length === 0 && !invalidAmount;
               return <View key={reminder.id} style={s.reminderFullCard}>
                 <View style={s.reminderRow}>
-                  <View style={[s.reminderMark, { backgroundColor: reminder.automaticLog ? C.mint : C.gold }]}><Ionicons name={reminder.automaticLog ? 'flash' : 'notifications'} size={15} color={C.ink} /></View>
+                  <View style={[s.reminderMark, { backgroundColor: reminder.automaticLog ? themed(C.mint, 'backgroundColor') : themed(C.gold, 'backgroundColor') }]}><Ionicons name={reminder.automaticLog ? 'flash' : 'notifications'} size={15} color={themed(C.ink, 'color')} /></View>
                   <View style={{ flex: 1 }}><Text style={s.reminderName}>{reminder.template.item}</Text><Text style={s.reminderMeta}>{frequency} · {reminder.automaticLog ? 'auto-log' : 'reminder only'}</Text><Text style={s.reminderMeta}>{money(reminder.template.amount)} · {reminder.template.account}</Text></View>
                   <View style={[s.reminderState, !reminder.enabled && s.reminderStatePaused]}><Text style={s.reminderStateText}>{reminder.enabled ? 'ACTIVE' : 'PAUSED'}</Text></View>
                 </View>
                 <View style={s.reminderDue}><Text style={s.reminderDueLabel}>NEXT DUE</Text><Text style={s.reminderDueValue}>{nextDue ? nextDue.toLocaleString('en-MY', { dateStyle: 'medium', timeStyle: 'short' }) : reminder.enabled ? 'Series complete' : 'Paused'}</Text></View>
-                {projection && <View style={{ backgroundColor: C.cream, padding: 11, borderRadius: 13, marginBottom: 8 }}>
+                {projection && <View style={{ backgroundColor: themed(C.cream, 'backgroundColor'), padding: 11, borderRadius: 13, marginBottom: 8 }}>
                   <Text style={s.reminderDueLabel}>PROJECTED BALANCE AFTER DUE</Text>
-                  <Text style={[s.reminderName, { marginTop: 5, color: projection.source < 0 ? C.coral : C.ink }]}>{reminder.template.account} · {projection.source < 0 ? '− ' : ''}{money(projection.source)}</Text>
-                  {projection.destination !== null && <Text style={[s.reminderMeta, { color: projection.destination < 0 ? C.coral : '#168A65' }]}>{reminder.template.toAccount} · {projection.destination < 0 ? '− ' : ''}{money(projection.destination)}</Text>}
+                  <Text style={[s.reminderName, { marginTop: 5, color: projection.source < 0 ? themed(C.coral, 'color') : themed(C.ink, 'color') }]}>{reminder.template.account} · {projection.source < 0 ? '− ' : ''}{money(projection.source)}</Text>
+                  {projection.destination !== null && <Text style={[s.reminderMeta, { color: projection.destination < 0 ? themed(C.coral, 'color') : themed('#168A65', 'color') }]}>{reminder.template.toAccount} · {projection.destination < 0 ? '− ' : ''}{money(projection.destination)}</Text>}
                   <Text style={s.reminderMeta}>Assumes all active schedules happen, including earlier repeats and reminder-only entries; includes unapplied future ledger entries. Not your live balance.</Text>
                 </View>}
-                {invalidAmount && <Text style={[s.reminderMeta, { color: C.coral }]}>Fix the amount before a balance can be projected.</Text>}
-                {missing.length > 0 && <Text style={[s.reminderMeta, { color: C.coral }]}>Needs repair: missing {missing.join(', ')}. Auto-log is blocked until you edit the accounts.</Text>}
+                {invalidAmount && <Text style={[s.reminderMeta, { color: themed(C.coral, 'color') }]}>Fix the amount before a balance can be projected.</Text>}
+                {missing.length > 0 && <Text style={[s.reminderMeta, { color: themed(C.coral, 'color') }]}>Needs repair: missing {missing.join(', ')}. Auto-log is blocked until you edit the accounts.</Text>}
                 {(() => {
                   const last = state.entries.filter((entry) => entry.reminderSeriesId === reminder.id && entry.loggedAt).sort((a, b) => b.loggedAt!.localeCompare(a.loggedAt!))[0];
                   return last ? <Text style={s.reminderMeta}>Last {last.autoGenerated ? 'auto-log' : 'manual log'}: {new Date(last.loggedAt!).toLocaleString('en-MY')} · scheduled {new Date(last.scheduledFor || last.date).toLocaleString('en-MY')}</Text> : null;
                 })()}
                 <View style={s.reminderControls}>
                   <TouchableOpacity disabled={!canLogNow} style={[s.reminderControlPrimary, !canLogNow && { opacity: .4 }]} onPress={() => logReminderNow(reminder)}><Text style={s.reminderControlPrimaryText}>LOG NOW</Text></TouchableOpacity>
-                  <TouchableOpacity style={s.reminderControl} onPress={() => { setReminderManagerOpen(false); editReminderSchedule(reminder); }}><Ionicons name="create-outline" size={14} color={C.ink} /><Text style={s.reminderControlText}>EDIT</Text></TouchableOpacity>
-                  <TouchableOpacity style={s.reminderControl} onPress={() => toggleReminder(reminder)}><Ionicons name={reminder.enabled ? 'pause' : 'play'} size={14} color={C.ink} /><Text style={s.reminderControlText}>{reminder.enabled ? 'PAUSE' : 'RESUME'}</Text></TouchableOpacity>
-                  <TouchableOpacity style={s.reminderControlDanger} onPress={() => deleteReminderSeries(reminder)}><Ionicons name="trash-outline" size={14} color={C.coral} /></TouchableOpacity>
+                  <TouchableOpacity style={s.reminderControl} onPress={() => { setReminderManagerOpen(false); editReminderSchedule(reminder); }}><Ionicons name="create-outline" size={14} color={themed(C.ink, 'color')} /><Text style={s.reminderControlText}>EDIT</Text></TouchableOpacity>
+                  <TouchableOpacity style={s.reminderControl} onPress={() => toggleReminder(reminder)}><Ionicons name={reminder.enabled ? 'pause' : 'play'} size={14} color={themed(C.ink, 'color')} /><Text style={s.reminderControlText}>{reminder.enabled ? 'PAUSE' : 'RESUME'}</Text></TouchableOpacity>
+                  <TouchableOpacity style={s.reminderControlDanger} onPress={() => deleteReminderSeries(reminder)}><Ionicons name="trash-outline" size={14} color={themed(C.coral, 'color')} /></TouchableOpacity>
                 </View>
               </View>;
             })}
-            {!state.reminders.length && <View style={s.reminderEmpty}><Ionicons name="repeat-outline" size={30} color={C.muted} /><Text style={s.reminderEmptyTitle}>Nothing scheduled yet.</Text><Text style={s.reminderExplainerCopy}>Create a transaction, open Repeat, then choose reminder-only or auto-log.</Text></View>}
+            {!state.reminders.length && <View style={s.reminderEmpty}><Ionicons name="repeat-outline" size={30} color={themed(C.muted, 'color')} /><Text style={s.reminderEmptyTitle}>Nothing scheduled yet.</Text><Text style={s.reminderExplainerCopy}>Create a transaction, open Repeat, then choose reminder-only or auto-log.</Text></View>}
           </ScrollView>
         </SafeAreaView>
       </Modal>
@@ -2256,9 +2260,9 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                 )[name]
               }
               size={18}
-              color={section === name ? C.white : '#8993A6'}
+              color={section === name ? themed(C.white, 'color') : themed('#8993A6', 'color')}
             />
-            <Text style={[s.navText, section === name && { color: C.white }]}>{name[0].toUpperCase() + name.slice(1)}</Text>
+            <Text style={[s.navText, section === name && { color: themed(C.white, 'color') }]}>{name[0].toUpperCase() + name.slice(1)}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -2509,13 +2513,15 @@ export default function RedCoinsScreen({ navigation, route }: any) {
 }
 
 function BudgetDonut({ segments, spent }: { segments: { name: string; value: number; color: string; percent: number }[]; spent: number }) {
+  const s = useThemeStyles(baseS);
+  const { themed } = useTheme();
   const radius = 42;
   const circumference = 2 * Math.PI * radius;
   let offset = 0;
   return (
     <View style={s.donutWrap}>
       <Svg width={108} height={108} viewBox="0 0 108 108">
-        <Circle cx="54" cy="54" r={radius} stroke="#DED7CC" strokeWidth="18" fill="none" />
+        <Circle cx="54" cy="54" r={radius} stroke={themed("#DED7CC", 'color')} strokeWidth="18" fill="none" />
         {segments.map((segment) => {
           const length = spent ? (segment.value / spent) * circumference : 0;
           const dashOffset = -offset;
@@ -2531,6 +2537,7 @@ function BudgetDonut({ segments, spent }: { segments: { name: string; value: num
   );
 }
 function Title({ eyebrow, title, action, onAction }: any) {
+  const s = useThemeStyles(baseS);
   return (
     <View style={s.titleRow}>
       <View style={{ flex: 1 }}>
@@ -2546,6 +2553,7 @@ function Title({ eyebrow, title, action, onAction }: any) {
   );
 }
 function Mini({ label, value }: any) {
+  const s = useThemeStyles(baseS);
   return (
     <View style={s.mini}>
       <Text style={s.miniValue}>
@@ -2557,6 +2565,7 @@ function Mini({ label, value }: any) {
   );
 }
 function Stat({ label, value, color, onPress }: any) {
+  const s = useThemeStyles(baseS);
   const Container = onPress ? TouchableOpacity : View;
   return (
     <Container style={s.stat} onPress={onPress} accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={onPress ? `Show report ${label.toLowerCase()} in ledger` : undefined}>
@@ -2569,6 +2578,7 @@ function Stat({ label, value, color, onPress }: any) {
   );
 }
 function PlanCell({ label, value }: any) {
+  const s = useThemeStyles(baseS);
   return (
     <View style={s.planCell}>
       <Text style={s.planLabel}>{label}</Text>
@@ -2580,6 +2590,7 @@ function PlanCell({ label, value }: any) {
   );
 }
 function Empty({ text }: any) {
+  const s = useThemeStyles(baseS);
   return <Text style={s.empty}>{text}</Text>;
 }
 const transactionIcon = (entry: RedCoinsEntry): any => {
@@ -2594,11 +2605,14 @@ const transactionIcon = (entry: RedCoinsEntry): any => {
   return 'wallet';
 };
 const EntryRow = memo(function EntryRow({ entry, icon, accountBalance, onLong, onPress, selected }: { entry: RedCoinsEntry; icon?: string; accountBalance?: { source: number; destination?: number }; onLong?: () => void; onPress?: () => void; selected?: boolean }) {
-  const color = entry.type === 'transfer' ? C.blue : entry.type === 'income' ? '#18A879' : C.coral;
+  const s = useThemeStyles(baseS);
+  const { themed } = useTheme();
+  const rawColor = entry.type === 'transfer' ? C.blue : entry.type === 'income' ? '#18A879' : C.coral;
+  const color = themed(rawColor);
   const balanceLabel = (value: number) => `${value < 0 ? '− ' : ''}${money(value)}`;
   return (
     <TouchableOpacity onPress={onPress} onLongPress={onLong} delayLongPress={350} style={[s.entry, selected && s.entrySelected]}>
-      <View style={[s.entryIcon, { backgroundColor: color }]}>{selected ? <Ionicons name="checkmark" size={15} color={C.white} /> : <Ionicons name={(icon || transactionIcon(entry)) as any} size={14} color={C.white} />}</View>
+      <View style={[s.entryIcon, { backgroundColor: themed(rawColor, 'backgroundColor') }]}>{selected ? <Ionicons name="checkmark" size={15} color={themed(C.white, 'color')} /> : <Ionicons name={(icon || transactionIcon(entry)) as any} size={14} color={themed(C.white, 'color')} />}</View>
       <View style={s.entryMain}>
         <Text style={s.entryName} numberOfLines={1}>
           {entry.item}
@@ -2606,7 +2620,7 @@ const EntryRow = memo(function EntryRow({ entry, icon, accountBalance, onLong, o
         <Text style={s.entryMeta} numberOfLines={1}>
           {entryTime(entry.date)} · {entry.type === 'transfer' ? `From ${entry.account} → ${entry.toAccount || 'Unknown'}` : entry.subcategory}
         </Text>
-        {entry.status === 'reconciled' && <Text style={[s.entryMeta, { color: '#168A65' }]}>RECONCILED</Text>}
+        {entry.status === 'reconciled' && <Text style={[s.entryMeta, { color: themed('#168A65', 'color') }]}>RECONCILED</Text>}
         {entry.status === 'pending' && <Text style={s.entryMeta}>PENDING</Text>}
         {entry.status === 'void' && <Text style={s.entryMeta}>VOID · SOURCE STATUS</Text>}
       </View>
@@ -2630,6 +2644,7 @@ const EntryRow = memo(function EntryRow({ entry, icon, accountBalance, onLong, o
   );
 });
 function Field({ label, value, onChange, numeric }: any) {
+  const s = useThemeStyles(baseS);
   return (
     <View style={s.field}>
       <Text style={s.fieldLabel}>{label}</Text>
@@ -2639,6 +2654,8 @@ function Field({ label, value, onChange, numeric }: any) {
 }
 
 const LedgerSearch = memo(function LedgerSearch({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const s = useThemeStyles(baseS);
+  const { themed } = useTheme();
   const [draft, setDraft] = useState(value);
   useEffect(() => {
     if (value !== draft) setDraft(value);
@@ -2647,10 +2664,12 @@ const LedgerSearch = memo(function LedgerSearch({ value, onChange }: { value: st
     setDraft(next);
     onChange(next);
   };
-  return <TextInput value={draft} onChangeText={update} placeholder="Search item, category, account…" placeholderTextColor={C.muted} autoCorrect={false} autoCapitalize="none" returnKeyType="search" style={[s.search, { flex: 1 }]} />;
+  return <TextInput value={draft} onChangeText={update} placeholder="Search item, category, account…" placeholderTextColor={themed(C.muted, 'color')} autoCorrect={false} autoCapitalize="none" returnKeyType="search" style={[s.search, { flex: 1 }]} />;
 });
 
 function FavoriteAccountsModal({ visible, state, close, save }: { visible: boolean; state: RedCoinsState; close: () => void; save: (ids: string[]) => Promise<void> }) {
+  const s = useThemeStyles(baseS);
+  const { themed } = useTheme();
   const [ids, setIds] = useState<string[]>([]);
   const [search, setSearch] = useState('');
   const [busy, setBusy] = useState(false);
@@ -2669,15 +2688,15 @@ function FavoriteAccountsModal({ visible, state, close, save }: { visible: boole
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
     <Pressable style={[s.sheetShade, { justifyContent: 'center' }]} onPress={() => { if (!busy) close(); }}><Pressable style={[s.selectionSheet, { borderRadius: 28 }]} onPress={() => {}}>
       <View style={s.sheetGrab} />
-      <View style={s.filterTitleRow}><Text style={s.sheetTitle}>Favorite accounts</Text><TouchableOpacity disabled={busy} onPress={close} accessibilityLabel="Close favorite accounts"><Ionicons name="close" size={23} color={C.ink} /></TouchableOpacity></View>
+      <View style={s.filterTitleRow}><Text style={s.sheetTitle}>Favorite accounts</Text><TouchableOpacity disabled={busy} onPress={close} accessibilityLabel="Close favorite accounts"><Ionicons name="close" size={23} color={themed(C.ink, 'color')} /></TouchableOpacity></View>
       <Text style={s.reportSectionHint}>Choose accounts for RedCoins Home. This does not change spendable cash or budgets.</Text>
-      <TextInput value={search} onChangeText={setSearch} placeholder="Search accounts…" placeholderTextColor={C.muted} style={s.favoriteSearch} autoCorrect={false} />
+      <TextInput value={search} onChangeText={setSearch} placeholder="Search accounts…" placeholderTextColor={themed(C.muted, 'color')} style={s.favoriteSearch} autoCorrect={false} />
       <View style={s.filterTitleRow}><Text style={s.reportSectionHint}>{ids.length} selected</Text><TouchableOpacity disabled={busy} onPress={() => setIds([])}><Text style={s.balanceSheetText}>CLEAR ALL</Text></TouchableOpacity></View>
       <ScrollView style={{ maxHeight: 330 }} keyboardShouldPersistTaps="handled">
         {accounts.map(account => <TouchableOpacity key={account.id} disabled={busy} accessibilityRole="checkbox" accessibilityState={{ checked: selected.has(account.id) }} style={s.favoriteChoice} onPress={() => setIds(current => current.includes(account.id) ? current.filter(id => id !== account.id) : [...current, account.id])}>
-          <Ionicons name={selected.has(account.id) ? 'checkmark-circle' : 'ellipse-outline'} size={23} color={selected.has(account.id) ? C.ink : C.muted} />
+          <Ionicons name={selected.has(account.id) ? 'checkmark-circle' : 'ellipse-outline'} size={23} color={selected.has(account.id) ? themed(C.ink, 'color') : themed(C.muted, 'color')} />
           <View style={{ flex: 1 }}><Text style={s.reportName}>{account.name}</Text><Text style={s.reportSectionHint}>{account.type}</Text></View>
-          <Text style={[s.favoriteBalance, account.balance < 0 && { color: C.coral }]}>{money(account.balance)}</Text>
+          <Text style={[s.favoriteBalance, account.balance < 0 && { color: themed(C.coral, 'color') }]}>{money(account.balance)}</Text>
         </TouchableOpacity>)}
         {!accounts.length && <Text style={s.reportSectionHint}>No matching accounts.</Text>}
       </ScrollView>
@@ -2688,10 +2707,12 @@ function FavoriteAccountsModal({ visible, state, close, save }: { visible: boole
 }
 
 function LedgerTotalsModal({ visible, scope, summary, close }: { visible: boolean; scope: string; summary: ReturnType<typeof summarizeLedgerEntries>; close: () => void }) {
+  const s = useThemeStyles(baseS);
+  const { themed } = useTheme();
   return <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
     <Pressable style={s.sheetShade} onPress={close}><Pressable style={s.selectionSheet} onPress={() => {}}>
       <View style={s.sheetGrab} />
-      <View style={s.filterTitleRow}><Text style={s.sheetTitle}>Ledger totals</Text><TouchableOpacity onPress={close} accessibilityLabel="Close totals"><Ionicons name="close" size={23} color={C.ink} /></TouchableOpacity></View>
+      <View style={s.filterTitleRow}><Text style={s.sheetTitle}>Ledger totals</Text><TouchableOpacity onPress={close} accessibilityLabel="Close totals"><Ionicons name="close" size={23} color={themed(C.ink, 'color')} /></TouchableOpacity></View>
       <Text style={s.reportSectionHint}>{scope} · {summary.count} entries</Text>
       {([
         ['Income', summary.income, '#168A65'], ['Expense', summary.expense, C.coral],
@@ -2731,6 +2752,8 @@ const LedgerFilterModal = memo(function LedgerFilterModal({
   close: () => void;
   apply: (next: { types: RedCoinsType[]; accounts: string[]; categories: string[]; subcategories: string[]; dateMode: FilterDateMode; startDay: string; endDay: string; dateLabel: string; salarySourceKey?: string }) => void;
 }) {
+  const s = useThemeStyles(baseS);
+  const { themed } = useTheme();
   const [draft, setDraft] = useState(current);
   const [dateOpen, setDateOpen] = useState(false);
   const [datePicker, setDatePicker] = useState<'single' | 'start' | 'end' | null>(null);
@@ -2807,41 +2830,41 @@ const LedgerFilterModal = memo(function LedgerFilterModal({
             <View style={s.filterGroup}>
               <TouchableOpacity style={[s.filterDropdownHead, draft.dateMode !== 'all' && s.filterDropdownHeadActive]} onPress={() => setDateOpen((value) => !value)}>
                 <View style={{ flex: 1 }}><Text style={s.filterDropdownTitle}>DATE & CYCLE</Text><Text style={s.filterDropdownSummary}>{draft.dateMode === 'all' ? 'All dates' : draft.dateLabel || `${draft.startDay} → ${draft.endDay}`}</Text></View>
-                <Ionicons name={dateOpen ? 'chevron-up' : 'chevron-down'} size={18} color={C.ink} />
+                <Ionicons name={dateOpen ? 'chevron-up' : 'chevron-down'} size={18} color={themed(C.ink, 'color')} />
               </TouchableOpacity>
               {dateOpen && <View style={s.filterDropdownBody}>
                 {(['all', 'single', 'range', 'month', 'cycle'] as FilterDateMode[]).map((mode) => <TouchableOpacity key={mode} disabled={mode === 'cycle' && !sourceReady} style={s.filterModeRow} onPress={() => { if (mode === 'cycle') { setDraft(row => ({ ...row, dateMode: 'cycle', startDay: '', endDay: '', dateLabel: '' })); selectCycle(0); } else setDateMode(mode); }}>
-                  <Ionicons name={draft.dateMode === mode ? 'radio-button-on' : 'radio-button-off'} size={18} color={draft.dateMode === mode ? C.coral : C.muted} />
+                  <Ionicons name={draft.dateMode === mode ? 'radio-button-on' : 'radio-button-off'} size={18} color={draft.dateMode === mode ? themed(C.coral, 'color') : themed(C.muted, 'color')} />
                   <Text style={s.filterListText}>{mode === 'all' ? 'All dates' : mode === 'single' ? 'One date' : mode === 'range' ? 'Custom date range' : mode === 'month' ? 'Calendar month' : 'Salary cycle'}</Text>
                 </TouchableOpacity>)}
                 {draft.dateMode === 'single' && <TouchableOpacity style={s.filterDateButton} onPress={() => setDatePicker('single')}><Text style={s.inputLabel}>DATE</Text><Text style={s.periodDateValue}>{reportDate(localDay(draft.startDay))}</Text></TouchableOpacity>}
                 {draft.dateMode === 'month' && <TouchableOpacity style={s.filterDateButton} onPress={() => setDatePicker('single')}><Text style={s.inputLabel}>MONTH · PICK ANY DATE IN THE MONTH</Text><Text style={s.periodDateValue}>{draft.dateLabel}</Text></TouchableOpacity>}
                 {draft.dateMode === 'range' && <View style={s.periodDatesRow}>
                   <TouchableOpacity style={s.periodDateButton} onPress={() => setDatePicker('start')}><Text style={s.inputLabel}>FROM</Text><Text style={s.periodDateValue}>{reportDate(localDay(draft.startDay))}</Text></TouchableOpacity>
-                  <Ionicons name="arrow-forward" size={16} color={C.muted} />
+                  <Ionicons name="arrow-forward" size={16} color={themed(C.muted, 'color')} />
                   <TouchableOpacity style={s.periodDateButton} onPress={() => setDatePicker('end')}><Text style={s.inputLabel}>TO</Text><Text style={s.periodDateValue}>{reportDate(localDay(draft.endDay))}</Text></TouchableOpacity>
                 </View>}
                 {draft.dateMode === 'cycle' && <>
                   <TouchableOpacity disabled={!sourceReady} style={s.filterDropdownHead} onPress={() => { setSourceOpen(value => !value); setSourceSearch(''); }} accessibilityLabel="Choose salary source">
                     <View style={{ flex: 1 }}><Text style={s.filterDropdownTitle}>SALARY SOURCE</Text><Text style={s.filterDropdownSummary}>{!sourceReady ? 'Loading selection…' : selectedSalary?.label || 'Choose a salary source'}</Text></View>
-                    <Ionicons name={sourceOpen ? 'chevron-up' : 'chevron-down'} size={18} color={C.ink} />
+                    <Ionicons name={sourceOpen ? 'chevron-up' : 'chevron-down'} size={18} color={themed(C.ink, 'color')} />
                   </TouchableOpacity>
                   {sourceOpen && <View style={s.filterListBox}>
                     <TextInput value={sourceSearch} onChangeText={setSourceSearch} placeholder="Search salary source…" style={s.search} autoCorrect={false} accessibilityLabel="Search salary sources" />
-                    <TouchableOpacity style={s.filterModeRow} onPress={() => setShowOtherIncome(value => !value)}><Ionicons name={showOtherIncome ? 'checkbox' : 'square-outline'} size={18} color={C.ink} /><Text style={s.filterListText}>Show other income</Text></TouchableOpacity>
+                    <TouchableOpacity style={s.filterModeRow} onPress={() => setShowOtherIncome(value => !value)}><Ionicons name={showOtherIncome ? 'checkbox' : 'square-outline'} size={18} color={themed(C.ink, 'color')} /><Text style={s.filterListText}>Show other income</Text></TouchableOpacity>
                     <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled keyboardShouldPersistTaps="always">
                       {sourceOptions.map(source => <TouchableOpacity key={source.key} style={[s.salarySourceRow, selectedSalary?.key === source.key && s.salarySourceRowActive]} onPress={() => {
                         setSalaryKey(source.key); selectCycle(0, source); setSourceOpen(false); Keyboard.dismiss();
                         void AsyncStorage.setItem(SALARY_FILTER_SOURCE_KEY, source.key).catch(() => Alert.alert('Selection not remembered', 'The filter works, but your salary source could not be saved.'));
-                      }}><Ionicons name={selectedSalary?.key === source.key ? 'checkmark-circle' : 'ellipse-outline'} size={18} color={C.ink} /><View style={{ flex: 1 }}><Text style={s.salarySourceName}>{source.label}</Text><Text style={s.periodModeMeta}>{source.entries[0]?.category}</Text></View></TouchableOpacity>)}
+                      }}><Ionicons name={selectedSalary?.key === source.key ? 'checkmark-circle' : 'ellipse-outline'} size={18} color={themed(C.ink, 'color')} /><View style={{ flex: 1 }}><Text style={s.salarySourceName}>{source.label}</Text><Text style={s.periodModeMeta}>{source.entries[0]?.category}</Text></View></TouchableOpacity>)}
                       {!sourceOptions.length && <Empty text={showOtherIncome ? 'No matching income source.' : 'No matching Salary source. Try Show other income.'} />}
                     </ScrollView>
                   </View>}
                   {!selectedSalary && !sourceOpen && <Empty text="Choose a source. Other income is available inside the dropdown." />}
                   {!!currentCycle && <View style={s.filterCycleNav}>
-                    <TouchableOpacity disabled={cycleOffset >= currentCycle.count - 1} accessibilityLabel="Previous salary cycle" onPress={() => selectCycle(cycleOffset + 1)}><Ionicons name="chevron-back" size={20} color={cycleOffset >= currentCycle.count - 1 ? '#C8C1B5' : C.ink} /></TouchableOpacity>
+                    <TouchableOpacity disabled={cycleOffset >= currentCycle.count - 1} accessibilityLabel="Previous salary cycle" onPress={() => selectCycle(cycleOffset + 1)}><Ionicons name="chevron-back" size={20} color={cycleOffset >= currentCycle.count - 1 ? themed('#C8C1B5', 'color') : themed(C.ink, 'color')} /></TouchableOpacity>
                     <View style={{ flex: 1 }}><Text style={[s.filterCycleText, { flex: 0 }]}>{currentCycle.month}</Text><Text style={[s.periodModeMeta, { textAlign: 'center' }]}>{draft.startDay} → {draft.endDay}</Text></View>
-                    <TouchableOpacity disabled={cycleOffset === 0} onPress={() => selectCycle(cycleOffset - 1)}><Ionicons name="chevron-forward" size={20} color={cycleOffset === 0 ? '#C8C1B5' : C.ink} /></TouchableOpacity>
+                    <TouchableOpacity disabled={cycleOffset === 0} onPress={() => selectCycle(cycleOffset - 1)}><Ionicons name="chevron-forward" size={20} color={cycleOffset === 0 ? themed('#C8C1B5', 'color') : themed(C.ink, 'color')} /></TouchableOpacity>
                   </View>}
                 </>}
                 {datePicker && <DateTimePicker value={localDay(datePicker === 'end' ? draft.endDay : draft.startDay)} mode="date" onChange={(_, selected) => {
@@ -2878,20 +2901,22 @@ const LedgerFilterModal = memo(function LedgerFilterModal({
 });
 
 function FilterList({ title, values, selected, onSelect, onAll }: { title: string; values: readonly string[]; selected: string[]; onSelect: (value: string) => void; onAll: () => void }) {
+  const s = useThemeStyles(baseS);
+  const { themed } = useTheme();
   const [open, setOpen] = useState(false);
   const rows = ['all', ...values];
   return (
     <View style={s.filterGroup}>
       <TouchableOpacity style={[s.filterDropdownHead, selected.length > 0 && s.filterDropdownHeadActive]} onPress={() => setOpen((value) => !value)}>
         <View style={{ flex: 1 }}><Text style={s.filterDropdownTitle}>{title}</Text><Text style={s.filterDropdownSummary}>{selected.length ? `${selected.length} selected · ${selected.slice(0, 2).join(', ')}${selected.length > 2 ? '…' : ''}` : `All ${title.toLowerCase()}`}</Text></View>
-        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={C.ink} />
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={themed(C.ink, 'color')} />
       </TouchableOpacity>
       {open && <View style={s.filterListBox}>
         {rows.map((value, index) => {
           const active = value === 'all' ? selected.length === 0 : selected.includes(value);
           return (
             <TouchableOpacity key={value} style={[s.filterListRow, index < rows.length - 1 && s.filterListDivider, active && s.filterListRowActive]} onPress={() => value === 'all' ? onAll() : onSelect(value)} activeOpacity={0.7}>
-              <Ionicons name={active ? 'checkbox' : 'square-outline'} size={19} color={active ? C.coral : C.muted} />
+              <Ionicons name={active ? 'checkbox' : 'square-outline'} size={19} color={active ? themed(C.coral, 'color') : themed(C.muted, 'color')} />
               <Text style={[s.filterListText, active && s.filterListTextActive]}>{value === 'all' ? `All ${title.toLowerCase()}` : value}</Text>
             </TouchableOpacity>
           );
@@ -2911,6 +2936,8 @@ function ReportPeriodModal({ visible, mode, salarySource, salarySources, customS
   close: () => void;
   apply: (value: { mode: ReportMode; salarySource: string; customStart: string; customEnd: string }) => void;
 }) {
+  const s = useThemeStyles(baseS);
+  const { themed } = useTheme();
   const [draftMode, setDraftMode] = useState(mode);
   const [draftSource, setDraftSource] = useState(salarySource);
   const [draftStart, setDraftStart] = useState(customStart);
@@ -2949,18 +2976,18 @@ function ReportPeriodModal({ visible, mode, salarySource, salarySources, customS
         <Text style={s.sheetTitle}>Choose the story to tell.</Text>
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <TouchableOpacity style={[s.periodModeRow, draftMode === 'salary-cycle' && s.periodModeRowActive]} onPress={() => setDraftMode('salary-cycle')}>
-            <Ionicons name={draftMode === 'salary-cycle' ? 'radio-button-on' : 'radio-button-off'} size={20} color={draftMode === 'salary-cycle' ? C.coral : C.muted} />
+            <Ionicons name={draftMode === 'salary-cycle' ? 'radio-button-on' : 'radio-button-off'} size={20} color={draftMode === 'salary-cycle' ? themed(C.coral, 'color') : themed(C.muted, 'color')} />
             <View style={{ flex: 1 }}><Text style={s.periodModeTitle}>Salary cycle</Text><Text style={s.periodModeMeta}>From one real salary credit to the next.</Text></View>
           </TouchableOpacity>
           <TouchableOpacity style={[s.periodModeRow, draftMode === 'custom' && s.periodModeRowActive]} onPress={() => setDraftMode('custom')}>
-            <Ionicons name={draftMode === 'custom' ? 'radio-button-on' : 'radio-button-off'} size={20} color={draftMode === 'custom' ? C.coral : C.muted} />
+            <Ionicons name={draftMode === 'custom' ? 'radio-button-on' : 'radio-button-off'} size={20} color={draftMode === 'custom' ? themed(C.coral, 'color') : themed(C.muted, 'color')} />
             <View style={{ flex: 1 }}><Text style={s.periodModeTitle}>Custom range</Text><Text style={s.periodModeMeta}>Any inclusive start and end date.</Text></View>
           </TouchableOpacity>
 
           {draftMode === 'salary-cycle' ? <View style={s.periodSection}>
             <Text style={s.inputLabel}>SALARY ANCHOR</Text>
             {salarySources.map((source) => <TouchableOpacity key={source.key} style={[s.salarySourceRow, draftSource === source.key && s.salarySourceRowActive]} onPress={() => setDraftSource(source.key)}>
-              <Ionicons name={draftSource === source.key ? 'checkmark-circle' : 'ellipse-outline'} size={19} color={draftSource === source.key ? '#168A65' : C.muted} />
+              <Ionicons name={draftSource === source.key ? 'checkmark-circle' : 'ellipse-outline'} size={19} color={draftSource === source.key ? themed('#168A65', 'color') : themed(C.muted, 'color')} />
               <View style={{ flex: 1 }}><Text style={s.salarySourceName}>{source.label}</Text><Text style={s.periodModeMeta}>{source.entries.length} income record{source.entries.length === 1 ? '' : 's'} · average {money(source.average)}</Text></View>
             </TouchableOpacity>)}
             {!salarySources.length && <Empty text="No income transaction is available as a salary anchor yet." />}
@@ -2974,7 +3001,7 @@ function ReportPeriodModal({ visible, mode, salarySource, salarySources, customS
             </View>
             <View style={s.periodDatesRow}>
               <TouchableOpacity style={s.periodDateButton} onPress={() => setPicker('start')}><Text style={s.inputLabel}>FROM</Text><Text style={s.periodDateValue}>{reportDate(localDay(draftStart))}</Text></TouchableOpacity>
-              <Ionicons name="arrow-forward" size={17} color={C.muted} />
+              <Ionicons name="arrow-forward" size={17} color={themed(C.muted, 'color')} />
               <TouchableOpacity style={s.periodDateButton} onPress={() => setPicker('end')}><Text style={s.inputLabel}>TO</Text><Text style={s.periodDateValue}>{reportDate(localDay(draftEnd))}</Text></TouchableOpacity>
             </View>
             {picker && <DateTimePicker value={localDay(picker === 'start' ? draftStart : draftEnd)} mode="date" onChange={(_, value) => {
@@ -2992,6 +3019,8 @@ function ReportPeriodModal({ visible, mode, salarySource, salarySources, customS
 }
 
 function EntryModal(p: any) {
+  const s = useThemeStyles(baseS);
+  const { themed } = useTheme();
   const [picker, setPicker] = useState<'account' | 'destination' | 'category' | null>(null);
   const [pickerSearch, setPickerSearch] = useState('');
   const [datePickerMode, setDatePickerMode] = useState<'date' | 'time' | null>(null);
@@ -3015,7 +3044,7 @@ function EntryModal(p: any) {
       <SafeAreaView style={s.modal}>
         <View style={s.modalHead}>
           <TouchableOpacity onPress={p.close}>
-            <Ionicons name="arrow-back" size={24} color={C.ink} />
+            <Ionicons name="arrow-back" size={24} color={themed(C.ink, 'color')} />
           </TouchableOpacity>
           <Text style={s.modalTitle}>{p.schedulingOnly ? (p.editingSchedule ? 'Edit schedule' : 'Create schedule') : p.editing ? 'Edit entry' : 'New entry'}</Text>
           <Text style={s.plusOne}>{p.schedulingOnly ? 'AUTO' : p.editing ? 'EDIT' : '+1'}</Text>
@@ -3029,11 +3058,11 @@ function EntryModal(p: any) {
                 style={[
                   s.typeButton,
                   p.type === x && {
-                    backgroundColor: x === 'expense' ? C.coral : x === 'income' ? '#379B73' : C.blue,
+                    backgroundColor: x === 'expense' ? themed(C.coral, 'backgroundColor') : x === 'income' ? themed('#379B73', 'backgroundColor') : themed(C.blue, 'backgroundColor'),
                   },
                 ]}
               >
-                <Text style={[s.typeText, p.type === x && { color: C.white }]}>{x.toUpperCase()}</Text>
+                <Text style={[s.typeText, p.type === x && { color: themed(C.white, 'color') }]}>{x.toUpperCase()}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -3049,7 +3078,7 @@ function EntryModal(p: any) {
             returnKeyType="next"
             autoFocus={!p.editing}
             placeholder="Name"
-            placeholderTextColor="#AAA393"
+            placeholderTextColor={themed("#AAA393", 'color')}
           />
           {suggestionOpen && p.item.trim().length > 0 && p.suggestions.length > 0 && (
             <View style={s.suggestions}>
@@ -3064,14 +3093,14 @@ function EntryModal(p: any) {
                     </Text>
                     <Text style={s.suggestionMeta}>Last amount logged · {money(x.amount)}</Text>
                   </View>
-                  <Ionicons name="arrow-forward" size={16} color={C.muted} />
+                  <Ionicons name="arrow-forward" size={16} color={themed(C.muted, 'color')} />
                 </TouchableOpacity>
               ))}
             </View>
           )}
           {p.schedulingOnly && <Text style={s.inputLabel}>FIRST DUE · DATE & TIME</Text>}
           <TouchableOpacity style={s.entryDateButton} onPress={() => setDatePickerMode('date')} activeOpacity={0.75}>
-            <Ionicons name="time-outline" size={15} color={C.ink} />
+            <Ionicons name="time-outline" size={15} color={themed(C.ink, 'color')} />
             <Text style={s.entryDateButtonText}>
               {p.entryDate
                 .toLocaleString('en-MY', {
@@ -3080,20 +3109,20 @@ function EntryModal(p: any) {
                 })
                 .toUpperCase()}
             </Text>
-            <Ionicons name="calendar-outline" size={14} color={C.ink} />
+            <Ionicons name="calendar-outline" size={14} color={themed(C.ink, 'color')} />
           </TouchableOpacity>
           <View style={s.amountWrap}>
             <View
               style={[
                 s.amountSign,
                 {
-                  backgroundColor: p.type === 'expense' ? C.coral : p.type === 'income' ? '#379B73' : C.blue,
+                  backgroundColor: p.type === 'expense' ? themed(C.coral, 'backgroundColor') : p.type === 'income' ? themed('#379B73', 'backgroundColor') : themed(C.blue, 'backgroundColor'),
                 },
               ]}
             >
               <Text style={s.amountSignText}>{p.type === 'expense' ? '−' : p.type === 'income' ? '+' : '⇄'}</Text>
             </View>
-            <TextInput ref={amountRef} style={s.amountBare} value={p.amount} onChangeText={p.setAmount} keyboardType="decimal-pad" returnKeyType="done" onSubmitEditing={p.saveEntry} placeholder="0.00" placeholderTextColor="#AAA393" />
+            <TextInput ref={amountRef} style={s.amountBare} value={p.amount} onChangeText={p.setAmount} keyboardType="decimal-pad" returnKeyType="done" onSubmitEditing={p.saveEntry} placeholder="0.00" placeholderTextColor={themed("#AAA393", 'color')} />
             <Text style={s.currency}>MYR</Text>
           </View>
           {p.type === 'income' && !p.schedulingOnly && <View style={{ marginBottom: 14 }}>
@@ -3105,7 +3134,7 @@ function EntryModal(p: any) {
           {p.type === 'transfer' && <PickerRow icon="arrow-forward-circle-outline" label="TRANSFER TO" value={p.toAccount || 'Choose destination'} onPress={() => openPicker('destination')} />}
           {!p.schedulingOnly && <TouchableOpacity style={s.advancedButton} onPress={() => p.setAdvanced(!p.advanced)}>
             <Text style={s.advancedText}>Split · Status · Labels · Repeat</Text>
-            <Ionicons name={p.advanced ? 'chevron-up' : 'chevron-down'} size={17} color={C.muted} />
+            <Ionicons name={p.advanced ? 'chevron-up' : 'chevron-down'} size={17} color={themed(C.muted, 'color')} />
           </TouchableOpacity>}
           {(p.schedulingOnly || p.advanced) && (
             <View style={s.advancedBox}>
@@ -3114,7 +3143,7 @@ function EntryModal(p: any) {
               <View style={s.typeRow}>
                 {(p.schedulingOnly ? ['daily', 'weekly', 'monthly', 'yearly'] : ['none', 'daily', 'weekly', 'monthly', 'yearly', 'installment']).map((x) => (
                   <TouchableOpacity key={x} onPress={() => p.setRepeat(x)} style={[s.repeatButton, p.repeat === x && s.repeatActive]}>
-                    <Text style={s.repeatText}>{x}</Text>
+                    <Text style={[s.repeatText, p.repeat === x && s.repeatTextActive]}>{x}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -3125,25 +3154,25 @@ function EntryModal(p: any) {
                 {p.schedulingOnly && <Text style={s.reminderExplainerCopy}>For every 22nd: set First due to the 22nd, choose Monthly, then enter 1 above.</Text>}
                 <Text style={s.inputLabel}>ENDING</Text>
                 <View style={s.typeRow}>
-                  {['never', 'date', 'occurrences'].map((x) => <TouchableOpacity key={x} onPress={() => p.setReminderEndType(x)} style={[s.repeatButton, p.reminderEndType === x && s.repeatActive]}><Text style={s.repeatText}>{x}</Text></TouchableOpacity>)}
+                  {['never', 'date', 'occurrences'].map((x) => <TouchableOpacity key={x} onPress={() => p.setReminderEndType(x)} style={[s.repeatButton, p.reminderEndType === x && s.repeatActive]}><Text style={[s.repeatText, p.reminderEndType === x && s.repeatTextActive]}>{x}</Text></TouchableOpacity>)}
                 </View>
                 {p.reminderEndType === 'date' && <Field label="END DATE · YYYY-MM-DD" value={p.reminderEndDate} onChange={p.setReminderEndDate} />}
                 {p.reminderEndType === 'occurrences' && p.repeat !== 'installment' && <Field label="FUTURE OCCURRENCES" value={p.reminderOccurrences} onChange={p.setReminderOccurrences} numeric />}
                 <Text style={s.inputLabel}>WHEN DUE</Text>
                 <View style={s.typeRow}>
-                  <TouchableOpacity onPress={() => p.setAutomaticLog(false)} style={[s.repeatButton, !p.automaticLog && s.repeatActive]}><Text style={s.repeatText}>REMIND ME</Text></TouchableOpacity>
-                  <TouchableOpacity onPress={() => p.setAutomaticLog(true)} style={[s.repeatButton, p.automaticLog && s.repeatActive]}><Text style={s.repeatText}>AUTO-LOG</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={() => p.setAutomaticLog(false)} style={[s.repeatButton, !p.automaticLog && s.repeatActive]}><Text style={[s.repeatText, !p.automaticLog && s.repeatTextActive]}>REMIND ME</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={() => p.setAutomaticLog(true)} style={[s.repeatButton, p.automaticLog && s.repeatActive]}><Text style={[s.repeatText, p.automaticLog && s.repeatTextActive]}>AUTO-LOG</Text></TouchableOpacity>
                 </View>
                 <Text style={s.inputLabel}>WEEKENDS</Text>
                 <View style={s.typeRow}>
-                  <TouchableOpacity onPress={() => p.setExcludeWeekend(false)} style={[s.repeatButton, !p.excludeWeekend && s.repeatActive]}><Text style={s.repeatText}>KEEP DATE</Text></TouchableOpacity>
-                  <TouchableOpacity onPress={() => p.setExcludeWeekend(true)} style={[s.repeatButton, p.excludeWeekend && s.repeatActive]}><Text style={s.repeatText}>AVOID WEEKEND</Text></TouchableOpacity>
-                  {p.excludeWeekend && <TouchableOpacity onPress={() => p.setWeekendMove(p.weekendMove === 'before' ? 'after' : 'before')} style={[s.repeatButton, s.repeatActive]}><Text style={s.repeatText}>MOVE {p.weekendMove.toUpperCase()}</Text></TouchableOpacity>}
+                  <TouchableOpacity onPress={() => p.setExcludeWeekend(false)} style={[s.repeatButton, !p.excludeWeekend && s.repeatActive]}><Text style={[s.repeatText, !p.excludeWeekend && s.repeatTextActive]}>KEEP DATE</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={() => p.setExcludeWeekend(true)} style={[s.repeatButton, p.excludeWeekend && s.repeatActive]}><Text style={[s.repeatText, p.excludeWeekend && s.repeatTextActive]}>AVOID WEEKEND</Text></TouchableOpacity>
+                  {p.excludeWeekend && <TouchableOpacity onPress={() => p.setWeekendMove(p.weekendMove === 'before' ? 'after' : 'before')} style={[s.repeatButton, s.repeatActive]}><Text style={[s.repeatText, s.repeatTextActive]}>MOVE {p.weekendMove.toUpperCase()}</Text></TouchableOpacity>}
                 </View>
               </>}
             </View>
           )}
-          <TextInput style={s.noteInput} value={p.note} onChangeText={p.setNote} placeholder="Note" placeholderTextColor={C.muted} multiline />
+          <TextInput style={s.noteInput} value={p.note} onChangeText={p.setNote} placeholder="Note" placeholderTextColor={themed(C.muted, 'color')} multiline />
         </ScrollView>
         <View style={s.entryFooter}>
           {p.editing && !p.schedulingOnly && (
@@ -3156,13 +3185,13 @@ function EntryModal(p: any) {
               s.entrySave,
               {
                 flex: 1,
-                backgroundColor: p.type === 'expense' ? C.coral : p.type === 'income' ? '#379B73' : C.blue,
+                backgroundColor: p.type === 'expense' ? themed(C.coral, 'backgroundColor') : p.type === 'income' ? themed('#379B73', 'backgroundColor') : themed(C.blue, 'backgroundColor'),
               },
             ]}
             onPress={p.saveEntry}
             disabled={p.saving}
           >
-            <Ionicons name="save-outline" size={19} color="#FFF" />
+            <Ionicons name="save-outline" size={19} color={themed("#FFF", 'color')} />
             <Text style={s.entrySaveText}>{p.schedulingOnly ? (p.editingSchedule ? 'UPDATE SCHEDULE' : 'SAVE SCHEDULE') : p.editing ? `UPDATE ${p.type.toUpperCase()}` : `SAVE ${p.type.toUpperCase()}`}</Text>
           </TouchableOpacity>
         </View>
@@ -3206,8 +3235,8 @@ function EntryModal(p: any) {
                             setPicker(null);
                           }}
                         >
-                          <View style={[s.categoryIcon, { backgroundColor: p.type === 'income' ? '#379B73' : C.coral }]}>
-                            {ICON_LIBRARY.includes(group.subcategoryIcons?.[sub] || group.icon) ? <Ionicons name={(group.subcategoryIcons?.[sub] || group.icon) as any} size={17} color={C.ink} /> : <Text>{group.subcategoryIcons?.[sub] || group.icon}</Text>}
+                          <View style={[s.categoryIcon, { backgroundColor: p.type === 'income' ? themed('#379B73', 'backgroundColor') : themed(C.coral, 'backgroundColor') }]}>
+                            {ICON_LIBRARY.includes(group.subcategoryIcons?.[sub] || group.icon) ? <Ionicons name={(group.subcategoryIcons?.[sub] || group.icon) as any} size={17} color={themed(C.ink, 'color')} /> : <Text>{group.subcategoryIcons?.[sub] || group.icon}</Text>}
                           </View>
                           <Text style={s.categoryChoiceText}>{sub}</Text>
                         </TouchableOpacity>
@@ -3231,7 +3260,7 @@ function EntryModal(p: any) {
                       <Text style={s.accountChoiceName}>{a.name}</Text>
                       <Text style={s.accountChoiceType}>{a.type}</Text>
                     </View>
-                    <Text style={[s.accountChoiceBalance, a.balance < 0 && { color: C.coral }]}>
+                    <Text style={[s.accountChoiceBalance, a.balance < 0 && { color: themed(C.coral, 'color') }]}>
                       {a.balance < 0 ? '− ' : ''}
                       {money(a.balance)}
                     </Text>
@@ -3243,20 +3272,24 @@ function EntryModal(p: any) {
   );
 }
 function PickerRow({ icon, label, value, onPress }: any) {
+  const s = useThemeStyles(baseS);
+  const { themed } = useTheme();
   return (
     <TouchableOpacity style={s.pickerRow} onPress={onPress}>
       <View style={s.pickerRowIcon}>
-        <Ionicons name={icon} size={19} color={C.ink} />
+        <Ionicons name={icon} size={19} color={themed(C.ink, 'color')} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={s.pickerRowLabel}>{label}</Text>
         <Text style={s.pickerRowValue}>{value}</Text>
       </View>
-      <Ionicons name="chevron-forward" size={18} color={C.muted} />
+      <Ionicons name="chevron-forward" size={18} color={themed(C.muted, 'color')} />
     </TouchableOpacity>
   );
 }
 function SelectionSheet({ visible, close, search, setSearch, title, children }: any) {
+  const s = useThemeStyles(baseS);
+  const { themed } = useTheme();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={close}>
       <KeyboardAvoidingView style={s.keyboardSheetShade} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
@@ -3264,7 +3297,7 @@ function SelectionSheet({ visible, close, search, setSearch, title, children }: 
         <Pressable style={s.selectionSheet} onPress={() => {}}>
           <View style={s.sheetGrab} />
           <View style={s.selectionTop}>
-            <TextInput value={search} onChangeText={setSearch} placeholder={`Search ${title.toLowerCase()}…`} placeholderTextColor={C.muted} style={s.selectionSearch} />
+            <TextInput value={search} onChangeText={setSearch} placeholder={`Search ${title.toLowerCase()}…`} placeholderTextColor={themed(C.muted, 'color')} style={s.selectionSearch} />
             <TouchableOpacity style={s.selectionDone} onPress={close}>
               <Text style={s.selectionDoneText}>DONE</Text>
             </TouchableOpacity>
@@ -3277,14 +3310,18 @@ function SelectionSheet({ visible, close, search, setSearch, title, children }: 
   );
 }
 function Chip({ text, active, onPress }: any) {
+  const s = useThemeStyles(baseS);
+  const { themed } = useTheme();
   return (
     <TouchableOpacity onPress={onPress} style={[s.chip, active && s.chipActive]}>
-      <Text style={[s.chipText, active && { color: C.white }]}>{text}</Text>
+      <Text style={[s.chipText, active && { color: themed(C.white, 'color') }]}>{text}</Text>
     </TouchableOpacity>
   );
 }
 
 function ManageModal({ visible, mode, close, draft, save, remove, editing }: any) {
+  const s = useThemeStyles(baseS);
+  const { themed } = useTheme();
   const [iconSearch, setIconSearch] = useState('');
   useEffect(() => {
     if (visible) setIconSearch('');
@@ -3327,26 +3364,26 @@ function ManageModal({ visible, mode, close, draft, save, remove, editing }: any
           {mode !== 'account' && (mode === 'sub' || !editing) && <>
             <Text style={s.inputLabel}>TRANSACTION TYPE</Text>
             <View style={s.typeRow}>{(['expense', 'income'] as const).map((entryType) => <TouchableOpacity key={entryType}
-              style={[s.typeButton, draft.draftCategoryTypes.includes(entryType) && { backgroundColor: entryType === 'income' ? '#379B73' : C.coral }]}
+              style={[s.typeButton, draft.draftCategoryTypes.includes(entryType) && { backgroundColor: entryType === 'income' ? themed('#379B73', 'backgroundColor') : themed(C.coral, 'backgroundColor') }]}
               onPress={() => draft.setDraftCategoryTypes(draft.draftCategoryTypes.includes(entryType) ? draft.draftCategoryTypes.filter((value: string) => value !== entryType) : [...draft.draftCategoryTypes, entryType])}>
-              <Text style={[s.typeText, draft.draftCategoryTypes.includes(entryType) && { color: C.white }]}>{entryType.toUpperCase()}</Text>
+              <Text style={[s.typeText, draft.draftCategoryTypes.includes(entryType) && { color: themed(C.white, 'color') }]}>{entryType.toUpperCase()}</Text>
             </TouchableOpacity>)}</View>
           </>}
           <View style={s.iconSearchWrap}>
-            <Ionicons name="search" size={17} color={C.muted} />
+            <Ionicons name="search" size={17} color={themed(C.muted, 'color')} />
             <TextInput
               value={iconSearch}
               onChangeText={setIconSearch}
               placeholder="Search icons — food, car, home…"
-              placeholderTextColor={C.muted}
+              placeholderTextColor={themed(C.muted, 'color')}
               autoCorrect={false}
               autoCapitalize="none"
               style={s.iconSearchInput}
             />
-            {!!iconSearch && <TouchableOpacity onPress={() => setIconSearch('')} hitSlop={8}><Ionicons name="close-circle" size={18} color={C.muted} /></TouchableOpacity>}
+            {!!iconSearch && <TouchableOpacity onPress={() => setIconSearch('')} hitSlop={8}><Ionicons name="close-circle" size={18} color={themed(C.muted, 'color')} /></TouchableOpacity>}
           </View>
           <ScrollView style={s.iconLibraryScroll} contentContainerStyle={s.iconLibrary} nestedScrollEnabled>
-            {visibleIcons.map((icon) => <TouchableOpacity key={icon} accessibilityLabel={icon.replace(/-/g, ' ')} style={[s.iconChoice, draft.draftIcon === icon && s.iconChoiceActive]} onPress={() => draft.setDraftIcon(icon)}><Ionicons name={icon as any} size={19} color={draft.draftIcon === icon ? C.white : C.ink} /></TouchableOpacity>)}
+            {visibleIcons.map((icon) => <TouchableOpacity key={icon} accessibilityLabel={icon.replace(/-/g, ' ')} style={[s.iconChoice, draft.draftIcon === icon && s.iconChoiceActive]} onPress={() => draft.setDraftIcon(icon)}><Ionicons name={icon as any} size={19} color={draft.draftIcon === icon ? themed(C.white, 'color') : themed(C.ink, 'color')} /></TouchableOpacity>)}
             {!visibleIcons.length && <Text style={s.empty}>No matching standard icon.</Text>}
           </ScrollView>
           <TouchableOpacity style={s.sheetSave} onPress={save}>
@@ -3362,12 +3399,14 @@ function ManageModal({ visible, mode, close, draft, save, remove, editing }: any
 }
 
 function GuardModal({ visible, draft, setDraft, options, close, save, remove }: any) {
+  const s = useThemeStyles(baseS);
+  const { themed } = useTheme();
   const targets = draft.scope === 'account' ? options?.accounts || [] : draft.scope === 'category' ? options?.categories || [] : options?.subcategories || [];
   return <Modal visible={visible} transparent animationType="slide" onRequestClose={close}><KeyboardAvoidingView style={s.keyboardSheetShade} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}><Pressable style={s.keyboardSheetFill} onPress={close}><Pressable style={[s.sheet, s.keyboardScrollableSheet]} onPress={() => {}}><View style={s.sheetGrab} /><ScrollView keyboardShouldPersistTaps="always" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}>
     <Text style={s.eyebrow}>{draft.id ? 'EDIT SPENDING GUARD' : 'NEW SPENDING GUARD'}</Text><Text style={s.sheetTitle}>Draw a clear boundary.</Text>
     <Field label="NAME" value={draft.name} onChange={(name: string) => setDraft((value: any) => ({ ...value, name }))} />
-    <Text style={s.inputLabel}>WATCH</Text><View style={s.typeRow}>{(['account', 'category', 'subcategory'] as GuardScope[]).map((scope) => <TouchableOpacity key={scope} style={[s.repeatButton, draft.scope === scope && s.repeatActive]} onPress={() => setDraft((value: any) => ({ ...value, scope, target: (scope === 'account' ? options?.accounts : scope === 'category' ? options?.categories : options?.subcategories)?.[0] || '' }))}><Text style={s.repeatText}>{scope.toUpperCase()}</Text></TouchableOpacity>)}</View>
-    <Text style={s.inputLabel}>TARGET</Text><ScrollView style={{maxHeight: 150}}>{targets.map((target: string) => <TouchableOpacity key={target} style={s.cashSelectRow} onPress={() => setDraft((value: any) => ({ ...value, target }))}><Ionicons name={draft.target === target ? 'radio-button-on' : 'radio-button-off'} size={17} color={draft.target === target ? C.coral : C.muted} /><Text style={s.cashSelectName}>{target}</Text></TouchableOpacity>)}</ScrollView>
+    <Text style={s.inputLabel}>WATCH</Text><View style={s.typeRow}>{(['account', 'category', 'subcategory'] as GuardScope[]).map((scope) => <TouchableOpacity key={scope} style={[s.repeatButton, draft.scope === scope && s.repeatActive]} onPress={() => setDraft((value: any) => ({ ...value, scope, target: (scope === 'account' ? options?.accounts : scope === 'category' ? options?.categories : options?.subcategories)?.[0] || '' }))}><Text style={[s.repeatText, draft.scope === scope && s.repeatTextActive]}>{scope.toUpperCase()}</Text></TouchableOpacity>)}</View>
+    <Text style={s.inputLabel}>TARGET</Text><ScrollView style={{maxHeight: 150}}>{targets.map((target: string) => <TouchableOpacity key={target} style={s.cashSelectRow} onPress={() => setDraft((value: any) => ({ ...value, target }))}><Ionicons name={draft.target === target ? 'radio-button-on' : 'radio-button-off'} size={17} color={draft.target === target ? themed(C.coral, 'color') : themed(C.muted, 'color')} /><Text style={s.cashSelectName}>{target}</Text></TouchableOpacity>)}</ScrollView>
     <Field label="LIMIT (RM)" value={draft.limit} onChange={(limit: string) => setDraft((value: any) => ({ ...value, limit }))} numeric />
     <TouchableOpacity style={s.sheetSave} onPress={save}><Text style={s.sheetSaveText}>SAVE GUARD</Text></TouchableOpacity>
     {remove && <TouchableOpacity style={s.guardDelete} onPress={remove}><Text style={s.guardDeleteText}>DELETE GUARD</Text></TouchableOpacity>}
@@ -3379,12 +3418,13 @@ function inferFinanceIcon(name: string, kind?: string) {
   return value.includes('credit') ? 'card' : value.includes('cash') ? 'wallet' : value.includes('invest') ? 'trending-up' : value.includes('engine') || value.includes('minyak') ? 'car-sport' : value.includes('dining') || value.includes('food') ? 'restaurant' : value.includes('house') || value.includes('grocery') ? 'home' : value.includes('people') ? 'people' : value.includes('utilit') ? 'flash' : value.includes('travel') ? 'airplane' : value.includes('employer') || value.includes('salary') ? 'briefcase' : value.includes('liabil') || value.includes('loan') ? 'document-text' : 'grid';
 }
 function FinanceAvatar({ name, kind, icon, round = false }: { name: string; kind?: string; icon?: string; round?: boolean }) {
+  const s = useThemeStyles(baseS);
   const palettes = [['#F4C7B8', '#7D2D2B'], ['#BFE0D4', '#185E50'], ['#C9D8F4', '#274E91'], ['#E8D3A8', '#72531B']];
   const index = [...name].reduce((sum, char) => sum + char.charCodeAt(0), 0) % palettes.length;
   return <View style={[s.financeAvatar, round && s.financeAvatarRound, { backgroundColor: palettes[index][0] }]}><Ionicons name={(icon || inferFinanceIcon(name, kind)) as any} size={21} color={palettes[index][1]} /></View>;
 }
 
-const s = StyleSheet.create({
+const baseS = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.paper },
   loading: {
     flex: 1,
@@ -3846,6 +3886,7 @@ const s = StyleSheet.create({
   repeatButton: { backgroundColor: C.paper, borderRadius: 9, padding: 8 },
   repeatActive: { backgroundColor: C.mint },
   repeatText: { color: C.ink, fontSize: 8, fontWeight: '900' },
+  repeatTextActive: { color: C.ink },
   noteInput: {
     minHeight: 80,
     backgroundColor: C.white,

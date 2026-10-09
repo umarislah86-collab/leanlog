@@ -1,3 +1,6 @@
+// Original colour baseline, also used by print/widget identity. App screens use
+// useThemeStyles/useTheme from context/ThemeContext; new UI should prefer its
+// semantic palette. Never mutate this object to apply a global theme.
 export const colors = {
   ink: '#101A2B',
   inkSoft: '#172338',

@@ -1,15 +1,9 @@
+import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
+import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useState } from 'react';
 import { Picker } from '@react-native-picker/picker';
-import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { fsSetSettings } from '../firebase';
 import { useLanguage } from '../context/LanguageContext';
@@ -46,6 +40,8 @@ interface Props {
 }
 
 export default function OnboardingScreen({ onComplete }: Props) {
+  const styles = useThemeStyles(baseStyles);
+  const { themed } = useTheme();
   const { t, lang, setLang } = useLanguage();
 
   const [step, setStep] = useState<0 | 1 | 2 | 3>(0);
@@ -164,7 +160,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
             onChangeText={setProfileWeight}
             keyboardType="numeric"
             placeholder="cth: 75.0"
-            placeholderTextColor="#7D8799"
+            placeholderTextColor={themed("#7D8799", 'color')}
           />
 
           <Text style={styles.fieldLabel}>{t('height')} (cm)</Text>
@@ -172,7 +168,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
             <Picker
               selectedValue={profileHeight}
               onValueChange={v => setProfileHeight(String(v))}
-              style={{ color: '#FFFDF7' }}
+              style={{ color: themed('#FFFDF7', 'color') }}
               dropdownIconColor="#FF6542"
             >
               {Array.from({ length: 151 }, (_, i) => {
@@ -187,7 +183,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
             <Picker
               selectedValue={profileAge}
               onValueChange={v => setProfileAge(String(v))}
-              style={{ color: '#FFFDF7' }}
+              style={{ color: themed('#FFFDF7', 'color') }}
               dropdownIconColor="#FF6542"
             >
               {Array.from({ length: 100 }, (_, i) => {
@@ -229,7 +225,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
           {profileReady && (
             <View style={styles.tdeePreview}>
               <Text style={styles.tdeeText}>
-                TDEE: <Text style={{ color: '#FF6542', fontWeight: 'bold' }}>{tdee} kcal/hari</Text>
+                TDEE: <Text style={{ color: themed('#FF6542', 'color'), fontWeight: 'bold' }}>{tdee} kcal/hari</Text>
               </Text>
             </View>
           )}
@@ -266,7 +262,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
                   : '½ sayur & buah · ¼ karbohidrat · ¼ protein — panduan KKM Malaysia'}
               </Text>
             </View>
-            {nutritionMode === 'sss' && <Text style={{ color: '#FF6542', fontSize: 18 }}>✓</Text>}
+            {nutritionMode === 'sss' && <Text style={{ color: themed('#FF6542', 'color'), fontSize: 18 }}>✓</Text>}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -283,7 +279,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
                   : 'Karbohidrat 50% · Protein 25% · Lemak 25% — kiraan kalori klasik'}
               </Text>
             </View>
-            {nutritionMode === 'standard' && <Text style={{ color: '#FF6542', fontSize: 18 }}>✓</Text>}
+            {nutritionMode === 'standard' && <Text style={{ color: themed('#FF6542', 'color'), fontSize: 18 }}>✓</Text>}
           </TouchableOpacity>
 
           <View style={styles.stepBtns}>
@@ -326,7 +322,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
                 </Text>
                 <Text style={styles.goalCardSub}>{t(opt.subKey)}</Text>
               </View>
-              <Text style={[styles.goalCardKcal, isSelected && { color: '#FF6542' }]}>
+              <Text style={[styles.goalCardKcal, isSelected && { color: themed('#FF6542', 'color') }]}>
                 {target} kcal
               </Text>
             </TouchableOpacity>
@@ -357,7 +353,7 @@ export default function OnboardingScreen({ onComplete }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F7F0E1' },
   scrollContent: { padding: 20, paddingBottom: 40 },
 
