@@ -22,7 +22,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const setTheme = useCallback(async (next: AppThemeId) => {
     if (lock.current) throw new Error('Another appearance change is being saved.');
     lock.current = true; setSaving(true);
-    try { await AsyncStorage.setItem(APP_THEME_KEY, validThemeId(next)); setId(validThemeId(next)); }
+    try {
+      await AsyncStorage.setItem(APP_THEME_KEY, validThemeId(next)); setId(validThemeId(next));
+      // Native widgets render outside this provider. Refresh only after durable preference save.
+      void import('../services/widget').then(module => module.refreshLeanLogWidget()).catch(console.warn);
+    }
     finally { lock.current = false; setSaving(false); }
   }, []);
   const palette = appThemes[id];

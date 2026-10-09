@@ -4,6 +4,7 @@ import type { LeanLogWidgetProps } from './LeanLogWidget';
 import { WIDGET_CASH_REALITY_KEY, WIDGET_GUARD_KEY, WidgetGuardSnapshot } from '../services/spendingGuards';
 import { getDailyWidgetPreferences, selectedDailyAccounts } from './daily-widget-preferences';
 import { getRedCoinsSummary, loadRedCoins } from '../services/redcoins';
+import { getWidgetTheme } from './widget-theme';
 
 export async function getWidgetData(widgetId?: number): Promise<LeanLogWidgetProps> {
   // Refresh derived finance snapshots from RedCoins, never from a FYDB cache.
@@ -29,6 +30,7 @@ export async function getWidgetData(widgetId?: number): Promise<LeanLogWidgetPro
   const guards = Array.isArray(parsedGuards) ? parsedGuards.slice(0, 4) : parsedGuards ? [parsedGuards] : [];
   const cashReality = cashRealityRaw ? JSON.parse(cashRealityRaw) : null;
   return {
+    themeId: await getWidgetTheme(),
     eaten,
     burned,
     meals: todayFood.length,

@@ -33,6 +33,7 @@ test('each daily widget keeps independent settings and deleting one leaves the o
   assert.equal(JSON.stringify((await preferences.getDailyWidgetPreferences(1)).accountIds), '["b","a"]');
 });
 const data = load('widgets/widget-data.ts', {
+  './widget-theme': { getWidgetTheme: async () => 'cream' },
   '../services/redcoins': { getRedCoinsSummary: async () => ({}), loadRedCoins: async () => JSON.parse(stored.get('redcoins_state_v1') || '{"accounts":[]}') },
   '@react-native-async-storage/async-storage': storage, './daily-widget-preferences': preferences,
   '../services/spendingGuards': { WIDGET_GUARD_KEY: 'guards', WIDGET_CASH_REALITY_KEY: 'cash' },
@@ -48,6 +49,7 @@ test('account snapshot reads current balances and names in selection order, with
 });
 const primitive = name => Object.assign(() => {}, { __name__: name, convertProps: props => props });
 const { LeanLogWidget } = load('widgets/LeanLogWidget.tsx', {
+  './widget-theme': { themedWidgetTree: node => node },
   react: require('react'), 'react-native-android-widget': { FlexWidget: primitive('LinearLayoutWidget'), TextWidget: primitive('TextWidget') },
 });
 const { buildWidgetTree } = require('../node_modules/react-native-android-widget/lib/commonjs/api/build-widget-tree');

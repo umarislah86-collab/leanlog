@@ -16,7 +16,7 @@ const { appThemes, themeColour, themeStyleSheet, validThemeId } = api;
 const source = file => fs.readFileSync(path.join(root, file), 'utf8');
 const tick = () => new Promise(resolve => setImmediate(resolve));
 function runtime(values = new Map(), failure = {}) {
-  const slots = []; let cursor = 0; const effects = [];
+  const slots = []; let cursor = 0; const effects = []; const widgetRefreshes = [];
   const react = {
     createContext: value => { const ctx = { value }; ctx.Provider = { ctx }; return ctx; },
     useContext: ctx => ctx.value,
@@ -30,9 +30,10 @@ function runtime(values = new Map(), failure = {}) {
   const native = { StyleSheet: { create: styles => styles, flatten }, Text: 'NativeText', TextInput: 'NativeTextInput' };
   const storage = { getItem: async key => { if (failure.read) throw new Error('read failed'); return values.get(key) ?? null; }, setItem: async (key, value) => { if (failure.write) throw new Error('write failed'); if (failure.wait) await failure.wait; values.set(key, value); } };
   const mocks = { react, 'react/jsx-runtime': { jsx, jsxs: jsx }, 'react-native': native, '@react-native-async-storage/async-storage': storage, '../services/appTheme': api, '../services/themeFonts': { loadThemeFonts: async () => { if (failure.fontWait) await failure.fontWait; if (failure.fonts) throw new Error('font load failed'); } } };
+  mocks['../services/widget'] = { refreshLeanLogWidget: async () => { widgetRefreshes.push(values.get(api.APP_THEME_KEY)); } };
   const context = load('context/ThemeContext.tsx', mocks);
   const render = () => { cursor = 0; const tree = context.ThemeProvider({ children: 'mounted-app' }); tree.type.ctx.value = tree.props.value; effects.splice(0).forEach(fn => fn()); return tree; };
-  return { context, render, values, failure, primitives: () => load('components/ThemePrimitives.tsx', { ...mocks, '../context/ThemeContext': context }) };
+  return { context, render, values, failure, widgetRefreshes, primitives: () => load('components/ThemePrimitives.tsx', { ...mocks, '../context/ThemeContext': context }) };
 }
 const luminance = hex => { const rgb = hex.replace('#', '').match(/../g).map(x => parseInt(x, 16) / 255).map(x => x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4); return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722; };
 const contrast = (a, b) => { const x = luminance(a), y = luminance(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
@@ -180,4 +181,13 @@ test('all resolved font faces are bundled static TTFs, with accessible licences 
   assert.ok(size < 1.5 * 1024 * 1024, `Font footprint: ${size}`);
   assert.ok(!assets.includes('https://'));
   assert.ok(source('components/AppearanceSettings.tsx').includes('themeFontLicenses'));
+});
+
+test('Apply triggers widget refresh after durable save, never for a failed preference write', async () => {
+  const r = runtime(); r.render(); await tick(); r.render();
+  assert.equal(r.widgetRefreshes.length, 0);
+  await r.context.useTheme().setTheme('dusk'); await tick();
+  assert.deepEqual(r.widgetRefreshes, ['dusk']);
+  r.failure.write = true; await assert.rejects(r.context.useTheme().setTheme('grove')); await tick();
+  assert.deepEqual(r.widgetRefreshes, ['dusk']);
 });

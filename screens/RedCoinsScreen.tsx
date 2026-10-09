@@ -20,6 +20,9 @@ import { RedCoinsBudgetEditor, type BudgetChoice } from '../components/RedCoinsB
 import { periodAllocation, replaceTargetBudget, targetBudgetChoices } from '../services/redcoinsBudgetSetup';
 import { termBudgetSummary, validTermBudget } from '../services/redcoinsTermBudget';
 import { favoriteAccountsForHome } from '../services/redcoinsFavorites';
+import { HOME_LAYOUT_KEY, homeCardIds, normalizeHomeOrder, type HomeCardId } from '../services/redcoinsHomeLayout';
+import { applyHomeAppearance, homeColours } from '../services/redcoinsHomeAppearance';
+import { RedCoinsHomeLayoutModal } from '../components/RedCoinsHomeLayoutModal';
 import { loggerCategories, loggerSuggestions } from '../services/redcoinsLogger';
 import { findIncomeDuplicates, incomeMonth, validIncomePeriod } from '../services/redcoinsIncomeDuplicate';
 import { filterLedgerEntries, summarizeLedgerEntries } from '../services/redcoinsLedgerSummary';
@@ -97,8 +100,18 @@ const ICON_LIBRARY = [
 ];
 
 export default function RedCoinsScreen({ navigation, route }: any) {
-  const s = useThemeStyles(baseS);
-  const { themed } = useTheme();
+  const themedStyles = useThemeStyles(baseS);
+  const { themed, palette: appPalette } = useTheme();
+  const s = useMemo(() => applyHomeAppearance(themedStyles, appPalette), [themedStyles, appPalette]);
+  const homeColor = homeColours(appPalette);
+  const [homeOrder, setHomeOrder] = useState<HomeCardId[]>([...homeCardIds]);
+  const [homeLayoutOpen, setHomeLayoutOpen] = useState(false);
+  const [homeLayoutReady, setHomeLayoutReady] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void AsyncStorage.getItem(HOME_LAYOUT_KEY).then(raw => { if (active && raw) setHomeOrder(normalizeHomeOrder(JSON.parse(raw))); }).catch(console.warn).finally(() => { if (active) setHomeLayoutReady(true); });
+    return () => { active = false; };
+  }, []);
   const [state, setState] = useState<RedCoinsState | null>(null);
   const [bluecoins, setBluecoins] = useState<BluecoinsSummary | null>(null);
   const summaryRequest = useRef(0);
@@ -1300,21 +1313,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       percent: spent ? (value / spent) * 100 : 0,
     }));
     const favoriteAccounts = favoriteAccountsForHome(state);
-    return (
-      <>
-        <View style={s.dashboardIntro}>
-          <View>
-            <Text style={s.eyebrow}>REDCOINS / SALARY CYCLE</Text>
-            <Text style={s.dashboardTitle}>Your money, clearly.</Text>
-          </View>
-          <Text style={s.dashboardDate}>
-            {today.toLocaleDateString('en-MY', {
-              day: 'numeric',
-              month: 'short',
-            })}
-          </Text>
-        </View>
-        <View style={s.dashCard}>
+    const cards: Record<HomeCardId, React.ReactNode> = {
+      daily: (<View style={s.dashCard}>
           <TouchableOpacity style={s.dashHeadRow} onPress={() => toggleCard('daily')}>
             <Text style={s.dashHead}>Daily Summary</Text>
             <Ionicons name={collapsedCards.includes('daily') ? 'chevron-forward' : 'chevron-down'} size={16} color={themed(C.ink, 'color')} />
@@ -1340,8 +1340,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
               </View>
             </>
           )}
-        </View>
-        <View style={s.dashCard}>
+        </View>),
+      calendar: (<View style={s.dashCard}>
           <View style={s.calendarHead}>
             <TouchableOpacity style={s.calendarArrow} onPress={() => setCalendarCursor((value) => new Date(value.getFullYear(), value.getMonth() - 1, 1))}>
               <Ionicons name="chevron-back" size={17} color={themed(C.ink, 'color')} />
@@ -1363,8 +1363,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
               </Text>
             ))}
             {calendar.map((day) => (
-              <TouchableOpacity key={day.key} onPress={() => openDashboardFilter('day', day.key)} style={[s.calendarDay, day.key === dayKey(today.toISOString()) && s.calendarToday, day.muted && { opacity: 0.3 }]}>
-                <Text style={s.calendarNumber}>{day.date.getDate()}</Text>
+              <TouchableOpacity key={day.key} onPress={() => openDashboardFilter('day', day.key)} style={[s.calendarDay, day.key === dayKey(today.toISOString()) && s.calendarToday, day.muted && { opacity: appPalette.id === 'cream' ? 0.3 : 1 }]}>
+                <Text style={[s.calendarNumber, day.muted && appPalette.id !== 'cream' && { color: homeColor.muted }]}>{day.date.getDate()}</Text>
                 <View style={s.calendarDots}>
                   {day.types.has('expense') && <View style={[s.calendarDot, { backgroundColor: themed(C.coral, 'backgroundColor') }]} />}
                   {day.types.has('income') && <View style={[s.calendarDot, { backgroundColor: themed('#18A879', 'backgroundColor') }]} />}
@@ -1375,11 +1375,11 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           </View>
           <View style={s.calendarKey}>
             <Text style={s.calendarKeyText}>● Expense</Text>
-            <Text style={[s.calendarKeyText, { color: themed('#18A879', 'color') }]}>● Income</Text>
-            <Text style={[s.calendarKeyText, { color: themed(C.blue, 'color') }]}>● Transfer</Text>
+            <Text style={[s.calendarKeyText, { color: appPalette.id === 'cream' ? themed('#18A879', 'color') : homeColor.income }]}>● Income</Text>
+            <Text style={[s.calendarKeyText, { color: appPalette.id === 'cream' ? themed(C.blue, 'color') : homeColor.transfer }]}>● Transfer</Text>
           </View>
-        </View>
-        <View style={s.dashCard}>
+        </View>),
+      budget: (<View style={s.dashCard}>
           <TouchableOpacity style={s.dashHeadRow} onPress={() => toggleCard('budget')}>
             <Text style={s.dashHead}>Budget Summary</Text>
             <Ionicons name={collapsedCards.includes('budget') ? 'chevron-forward' : 'chevron-down'} size={16} color={themed(C.ink, 'color')} />
@@ -1418,8 +1418,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
               </View>
             </>
           )}
-        </View>
-        <View style={s.dashCard}>
+        </View>),
+      favorites: (<View style={s.dashCard}>
           <View style={s.dashHeadRow}>
             <TouchableOpacity onPress={() => toggleCard('favorites')} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text style={s.dashHead}>Favorite Accounts</Text>
@@ -1435,7 +1435,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
               {favoriteAccounts.map((account) => (
                 <TouchableOpacity key={account.id} style={s.favoriteRow} onPress={() => openDashboardFilter('account', account.name)}>
                   <Text style={s.favoriteName}>{account.name}</Text>
-                  <Text style={[s.favoriteBalance, account.balance < 0 && { color: themed(C.coral, 'color') }]}>
+                  <Text style={[s.favoriteBalance, account.balance < 0 && { color: appPalette.id === 'cream' ? themed(C.coral, 'color') : homeColor.expense }]}>
                     {account.balance < 0 ? '− ' : ''}
                     {money(account.balance)}
                   </Text>
@@ -1447,8 +1447,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
               </TouchableOpacity>
             </>
           )}
-        </View>
-        <View style={s.dashCard}>
+        </View>),
+      flow: (<View style={s.dashCard}>
           <Text style={s.dashHead}>Cash Flow</Text>
           <View style={s.cashflowChart}>
             {months.map((month) => (
@@ -1459,7 +1459,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                       s.cashBar,
                       {
                         height: Math.max(3, (month.outgoing / flowMax) * 110),
-                        backgroundColor: themed(C.coral, 'backgroundColor'),
+                        backgroundColor: appPalette.id === 'cream' ? C.coral : homeColor.expense,
                       },
                     ]}
                   />
@@ -1468,7 +1468,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                       s.cashBar,
                       {
                         height: Math.max(3, (month.incoming / flowMax) * 110),
-                        backgroundColor: themed('#18A879', 'backgroundColor'),
+                        backgroundColor: appPalette.id === 'cream' ? '#18A879' : homeColor.income,
                       },
                     ]}
                   />
@@ -1477,8 +1477,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
               </View>
             ))}
           </View>
-        </View>
-        <View style={s.hero}>
+        </View>),
+      cash: (<View style={s.hero}>
           <Text style={s.kicker}>TRUE CASH AVAILABLE</Text>
           <Text style={[s.heroMoney, trueSpendable < 0 && { color: themed('#FF8069', 'color') }]}>
             {trueSpendable < 0 ? '− ' : ''}
@@ -1492,9 +1492,26 @@ export default function RedCoinsScreen({ navigation, route }: any) {
             <Mini label="CARD OWED" value={-cardDebt} />
             <Mini label="CYCLE LEFT" value={remaining} />
           </View>
+        </View>),
+    };
+    return <>
+      <View style={s.dashboardIntro}>
+          <View>
+            <Text style={s.eyebrow}>REDCOINS / SALARY CYCLE</Text>
+            <Text style={s.dashboardTitle}>Your money, clearly.</Text>
+          </View>
+          <Text style={s.dashboardDate}>
+            {today.toLocaleDateString('en-MY', {
+              day: 'numeric',
+              month: 'short',
+            })}
+          </Text>
         </View>
-      </>
-    );
+      <TouchableOpacity disabled={!homeLayoutReady} onPress={() => setHomeLayoutOpen(true)} accessibilityRole="button" accessibilityLabel="Arrange home cards" style={{ alignSelf: 'flex-end', flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 10, paddingHorizontal: 12, marginBottom: 8, borderWidth: 1, borderColor: appPalette.border, borderRadius: 12 }}>
+        <Ionicons name="swap-vertical" size={16} color={appPalette.text} /><Text style={{ color: appPalette.text, fontSize: 12, fontWeight: '700' }}>Arrange Home</Text>
+      </TouchableOpacity>
+      {homeOrder.map(id => <React.Fragment key={id}>{cards[id]}</React.Fragment>)}
+    </>;
   };
   const activityHeader = (
     <View style={s.activityHeader}>
@@ -2188,6 +2205,11 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         if (!current.accounts.some(account => account.id === accountId)) throw new Error('Account no longer exists');
         await persist({ ...current, bankReviews: { ...current.bankReviews, [accountId]: review } });
       }} />
+      <RedCoinsHomeLayoutModal visible={homeLayoutOpen} order={homeOrder} close={() => setHomeLayoutOpen(false)} save={async (order) => {
+        const next = normalizeHomeOrder(order);
+        await AsyncStorage.setItem(HOME_LAYOUT_KEY, JSON.stringify(next));
+        setHomeOrder(next);
+      }} />
       <FavoriteAccountsModal visible={favoritesOpen} state={state} close={() => setFavoritesOpen(false)} save={async (ids) => {
         // Read latest durable state so changing card preferences cannot overwrite a transaction.
         const current = await loadRedCoins();
@@ -2513,8 +2535,9 @@ export default function RedCoinsScreen({ navigation, route }: any) {
 }
 
 function BudgetDonut({ segments, spent }: { segments: { name: string; value: number; color: string; percent: number }[]; spent: number }) {
-  const s = useThemeStyles(baseS);
-  const { themed } = useTheme();
+  const themedStyles = useThemeStyles(baseS);
+  const { themed, palette } = useTheme();
+  const s = useMemo(() => applyHomeAppearance(themedStyles, palette), [themedStyles, palette]);
   const radius = 42;
   const circumference = 2 * Math.PI * radius;
   let offset = 0;
@@ -2530,7 +2553,7 @@ function BudgetDonut({ segments, spent }: { segments: { name: string; value: num
         })}
       </Svg>
       <View style={s.donutCenter}>
-        <Text style={s.donutValue}>{money(spent)}</Text>
+        <Text typographyRole="body" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[s.donutValue, { maxWidth: 86 }]}>{money(spent)}</Text>
         <Text style={s.donutLabel}>SPENT</Text>
       </View>
     </View>

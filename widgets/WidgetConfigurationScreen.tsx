@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ThemeText as Text } from '../components/ThemePrimitives';
+import { ThemeProvider, useTheme, useThemeStyles } from '../context/ThemeContext';
 import type { WidgetConfigurationScreenProps } from 'react-native-android-widget';
 import { AccountSnapshotWidget, type WidgetAccount } from './RedCoinsWidgets';
 import { getWidgetAccounts, saveWidgetAccount, widgetUpdatedTime } from './redcoins-widget-data';
@@ -7,14 +9,18 @@ import { LeanLogWidget } from './LeanLogWidget';
 import { getWidgetData } from './widget-data';
 import { getDailyWidgetPreferences, saveDailyWidgetPreferences, type DailyWidgetPreferences } from './daily-widget-preferences';
 import type { RedCoinsAccount } from '../services/redcoins';
+import { getWidgetTheme } from './widget-theme';
 
 export function WidgetConfigurationScreen(props: WidgetConfigurationScreenProps) {
-  return props.widgetInfo.widgetName === 'LeanLogDaily'
+  return <ThemeProvider>{props.widgetInfo.widgetName === 'LeanLogDaily'
     ? <DailyWidgetConfiguration {...props} />
-    : <AccountWidgetConfiguration {...props} />;
+    : <AccountWidgetConfiguration {...props} />}</ThemeProvider>;
 }
 
 function DailyWidgetConfiguration({ widgetInfo, renderWidget, setResult }: WidgetConfigurationScreenProps) {
+  const themedStyles = useThemeStyles(baseS);
+  const { palette } = useTheme();
+  const s = { ...themedStyles, save: { ...themedStyles.save, backgroundColor: palette.mint }, saveText: { ...themedStyles.saveText, color: '#172033' } };
   const [accounts, setAccounts] = useState<RedCoinsAccount[]>([]);
   const [preferences, setPreferences] = useState<DailyWidgetPreferences>({ mode: 'guards', accountIds: [] });
   const [loading, setLoading] = useState(true);
@@ -73,6 +79,9 @@ function DailyWidgetConfiguration({ widgetInfo, renderWidget, setResult }: Widge
 }
 
 function AccountWidgetConfiguration({ widgetInfo, renderWidget, setResult }: WidgetConfigurationScreenProps) {
+  const themedStyles = useThemeStyles(baseS);
+  const { palette } = useTheme();
+  const s = { ...themedStyles, save: { ...themedStyles.save, backgroundColor: palette.mint }, saveText: { ...themedStyles.saveText, color: '#172033' } };
   const [accounts, setAccounts] = useState<WidgetAccount[]>([]);
   const [selected, setSelected] = useState('');
   const [loading, setLoading] = useState(true);
@@ -89,7 +98,7 @@ function AccountWidgetConfiguration({ widgetInfo, renderWidget, setResult }: Wid
     try {
       await saveWidgetAccount(widgetInfo.widgetId, selected);
       const account = accounts.find((row) => row.name === selected) || null;
-      renderWidget(<AccountSnapshotWidget account={account} updated={widgetUpdatedTime()} />);
+      renderWidget(<AccountSnapshotWidget account={account} updated={widgetUpdatedTime()} themeId={await getWidgetTheme()} />);
       setResult('ok');
     } catch (error) {
       console.error('Account widget configuration failed', error);
@@ -113,7 +122,7 @@ function AccountWidgetConfiguration({ widgetInfo, renderWidget, setResult }: Wid
   </View>;
 }
 
-const s = StyleSheet.create({
+const baseS = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#FFF9EA', padding: 22, paddingTop: 54 },
   eyebrow: { color: '#EF3F43', fontSize: 10, fontWeight: '900', letterSpacing: 1.3 },
   title: { color: '#172033', fontFamily: 'serif', fontSize: 32, fontWeight: '800', marginTop: 8 },

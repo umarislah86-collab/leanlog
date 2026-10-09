@@ -3,7 +3,7 @@
     "name": "LeanLog",
     "slug": "umarcoc93",
     "scheme": "leanlog",
-    "version": "2.9.17",
+    "version": "2.9.18",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
@@ -30,6 +30,7 @@
     },
     "plugins": [
       "./plugins/withLeanLogShortcuts",
+      "./plugins/withWidgetThemeFonts",
       [
         "expo-image-picker",
         {

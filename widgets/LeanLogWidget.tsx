@@ -3,8 +3,11 @@ import React from 'react';
 import { FlexWidget, TextWidget } from 'react-native-android-widget';
 import type { WidgetGuardSnapshot } from '../services/spendingGuards';
 import type { WidgetAccount } from './RedCoinsWidgets';
+import { themedWidgetTree } from './widget-theme';
+import type { AppThemeId } from '../services/appTheme';
 
 export type LeanLogWidgetProps = {
+  themeId?: AppThemeId;
   eaten: number;
   burned: number;
   meals: number;
@@ -17,7 +20,7 @@ export type LeanLogWidgetProps = {
   updated: string;
 };
 
-export function LeanLogWidget({ eaten, burned, meals, goal, steps, guards, bottomMode = 'guards', accounts = [], cashReality, updated }: LeanLogWidgetProps) {
+export function LeanLogWidget({ eaten, burned, meals, goal, steps, guards, bottomMode = 'guards', accounts = [], cashReality, updated, themeId = 'cream' }: LeanLogWidgetProps) {
   const left = Math.max(0, goal - eaten);
   const pct = Math.min(100, Math.round((eaten / Math.max(goal, 1)) * 100));
   const visibleGuards = guards.slice(0, 4);
@@ -28,7 +31,7 @@ export function LeanLogWidget({ eaten, burned, meals, goal, steps, guards, botto
   // wrap_content. Start both columns at zero so label lengths cannot shift
   // the divider independently in each row.
   const snapshotCell = { width: 0, flex: 1, height: 32, flexDirection: 'column' as const, justifyContent: 'center' as const, borderRadius: 9, paddingHorizontal: 7, paddingVertical: 4 };
-  return (
+  return themedWidgetTree((
     <FlexWidget
       clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://home' }}
       style={{ height: 'match_parent', width: 'match_parent', flexDirection: 'column', backgroundColor: '#F7EEDC', borderRadius: 24, padding: 11 }}
@@ -83,5 +86,5 @@ export function LeanLogWidget({ eaten, burned, meals, goal, steps, guards, botto
         <FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://redcoins/transfer' }} style={{ flex: 1, backgroundColor: '#528FF2', borderRadius: 8, paddingVertical: 4, alignItems: 'center' }}><TextWidget text="⇄ TRANSFER" style={{ color: '#FFFFFF', fontSize: 7, fontWeight: '700' }} /></FlexWidget>
       </FlexWidget>
     </FlexWidget>
-  );
+  ), themeId) as React.JSX.Element;
 }

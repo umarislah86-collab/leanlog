@@ -5,6 +5,7 @@ import { getWidgetData } from './widget-data';
 import { AccountSnapshotWidget, AutomationWidget, CashRealityWidget, QuickLogWidget } from './RedCoinsWidgets';
 import { deleteWidgetAccount, getAccountWidgetData, getAutomationWidgetData, getCashWidgetData, widgetUpdatedTime } from './redcoins-widget-data';
 import { deleteDailyWidgetPreferences } from './daily-widget-preferences';
+import { getWidgetTheme } from './widget-theme';
 
 export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
   const { widgetName, widgetId } = props.widgetInfo;
@@ -19,8 +20,8 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
     props.renderWidget(<LeanLogWidget {...data} />);
     return;
   }
-  if (widgetName === 'LeanLogAccount') return props.renderWidget(<AccountSnapshotWidget account={await getAccountWidgetData(widgetId)} updated={widgetUpdatedTime()} />);
-  if (widgetName === 'LeanLogCashReality') return props.renderWidget(<CashRealityWidget cash={await getCashWidgetData()} updated={widgetUpdatedTime()} />);
-  if (widgetName === 'LeanLogQuickLog') return props.renderWidget(<QuickLogWidget />);
-  if (widgetName === 'LeanLogAutomation') return props.renderWidget(<AutomationWidget rows={await getAutomationWidgetData()} updated={widgetUpdatedTime()} />);
+  if (widgetName === 'LeanLogAccount') return props.renderWidget(<AccountSnapshotWidget account={await getAccountWidgetData(widgetId)} updated={widgetUpdatedTime()} themeId={await getWidgetTheme()} />);
+  if (widgetName === 'LeanLogCashReality') return props.renderWidget(<CashRealityWidget cash={await getCashWidgetData()} updated={widgetUpdatedTime()} themeId={await getWidgetTheme()} />);
+  if (widgetName === 'LeanLogQuickLog') return props.renderWidget(<QuickLogWidget themeId={await getWidgetTheme()} />);
+  if (widgetName === 'LeanLogAutomation') return props.renderWidget(<AutomationWidget rows={await getAutomationWidgetData()} updated={widgetUpdatedTime()} themeId={await getWidgetTheme()} />);
 }
