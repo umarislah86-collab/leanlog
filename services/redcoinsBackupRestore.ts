@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
-import { loadRedCoins, replaceRedCoinsFromBackup, getRedCoinsSummary } from './redcoins';
+import { loadRedCoins, replaceRedCoinsFromBackup, getRedCoinsSummary, readSavedRedCoinsRaw } from './redcoins';
 import { syncRedCoinsLedger } from './redcoinsLedger';
 import { syncReminderNotifications } from './redcoinsReminders';
 import { BACKUP_PREFERENCE_KEYS, parseRedCoinsBackup, type RedCoinsBackup } from './redcoinsBackupFormat';
@@ -12,7 +12,7 @@ let restoring = false;
 export async function stageRedCoinsBackup(contents: string, name: string) {
   const backup = parseRedCoinsBackup(contents);
   const current = await loadRedCoins();
-  const original = await AsyncStorage.getItem('redcoins_state_v1');
+  const original = await readSavedRedCoinsRaw();
   if (!original) throw new Error('Could not checkpoint current RedCoins state.');
   const expectedPreferences: Record<string, string | null> = {};
   for (const key of BACKUP_PREFERENCE_KEYS) expectedPreferences[key] = await AsyncStorage.getItem(key);
@@ -31,7 +31,7 @@ export async function commitRedCoinsBackup(preview: Awaited<ReturnType<typeof st
   if (restoring) throw new Error('A restore is already running.');
   restoring = true; pauseRedCoinsAutoBackup(true);
   try {
-    if (await AsyncStorage.getItem('redcoins_state_v1') !== preview.original) throw new Error('RedCoins changed. Preview the backup again.');
+    if (await readSavedRedCoinsRaw() !== preview.original) throw new Error('RedCoins changed. Preview the backup again.');
     // Parse again at the trust boundary in case a preview object was altered.
     const backup: RedCoinsBackup = parseRedCoinsBackup(JSON.stringify(preview.backup));
     const recovery = await captureRedCoinsBackup(preview.current);

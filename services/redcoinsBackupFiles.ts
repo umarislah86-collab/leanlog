@@ -29,10 +29,8 @@ export async function chooseBackupFolder() {
   return next;
 }
 export async function captureRedCoinsBackup(state?: RedCoinsState): Promise<RedCoinsBackup> {
-  // Include a transaction already saved optimistically by the UI but still
-  // waiting for its serialized AsyncStorage write to finish.
-  if (!state) { const { flushRedCoinsWrites } = await import('./redcoins'); await flushRedCoinsWrites(); }
-  const raw = state ? JSON.stringify(state) : await AsyncStorage.getItem('redcoins_state_v1');
+  // Wait for pending durable SQL writes before capturing the export snapshot.
+  const raw = state ? JSON.stringify(state) : await (await import('./redcoins')).readSavedRedCoinsRaw();
   if (!raw) throw new Error('No saved RedCoins data to back up yet.');
   const preferences: Record<string, string> = {};
   for (const key of BACKUP_PREFERENCE_KEYS) { const value = await AsyncStorage.getItem(key); if (value !== null) preferences[key] = value; }

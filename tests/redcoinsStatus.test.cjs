@@ -41,11 +41,9 @@ test('known raw source status can restore reconciliation/void without guessing',
   assert.deepEqual(rows.map(row => row.status), ['none', 'cleared', 'reconciled', 'void']);
 });
 
-test('SQLite index fingerprint notices a status-only migration without an editedAt timestamp', () => {
+test('ledger reads the authoritative SQL view rather than a stale fingerprint copy', () => {
   const source = fs.readFileSync('services/redcoinsLedger.ts', 'utf8');
-  const block = source.slice(source.indexOf('const fingerprint ='), source.indexOf('export async function syncRedCoinsLedger'));
-  const output = {};
-  vm.runInNewContext(compile(`${block}\nexports.fingerprint = fingerprint;`), { exports: output, LEDGER_INDEX_VERSION: 1 });
-  const row = { id: 'old', date: '2026-08-01', status: 'pending' };
-  assert.notEqual(output.fingerprint([row]), output.fingerprint([{ ...row, status: 'none' }]));
+  assert.ok(source.includes('const openLedger = openRedCoinsSql'));
+  assert.ok(!source.includes('const fingerprint ='));
+  assert.ok(fs.readFileSync('services/redcoinsSqlStore.ts', 'utf8').includes("json_extract(payload,'$.status') status"));
 });

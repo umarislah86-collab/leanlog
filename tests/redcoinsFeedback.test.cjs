@@ -9,6 +9,10 @@ function load(name, mocks = {}) {
   vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname, `../services/${name}.ts`), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
   }).outputText, { exports, Date, console, require: (id) => {
+    if (id === './redcoinsSqlStore') {
+      mocks['expo-sqlite'] ||= require('./helpers/redcoins-sql.cjs').sqliteHarness().expo;
+      return load('redcoinsSqlStore', mocks);
+    }
     if (id === './redcoinsSalaryFilter') return load('redcoinsSalaryFilter');
     if (id === './redcoinsStatus') return load('redcoinsStatus');
     if (id === './redcoinsSummary') return load('redcoinsSummary', { './redcoinsGuards': load('redcoinsGuards') });
@@ -122,7 +126,7 @@ test('both reminder and auto-log schedule native alarms, including without notif
   assert.ok(rows.every((row) => row.due > Date.now()));
 });
 
-test('state writes retain order, and externally restored state is not masked by a stale cache', async () => {
+test('SQL writes retain order; stale legacy JSON cannot replace SQL; explicit restore replaces it', async () => {
   let stored;
   const writes = [];
   const storage = { getItem: async () => stored, setItem: async (_, value) => { writes.push(JSON.parse(value).monthlyBudget); stored = value; } };
@@ -134,9 +138,11 @@ test('state writes retain order, and externally restored state is not masked by 
   });
   const base = { entries: [], accounts: [], categories: [], reminders: [], deletedEntries: [], monthlyBudget: 100 };
   await Promise.all([service.saveRedCoins(base), service.saveRedCoins({ ...base, monthlyBudget: 200 })]);
-  assert.deepEqual(writes, [100, 200]);
+  assert.deepEqual(writes, []);
   assert.equal((await service.loadRedCoins()).monthlyBudget, 200);
   stored = JSON.stringify({ ...base, monthlyBudget: 900 });
+  assert.equal((await service.loadRedCoins()).monthlyBudget, 200);
+  await service.replaceRedCoinsFromBackup({ ...base, monthlyBudget: 900 }, await service.readSavedRedCoinsRaw(), {}, {});
   assert.equal((await service.loadRedCoins()).monthlyBudget, 900);
 });
 

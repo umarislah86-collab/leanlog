@@ -10,12 +10,17 @@ import { buildRedCoinsSummary } from './redcoinsSummary';
 import { prepareRedCoinsImport } from './redcoinsImportPlan';
 import { migrateAccountPreferences } from './redcoinsAccountIdentity';
 import { repairLegacyBluecoinsStatuses } from './redcoinsStatus';
+import { cloneRedCoinsState, hasRedCoinsSqlData, markRedCoinsRevision, readRedCoinsSql, writeRedCoinsSql } from './redcoinsSqlStore';
 
-const STATE_KEY = 'redcoins_state_v1';
-let latestState: RedCoinsState | null = null;
 let stateWrites: Promise<void> = Promise.resolve();
-let writeGeneration = 0;
 export async function flushRedCoinsWrites() { await stateWrites; }
+export const hasSavedRedCoins = hasRedCoinsSqlData;
+/** JSON is now an export/preview format only; audits do not catch up schedules. */
+export async function readSavedRedCoinsRaw() {
+  await stateWrites;
+  const state = await readRedCoinsSql(false);
+  return state ? JSON.stringify(state) : null;
+}
 const lookupKey = (value?: string) => (value || '').trim().toLocaleLowerCase();
 const SYSTEM_CATEGORY_KEYS = new Set(['(new account)', '(no category)', '(transfer)']);
 const isUserCategory = (name?: string) => !SYSTEM_CATEGORY_KEYS.has(lookupKey(name));
@@ -214,18 +219,15 @@ export function freshRedCoinsState(summary?: BluecoinsSummary | null): RedCoinsS
 /** Ordinary opens read only durable RedCoins data, never a Bluecoins baseline. */
 export async function loadRedCoins(): Promise<RedCoinsState> {
   await stateWrites;
-  let readGeneration = writeGeneration;
-  let raw = await AsyncStorage.getItem(STATE_KEY);
-  while (!latestState && readGeneration !== writeGeneration) {
-    await stateWrites;
-    readGeneration = writeGeneration;
-    raw = await AsyncStorage.getItem(STATE_KEY);
-  }
-  const saved = JSON.parse(JSON.stringify(latestState || (raw ? JSON.parse(raw) : freshRedCoinsState()))) as RedCoinsState;
+  const durable = await readRedCoinsSql();
+  const saved = durable || freshRedCoinsState();
+  if (!durable) markRedCoinsRevision(saved, 0);
+  const originalStorageVersion = saved.storageVersion;
+  const recoveryRaw = durable && (saved.storageVersion !== 2 || saved.statusMappingVersion !== 1) ? JSON.stringify(saved) : null;
   if (saved.storageVersion !== 2) {
     // One-time, byte-for-byte recovery checkpoint BEFORE any migration.
     // Never reconstruct balances from a FYDB or remove manual adjustments.
-    if (raw && !await AsyncStorage.getItem('redcoins_pre_authoritative_v1')) await AsyncStorage.setItem('redcoins_pre_authoritative_v1', raw);
+    if (recoveryRaw && !await AsyncStorage.getItem('redcoins_pre_authoritative_v1')) await AsyncStorage.setItem('redcoins_pre_authoritative_v1', recoveryRaw);
     saved.storageVersion = 2;
     saved.entries.forEach(entry => {
       // A legacy saved balance is the migration baseline. Missing flags are
@@ -246,7 +248,7 @@ export async function loadRedCoins(): Promise<RedCoinsState> {
   saved.payday ??= Number(await AsyncStorage.getItem('bluecoins_payday_v1')) || 25;
   saved.monthlyBudget ??= Number(await AsyncStorage.getItem('bluecoins_monthly_budget_v1')) || 2000;
   saved.safetyBuffer ??= Math.max(0, Number(await AsyncStorage.getItem('bluecoins_cash_reality_buffer_v1')) || 0);
-  if (!raw) {
+  if (!durable) {
     const budget = await AsyncStorage.getItem('bluecoins_monthly_budget_v1');
     const payday = await AsyncStorage.getItem('bluecoins_payday_v1');
     const buffer = await AsyncStorage.getItem('bluecoins_cash_reality_buffer_v1');
@@ -256,10 +258,10 @@ export async function loadRedCoins(): Promise<RedCoinsState> {
   }
   const generated = materializeAutomaticReminders(saved);
   const statusRepaired = repairLegacyBluecoinsStatuses(saved);
-  if (statusRepaired && raw && !await AsyncStorage.getItem('redcoins_pre_status_mapping_v1')) await AsyncStorage.setItem('redcoins_pre_status_mapping_v1', raw);
+  if (statusRepaired && recoveryRaw && !await AsyncStorage.getItem('redcoins_pre_status_mapping_v1')) await AsyncStorage.setItem('redcoins_pre_status_mapping_v1', recoveryRaw);
   const balanceChanged = reconcileScheduledBalanceEffects(saved);
   const { trash: _legacyTrash, ...normalized } = saved;
-  if (!raw || JSON.parse(raw).storageVersion !== 2 || statusRepaired || balanceChanged || generated.length) await saveRedCoins(normalized);
+  if (!durable || originalStorageVersion !== 2 || statusRepaired || balanceChanged || generated.length) await saveRedCoins(normalized);
   return normalized;
 }
 
@@ -316,29 +318,24 @@ const collectDeletions = (state: RedCoinsState) => {
   return [...new Map(merged.map((entry) => [deletionIdentity(entry), entry])).values()];
 };
 
-export const saveRedCoins = async (state: RedCoinsState) => {
+export const saveRedCoins = async (state: RedCoinsState, source?: object, entryIds?: string[]) => {
   const { trash: _legacyTrash, ...compact } = state;
-  latestState = JSON.parse(JSON.stringify(compact));
-  const generation = ++writeGeneration;
-  const encoded = JSON.stringify(compact);
-  const write = stateWrites.catch(() => {}).then(() => AsyncStorage.setItem(STATE_KEY, encoded));
+  const snapshot = cloneRedCoinsState(compact);
+  const write = stateWrites.catch(() => {}).then(async () => {
+    const revision = await writeRedCoinsSql(snapshot, { entryIds });
+    markRedCoinsRevision(state, revision);
+  });
   stateWrites = write.catch(() => {});
-  try { await write; } finally {
-    // Cache only pending writes, so backup/cloud restores remain visible.
-    if (generation === writeGeneration) latestState = null;
-  }
-  emitRedCoinsChange('state');
+  await write;
+  emitRedCoinsChange('state', source);
 };
 
 /** Serialized compare-and-replace: restore must not clobber an intervening edit. */
 export async function replaceRedCoinsFromBackup(state: RedCoinsState, expectedRaw: string, preferences: Record<string, string>, expectedPreferences: Record<string, string | null>) {
-  const encoded = JSON.stringify(state);
   const write = stateWrites.catch(() => {}).then(async () => {
-    if (await AsyncStorage.getItem(STATE_KEY) !== expectedRaw) throw new Error('RedCoins changed while the preview was open. Preview the backup again.');
     for (const [key, expected] of Object.entries(expectedPreferences)) if (await AsyncStorage.getItem(key) !== expected) throw new Error('RedCoins settings changed. Preview the backup again.');
-    // AsyncStorage native multiSet is a single batch. Preferences are whitelisted
-    // by the restore service; device folder grants/notification IDs are excluded.
-    await AsyncStorage.multiSet([[STATE_KEY, encoded], ...Object.entries(preferences)]);
+    const revision = await writeRedCoinsSql(state, { expectedRaw, preferences });
+    markRedCoinsRevision(state, revision);
   });
   stateWrites = write.catch(() => {});
   await write;

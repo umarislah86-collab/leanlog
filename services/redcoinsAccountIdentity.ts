@@ -7,7 +7,7 @@ type ImportedEntry = Pick<RedCoinsEntry, 'id' | 'account' | 'toAccount' | 'sourc
 
 /** No fuzzy account-name or balance matching. Legacy inference requires stable transaction IDs. */
 export function reconcileAccountIdentity(original: RedCoinsState, incoming: ImportedAccount[], importedEntries: ImportedEntry[]) {
-  const state: RedCoinsState = JSON.parse(JSON.stringify(original));
+  const state: RedCoinsState = { ...original, ...JSON.parse(JSON.stringify(original)) };
   const sources = new Map(incoming.filter(a => a.sourceAccountId).map(a => [a.sourceAccountId!, a]));
   const byName = new Map(incoming.map(a => [key(a.name), a]));
   const entriesById = new Map(importedEntries.map(entry => [entry.id, entry]));

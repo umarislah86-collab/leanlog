@@ -26,9 +26,12 @@ import type { UserProfile } from '../types';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { requestPinWidget } from 'react-native-android-widget';
 import { refreshLeanLogWidget } from '../services/widget';
+import { loadRedCoins, readSavedRedCoinsRaw, replaceRedCoinsFromBackup } from '../services/redcoins';
+import { BACKUP_PREFERENCE_KEYS, parseRedCoinsBackup } from '../services/redcoinsBackupFormat';
 import { getNagDays, getNagTimes, isNagModeEnabled, setNagDays, setNagModeEnabled, setNagTimes } from '../services/nagging';
 import LeanLogChronicle from '../components/LeanLogChronicle';
 import { RedCoinsBackupSettings } from '../components/RedCoinsBackupSettings';
+import { RedCoinsDataCheck } from '../components/RedCoinsDataCheck';
 import { chooseBluecoinsFolder, getBluecoinsSourceMetadata } from '../services/bluecoins';
 import { stageRedCoinsImport, commitRedCoinsImport } from '../services/redcoinsImport';
 import { ensureBluecoinsBackgroundSync } from '../services/bluecoinsBackground';
@@ -90,6 +93,7 @@ const shouldCloudBackupKey = (key: string) => {
   const lower = key.toLowerCase();
   if (lower.includes('firebase') || lower.startsWith('@firebase')) return false;
   if (lower.includes('cache') || lower.includes('widget') || lower.includes('notification_state')) return false;
+  if (lower.startsWith('redcoins_pre_') || lower.startsWith('redcoins_before_')) return false;
   if (['bluecoins_folder_uri_v1', 'last_uid', 'nag_mode_schedule_v1', 'nag_mode_last_snooze_action_v1',
     'bluecoins_spending_guard_alerts_v1', 'bluecoins_cash_reality_alert_v1',
     'bluecoins_background_status_v1'].includes(key)) return false;
@@ -124,6 +128,11 @@ async function cancelNotif(notifId: string) {
   try {
     await Notifications.cancelScheduledNotificationAsync(notifId);
   } catch {}
+}
+
+function SettingsGroup({ title, summary, initiallyOpen = false, children }: { title: string; summary: string; initiallyOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(initiallyOpen);
+  return <View style={{marginBottom:16}}><TouchableOpacity accessibilityRole="button" accessibilityState={{expanded:open}} onPress={()=>setOpen(value=>!value)} style={{backgroundColor:'#FFFDF7',borderWidth:1,borderColor:'#E4DFD3',borderRadius:20,padding:18,flexDirection:'row',alignItems:'center',gap:12}}><View style={{flex:1}}><Text style={{color:'#101A2B',fontSize:17,fontWeight:'700'}}>{title}</Text><Text style={{color:'#737A85',fontSize:11,lineHeight:17,marginTop:5}}>{summary}</Text></View><Ionicons name={open?'chevron-up':'chevron-down'} size={18} color="#737A85" /></TouchableOpacity>{open && <View style={{paddingTop:12}}>{children}</View>}</View>;
 }
 
 export default function SettingsScreen() {
@@ -327,6 +336,10 @@ export default function SettingsScreen() {
       const backupKeys = allKeys.filter(shouldCloudBackupKey);
       const backupPairs = await AsyncStorage.multiGet(backupKeys);
       const fullState = Object.fromEntries(backupPairs.filter((pair): pair is [string, string] => pair[1] !== null));
+      // Cloud transport stays JSON; read the current SQL store, not the frozen
+      // pre-migration JSON/recovery file.
+      const redCoinsRaw = await readSavedRedCoinsRaw();
+      if (redCoinsRaw) fullState.redcoins_state_v1 = redCoinsRaw;
       const ops: Promise<void>[] = [];
       if (food) JSON.parse(food).forEach((e: any) => ops.push(fsUpsert('foodEntries', e.id, e)));
       if (acts) JSON.parse(acts).forEach((e: any) => ops.push(fsUpsert('activityEntries', e.id, e)));
@@ -360,7 +373,19 @@ export default function SettingsScreen() {
         return;
       }
       if (fullState) {
-        await AsyncStorage.multiSet(Object.entries(fullState));
+        const raw = fullState.redcoins_state_v1;
+        if (raw) {
+          const current = await loadRedCoins();
+          const expected = await readSavedRedCoinsRaw();
+          const next = parseRedCoinsBackup(JSON.stringify({ format: 'redcoins-backup', version: 1, exportedAt: new Date().toISOString(), state: JSON.parse(raw) })).state;
+          const preferences = Object.fromEntries(BACKUP_PREFERENCE_KEYS.filter(key => typeof fullState[key] === 'string').map(key => [key, fullState[key]]));
+          const expectedPreferences = Object.fromEntries(await AsyncStorage.multiGet(Object.keys(preferences)));
+          const recovery = JSON.stringify(current);
+          await AsyncStorage.setItem('redcoins_before_cloud_restore_v1', recovery);
+          if (await AsyncStorage.getItem('redcoins_before_cloud_restore_v1') !== recovery) throw new Error('Cloud restore safety checkpoint could not be verified.');
+          await replaceRedCoinsFromBackup(next, expected!, preferences, expectedPreferences);
+        }
+        await AsyncStorage.multiSet(Object.entries(fullState).filter(([key]) => key !== 'redcoins_state_v1' && !key.startsWith('redcoins_pre_') && !key.startsWith('redcoins_before_') && (!raw || !(BACKUP_PREFERENCE_KEYS as readonly string[]).includes(key))));
       } else {
         if (food.length) await AsyncStorage.setItem('calorie_entries', JSON.stringify(food));
         if (acts.length) await AsyncStorage.setItem('activity_entries', JSON.stringify(acts));
@@ -435,6 +460,7 @@ export default function SettingsScreen() {
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
 
+        <SettingsGroup title="Personal preferences" summary="Language and nutrition framework" initiallyOpen>
         <Text style={styles.sectionLabel}>PERSONAL RHYTHM</Text>
         <View style={styles.preferenceCard}>
           <View style={styles.preferenceBlock}>
@@ -463,47 +489,23 @@ export default function SettingsScreen() {
             </View>
           </View>
         </View>
-
-        {/* Cloud Sync */}
-        <Text style={styles.sectionLabel}>{t('cloudSync')}</Text>
-        <View style={styles.syncCard}>
-          <View style={styles.syncHeader}><Text style={styles.syncKicker}>YOUR DATA, YOUR EXIT</Text><Text style={styles.syncTitle}>Keep a second copy.</Text><Text style={styles.syncSub}>A manual checkpoint for the days you change phone or need to roll back.</Text></View>
-          <TouchableOpacity style={styles.syncAction} onPress={uploadToCloud} disabled={syncing}>
-            <View style={styles.syncIcon}><Ionicons name="cloud-upload-outline" size={20} color="#101A2B" /></View><View style={{ flex: 1 }}>
-              <Text style={styles.syncActionTitle}>{t('uploadToCloud')}</Text>
-              <Text style={styles.syncActionSub}>{t('uploadDesc')}</Text>
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.actionRow} onPress={() => {
+            Alert.alert(
+              '📊 Pengiraan Makro',
+              'Matlamat makro dikira daripada sasaran kalori harian anda:\n\n• Protein: 25% ÷ 4 kcal/g\n• Karbohidrat: 45% ÷ 4 kcal/g\n• Lemak: 30% ÷ 9 kcal/g\n\nContoh (2000 kcal):\nProtein 125g  |  Karbo 225g  |  Lemak 67g',
+              [{ text: 'OK' }]
+            );
+          }}>
+            <View style={styles.actionIcon}><Ionicons name="analytics-outline" size={19} color="#101A2B" /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.actionTitle}>Cara Makro Dikira</Text>
+              <Text style={styles.actionSub}>Ketahui pengiraan Protein, Karbo & Lemak</Text>
             </View>
-            {syncing && <ActivityIndicator size="small" color="#FF6542" />}
           </TouchableOpacity>
-          <TouchableOpacity style={styles.syncAction} onPress={restoreFromCloud} disabled={syncing}>
-            <View style={[styles.syncIcon, styles.syncIconOutline]}><Ionicons name="cloud-download-outline" size={20} color="#FFF4DB" /></View><View style={{ flex: 1 }}>
-              <Text style={styles.syncActionTitle}>{t('restoreData')}</Text>
-              <Text style={styles.syncActionSub}>{t('restoreDesc')}</Text>
-            </View>
-            <Ionicons name="arrow-forward" size={18} color="#7F8BA0" />
-          </TouchableOpacity>
-          {syncMsg !== '' && (
-            <Text style={styles.syncMsg}>{syncMsg}</Text>
-          )}
         </View>
-
-        <Text style={styles.sectionLabel}>HOME SCREEN</Text>
-        <View style={styles.widgetCard}>
-          <View style={styles.widgetPreview}>
-            <View style={styles.widgetPreviewTop}><Text style={styles.widgetEyebrow}>LEANLOG / TODAY</Text><Text style={styles.widgetUpdated}>UPDATED 4:18 PM</Text></View>
-            <View style={styles.widgetPreviewHero}><View><Text style={styles.widgetValue}>1,240</Text><Text style={styles.widgetKcal}>KCAL LEFT</Text></View><View style={styles.widgetPercent}><Text style={styles.widgetPercentValue}>38%</Text><Text style={styles.widgetPercentSub}>760 / 2,000</Text></View></View>
-            <View style={styles.widgetPreviewTrack}><View style={styles.widgetPreviewFill} /></View>
-            <View style={styles.widgetPreviewTiles}><Text style={styles.widgetPreviewTile}>4,892 steps · 2 meals{`\n`}TRUE CASH −RM 681</Text><Text style={[styles.widgetPreviewTile, styles.widgetPreviewGuard]}>📌 CIMB PLATINUM{`\n`}RM 1,686 / 1,400 · 120%</Text></View>
-          </View>
-          <Text style={styles.widgetTitle}>Build your own home screen.</Text>
-          <Text style={styles.widgetBody}>Daily can show Spending Guards or up to four chosen account balances in its compact slots. Choose when adding it, or long-press the widget and use your launcher's Edit option. Each widget keeps its own settings.</Text>
-          <TouchableOpacity style={styles.widgetButton} onPress={() => addHomeWidget()}><Text style={styles.widgetButtonText}>＋ Daily overview</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.widgetButton} onPress={() => addHomeWidget('LeanLogAccount', 'LeanLog Account')}><Text style={styles.widgetButtonText}>＋ Account snapshot</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.widgetButton} onPress={() => addHomeWidget('LeanLogCashReality', 'LeanLog Cash Reality')}><Text style={styles.widgetButtonText}>＋ Cash Reality</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.widgetButton} onPress={() => addHomeWidget('LeanLogQuickLog', 'LeanLog Quick Log')}><Text style={styles.widgetButtonText}>＋ Quick Log</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.widgetButton} onPress={() => addHomeWidget('LeanLogAutomation', 'LeanLog Bills & Automation')}><Text style={styles.widgetButtonText}>＋ Automation & bills</Text></TouchableOpacity>
-        </View>
-
+        </SettingsGroup>
+        <SettingsGroup title="Reminders & home screen" summary="Nag Mode, daily reminders and widgets">
         <Text style={styles.sectionLabel}>SUPER-KAREN COACH</Text>
         <View style={styles.nagCard}>
           <View style={styles.nagTopRow}>
@@ -543,7 +545,6 @@ export default function SettingsScreen() {
           </View>
           <Text style={styles.nagHint}>Messages rotate daily and all four checkpoints remain active. Only “Lazy day” or switching Nag Mode off stops the rest.</Text>
         </View>
-
         {/* Notifications */}
         <Text style={styles.sectionLabel}>{t('notifications')}</Text>
         <View style={styles.card}>
@@ -576,12 +577,55 @@ export default function SettingsScreen() {
             <Text style={styles.addReminderBtnText}>{t('addReminder')}</Text>
           </TouchableOpacity>
         </View>
-
+        <Text style={styles.sectionLabel}>HOME SCREEN</Text>
+        <View style={styles.widgetCard}>
+          <View style={styles.widgetPreview}>
+            <View style={styles.widgetPreviewTop}><Text style={styles.widgetEyebrow}>LEANLOG / TODAY</Text><Text style={styles.widgetUpdated}>UPDATED 4:18 PM</Text></View>
+            <View style={styles.widgetPreviewHero}><View><Text style={styles.widgetValue}>1,240</Text><Text style={styles.widgetKcal}>KCAL LEFT</Text></View><View style={styles.widgetPercent}><Text style={styles.widgetPercentValue}>38%</Text><Text style={styles.widgetPercentSub}>760 / 2,000</Text></View></View>
+            <View style={styles.widgetPreviewTrack}><View style={styles.widgetPreviewFill} /></View>
+            <View style={styles.widgetPreviewTiles}><Text style={styles.widgetPreviewTile}>4,892 steps · 2 meals{`\n`}TRUE CASH −RM 681</Text><Text style={[styles.widgetPreviewTile, styles.widgetPreviewGuard]}>📌 CIMB PLATINUM{`\n`}RM 1,686 / 1,400 · 120%</Text></View>
+          </View>
+          <Text style={styles.widgetTitle}>Build your own home screen.</Text>
+          <Text style={styles.widgetBody}>Daily can show Spending Guards or up to four chosen account balances in its compact slots. Choose when adding it, or long-press the widget and use your launcher's Edit option. Each widget keeps its own settings.</Text>
+          <TouchableOpacity style={styles.widgetButton} onPress={() => addHomeWidget()}><Text style={styles.widgetButtonText}>＋ Daily overview</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.widgetButton} onPress={() => addHomeWidget('LeanLogAccount', 'LeanLog Account')}><Text style={styles.widgetButtonText}>＋ Account snapshot</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.widgetButton} onPress={() => addHomeWidget('LeanLogCashReality', 'LeanLog Cash Reality')}><Text style={styles.widgetButtonText}>＋ Cash Reality</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.widgetButton} onPress={() => addHomeWidget('LeanLogQuickLog', 'LeanLog Quick Log')}><Text style={styles.widgetButtonText}>＋ Quick Log</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.widgetButton} onPress={() => addHomeWidget('LeanLogAutomation', 'LeanLog Bills & Automation')}><Text style={styles.widgetButtonText}>＋ Automation & bills</Text></TouchableOpacity>
+        </View>
+        </SettingsGroup>
+        <SettingsGroup title="Data & recovery" summary="Cloud checkpoint, Bluecoins import, RedCoins backup and data health">
+        {/* Cloud Sync */}
+        <Text style={styles.sectionLabel}>{t('cloudSync')}</Text>
+        <View style={styles.syncCard}>
+          <View style={styles.syncHeader}><Text style={styles.syncKicker}>YOUR DATA, YOUR EXIT</Text><Text style={styles.syncTitle}>Keep a second copy.</Text><Text style={styles.syncSub}>A manual checkpoint for the days you change phone or need to roll back.</Text></View>
+          <TouchableOpacity style={styles.syncAction} onPress={uploadToCloud} disabled={syncing}>
+            <View style={styles.syncIcon}><Ionicons name="cloud-upload-outline" size={20} color="#101A2B" /></View><View style={{ flex: 1 }}>
+              <Text style={styles.syncActionTitle}>{t('uploadToCloud')}</Text>
+              <Text style={styles.syncActionSub}>{t('uploadDesc')}</Text>
+            </View>
+            {syncing && <ActivityIndicator size="small" color="#FF6542" />}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.syncAction} onPress={restoreFromCloud} disabled={syncing}>
+            <View style={[styles.syncIcon, styles.syncIconOutline]}><Ionicons name="cloud-download-outline" size={20} color="#FFF4DB" /></View><View style={{ flex: 1 }}>
+              <Text style={styles.syncActionTitle}>{t('restoreData')}</Text>
+              <Text style={styles.syncActionSub}>{t('restoreDesc')}</Text>
+            </View>
+            <Ionicons name="arrow-forward" size={18} color="#7F8BA0" />
+          </TouchableOpacity>
+          {syncMsg !== '' && (
+            <Text style={styles.syncMsg}>{syncMsg}</Text>
+          )}
+        </View>
         {/* Account */}
         <Text style={styles.sectionLabel}>Bluecoins import</Text>
         <BluecoinsImportSettings />
         <Text style={styles.sectionLabel}>RedCoins backup & restore</Text>
         <RedCoinsBackupSettings />
+        <Text style={styles.sectionLabel}>RedCoins data health</Text>
+        <RedCoinsDataCheck />
+        </SettingsGroup>
+        <SettingsGroup title="Account & app" summary="Sign-in, updates, help and app history">
         <Text style={styles.sectionLabel}>{t('account')}</Text>
         <View style={styles.card}>
           <View style={styles.accountRow}>
@@ -595,7 +639,6 @@ export default function SettingsScreen() {
         </View>
 
         <View style={{ height: 40 }} />
-
         <Text style={styles.sectionLabel}>App</Text>
         <View style={styles.card}>
           <TouchableOpacity style={styles.actionRow} onPress={() => setShowChronicle(true)}>
@@ -625,21 +668,8 @@ export default function SettingsScreen() {
               <Text style={styles.actionSub}>Cadangan, masalah atau sebarang pertanyaan</Text>
             </View>
           </TouchableOpacity>
-          <View style={styles.divider} />
-          <TouchableOpacity style={styles.actionRow} onPress={() => {
-            Alert.alert(
-              '📊 Pengiraan Makro',
-              'Matlamat makro dikira daripada sasaran kalori harian anda:\n\n• Protein: 25% ÷ 4 kcal/g\n• Karbohidrat: 45% ÷ 4 kcal/g\n• Lemak: 30% ÷ 9 kcal/g\n\nContoh (2000 kcal):\nProtein 125g  |  Karbo 225g  |  Lemak 67g',
-              [{ text: 'OK' }]
-            );
-          }}>
-            <View style={styles.actionIcon}><Ionicons name="analytics-outline" size={19} color="#101A2B" /></View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.actionTitle}>Cara Makro Dikira</Text>
-              <Text style={styles.actionSub}>Ketahui pengiraan Protein, Karbo & Lemak</Text>
-            </View>
-          </TouchableOpacity>
         </View>
+        </SettingsGroup>
 
         <View style={{ height: 20 }} />
 

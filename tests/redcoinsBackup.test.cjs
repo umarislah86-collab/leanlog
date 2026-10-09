@@ -32,7 +32,7 @@ function runtime() {
   let failWrites = false, writes = 0;
   const storage = { getItem: async key => values.get(key) ?? null, setItem: async (key, value) => values.set(key, value) };
   const filesystem = { documentDirectory: 'file://documents/', StorageAccessFramework: { requestDirectoryPermissionsAsync: async () => ({ granted: true, directoryUri: 'content://folder' }), createFileAsync: async (folder, name) => `${folder}/${name}` }, writeAsStringAsync: async (uri, contents) => { if (failWrites) throw Error('Permission revoked'); files.set(uri, contents); writes++; }, readAsStringAsync: async uri => files.get(uri) };
-  const fileApi = load('redcoinsBackupFiles', { '@react-native-async-storage/async-storage': storage, 'expo-file-system/legacy': filesystem, 'react-native': { Platform: { OS: 'android' }, AppState: {} }, './redcoins': { flushRedCoinsWrites: async () => {} }, './redcoinsEvents': { subscribeRedCoinsChanges: () => () => {} }, './redcoinsBackupFormat': format });
+  const fileApi = load('redcoinsBackupFiles', { '@react-native-async-storage/async-storage': storage, 'expo-file-system/legacy': filesystem, 'react-native': { Platform: { OS: 'android' }, AppState: {} }, './redcoins': { readSavedRedCoinsRaw: async () => values.get('redcoins_state_v1') }, './redcoinsEvents': { subscribeRedCoinsChanges: () => () => {} }, './redcoinsBackupFormat': format });
   return { values, files, storage, filesystem, fileApi, fail: () => { failWrites = true; }, writes: () => writes };
 }
 test('folder backups read back valid JSON, never overwrite history, deduplicate unchanged autos and record failures', async () => {
@@ -63,7 +63,7 @@ test('capture whitelists financial settings, never device permission URLs or aut
 });
 test('restore creates recoverable checkpoint, replaces not merges, and treats post-commit refresh failure as warning', async () => {
   const env = runtime(); let refreshFails = false;
-  const service = { loadRedCoins: async () => JSON.parse(env.values.get('redcoins_state_v1')), replaceRedCoinsFromBackup: async (next, expected, preferences) => { assert.equal(env.values.get('redcoins_state_v1'), expected); env.values.set('redcoins_state_v1', JSON.stringify(next)); for (const [key, value] of Object.entries(preferences)) env.values.set(key, value); }, getRedCoinsSummary: async () => {} };
+  const service = { readSavedRedCoinsRaw: async () => env.values.get('redcoins_state_v1'), loadRedCoins: async () => JSON.parse(env.values.get('redcoins_state_v1')), replaceRedCoinsFromBackup: async (next, expected, preferences) => { assert.equal(env.values.get('redcoins_state_v1'), expected); env.values.set('redcoins_state_v1', JSON.stringify(next)); for (const [key, value] of Object.entries(preferences)) env.values.set(key, value); }, getRedCoinsSummary: async () => {} };
   const restore = load('redcoinsBackupRestore', { '@react-native-async-storage/async-storage': env.storage, 'expo-file-system/legacy': env.filesystem, './redcoins': service, './redcoinsLedger': { syncRedCoinsLedger: async () => { if (refreshFails) throw Error('index fail'); } }, './redcoinsReminders': { syncReminderNotifications: async () => {} }, './redcoinsBackupFormat': format, './redcoinsBackupFiles': env.fileApi, './widget': { refreshLeanLogWidget: async () => {} } });
   const incoming = backup(); incoming.state.entries = []; incoming.state.accounts[0].balance = 42;
   const preview = await restore.stageRedCoinsBackup(JSON.stringify(incoming), 'backup.json');
@@ -83,7 +83,7 @@ test('restore creates recoverable checkpoint, replaces not merges, and treats po
 test('failed safety-file write aborts restore before replacing the ledger', async () => {
   const env = runtime(); let replacements = 0;
   const restore = load('redcoinsBackupRestore', { '@react-native-async-storage/async-storage': env.storage, 'expo-file-system/legacy': env.filesystem,
-    './redcoins': { loadRedCoins: async () => JSON.parse(env.values.get('redcoins_state_v1')), replaceRedCoinsFromBackup: async () => { replacements++; }, getRedCoinsSummary: async () => {} },
+    './redcoins': { readSavedRedCoinsRaw: async () => env.values.get('redcoins_state_v1'), loadRedCoins: async () => JSON.parse(env.values.get('redcoins_state_v1')), replaceRedCoinsFromBackup: async () => { replacements++; }, getRedCoinsSummary: async () => {} },
     './redcoinsLedger': { syncRedCoinsLedger: async () => {} }, './redcoinsReminders': { syncReminderNotifications: async () => {} }, './redcoinsBackupFormat': format, './redcoinsBackupFiles': env.fileApi, './widget': { refreshLeanLogWidget: async () => {} } });
   const original = env.values.get('redcoins_state_v1');
   const preview = await restore.stageRedCoinsBackup(JSON.stringify(backup()), 'backup.json');

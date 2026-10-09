@@ -1,15 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getRedCoinsSummary, loadRedCoins } from '../services/redcoins';
+import { getRedCoinsSummary, hasSavedRedCoins, loadRedCoins } from '../services/redcoins';
 import { nextReminderOccurrence } from '../services/redcoinsReminders';
 import type { AutomationWidgetRow, CashWidgetData, WidgetAccount } from './RedCoinsWidgets';
 
-const REDCOINS_STATE_KEY = 'redcoins_state_v1';
 const accountPreferenceKey = (widgetId: number) => `widget_account_snapshot_${widgetId}`;
 export const widgetUpdatedTime = () => new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
 
 async function state() {
-  const raw = await AsyncStorage.getItem(REDCOINS_STATE_KEY);
-  return raw ? loadRedCoins() : null;
+  return await hasSavedRedCoins() ? loadRedCoins() : null;
 }
 export async function getWidgetAccounts() { return (await state())?.accounts || []; }
 export async function saveWidgetAccount(widgetId: number, name: string) { await AsyncStorage.setItem(accountPreferenceKey(widgetId), name); }

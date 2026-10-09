@@ -33,7 +33,7 @@ test('each daily widget keeps independent settings and deleting one leaves the o
   assert.equal(JSON.stringify((await preferences.getDailyWidgetPreferences(1)).accountIds), '["b","a"]');
 });
 const data = load('widgets/widget-data.ts', {
-  '../services/redcoins': { getRedCoinsSummary: async () => ({}) },
+  '../services/redcoins': { getRedCoinsSummary: async () => ({}), loadRedCoins: async () => JSON.parse(stored.get('redcoins_state_v1') || '{"accounts":[]}') },
   '@react-native-async-storage/async-storage': storage, './daily-widget-preferences': preferences,
   '../services/spendingGuards': { WIDGET_GUARD_KEY: 'guards', WIDGET_CASH_REALITY_KEY: 'cash' },
 });

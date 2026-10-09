@@ -932,7 +932,7 @@ export default function HomeScreen({ navigation }: any) {
                 </View>
                 <Text style={styles.realityPickerHint}>WHICH BALANCES COUNT AS SPENDABLE CASH?</Text>
                 <View style={styles.realityAccountList}>
-                  <TouchableOpacity style={styles.realityAccountSummary} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins', { section: 'plan' }); }} activeOpacity={0.78}>
+                  <TouchableOpacity style={styles.realityAccountSummary} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins', { section: 'plan', planPage: 'budgets' }); }} activeOpacity={0.78}>
                     <Ionicons name="checkmark-circle" size={20} color={colors.ink} />
                     <Text style={styles.realityAccountNameActive}>{bluecoins.cashReality.selectedAccounts.length ? bluecoins.cashReality.selectedAccounts.join(' · ') : 'No cash account selected'}</Text>
                     <Ionicons name="arrow-forward" size={16} color={colors.muted} />
@@ -1019,7 +1019,7 @@ export default function HomeScreen({ navigation }: any) {
                         </View>
                       ))}
                     {showFixedCommitments && (
-                      <TouchableOpacity style={styles.commitmentManage} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins', { section: 'plan' }); }}>
+                      <TouchableOpacity style={styles.commitmentManage} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins', { section: 'plan', planPage: 'budgets' }); }}>
                         <Ionicons name="options-outline" size={14} color={colors.coral} />
                         <Text style={styles.commitmentManageText}>MANAGE RECURRING ITEMS</Text>
                       </TouchableOpacity>
@@ -1029,14 +1029,14 @@ export default function HomeScreen({ navigation }: any) {
 
                 <View style={styles.guardSectionHeader}>
                   <Text style={[styles.budgetSectionTitle, { marginBottom: 0 }]}>SPENDING GUARDS</Text>
-                  <TouchableOpacity style={styles.guardAddButton} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins', { section: 'plan' }); }}>
+                  <TouchableOpacity style={styles.guardAddButton} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins', { section: 'plan', planPage: 'guards' }); }}>
                     <Ionicons name="arrow-forward" size={16} color={colors.ink} />
                     <Text style={styles.guardAddText}>MANAGE</Text>
                   </TouchableOpacity>
                 </View>
                 {bluecoins.spendingGuards.length ? (
                   bluecoins.spendingGuards.map((guard) => (
-                    <TouchableOpacity key={guard.id} style={styles.guardListRow} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins', { section: 'plan' }); }} activeOpacity={0.75}>
+                    <TouchableOpacity key={guard.id} style={styles.guardListRow} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins', { section: 'plan', planPage: 'guards' }); }} activeOpacity={0.75}>
                       <View
                         style={[
                           styles.guardStatusDot,
@@ -1079,7 +1079,7 @@ export default function HomeScreen({ navigation }: any) {
                   </View>
                   <Text style={styles.paydayPrefix}>DAY</Text>
                   <TextInput style={styles.paydayInput} value={paydayInput} editable={false} />
-                  <TouchableOpacity style={styles.paydaySave} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins', { section: 'plan' }); }}>
+                  <TouchableOpacity style={styles.paydaySave} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins', { section: 'plan', planPage: 'budgets' }); }}>
                     <Text style={styles.paydaySaveText}>Manage</Text>
                   </TouchableOpacity>
                 </View>
@@ -1088,7 +1088,7 @@ export default function HomeScreen({ navigation }: any) {
                 <View style={styles.budgetEditRow}>
                   <Text style={styles.currencyPrefix}>RM</Text>
                   <TextInput style={styles.budgetInput} value={budgetInput} editable={false} />
-                  <TouchableOpacity style={styles.budgetSave} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins', { section: 'plan' }); }}>
+                  <TouchableOpacity style={styles.budgetSave} onPress={() => { setShowBudgetCoach(false); navigation.navigate('RedCoins', { section: 'plan', planPage: 'budgets' }); }}>
                     <Text style={styles.budgetSaveText}>Manage</Text>
                   </TouchableOpacity>
                 </View>

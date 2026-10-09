@@ -9,6 +9,7 @@ const asyncStorage = { getItem: async key => storage.get(key) || null, setItem: 
 function load(name, mocks = {}) {
   const exports = {};
   vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname, '../services', `${name}.ts`), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText, { exports, Date, console, require: id => {
+    if (id === './redcoinsSqlStore') { mocks['expo-sqlite'] ||= require('./helpers/redcoins-sql.cjs').sqliteHarness().expo; return load('redcoinsSqlStore', mocks); }
     if (id === './redcoinsSalaryFilter') return load('redcoinsSalaryFilter');
     if (id === './redcoinsStatus') return load('redcoinsStatus');
     if (id === './redcoinsSummary') return load('redcoinsSummary', { './redcoinsGuards': load('redcoinsGuards') });

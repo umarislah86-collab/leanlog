@@ -79,7 +79,7 @@ export function pendingReminderOccurrence(state: RedCoinsState, reminder: RedCoi
 
 /** Consume one scheduled occurrence early, without moving the monthly anchor. */
 export function logReminderOccurrenceNow(original: RedCoinsState, reminderId: string, expectedDue: string, now = new Date()) {
-  const state = JSON.parse(JSON.stringify(original)) as RedCoinsState;
+  const state = { ...original, ...JSON.parse(JSON.stringify(original)) } as RedCoinsState;
   const reminder = state.reminders.find(row => row.id === reminderId);
   if (!reminder?.enabled) throw new Error('This schedule is paused or no longer available.');
   if (!Number.isFinite(reminder.template.amount) || reminder.template.amount <= 0) throw new Error('Fix the reminder amount first.');

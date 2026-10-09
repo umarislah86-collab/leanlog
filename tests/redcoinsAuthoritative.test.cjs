@@ -7,6 +7,10 @@ const vm = require('node:vm');
 function load(name, mocks = {}) {
   const exports = {};
   vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname, '../services', name + '.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText, { exports, Date, console, require: id => {
+    if (id === './redcoinsSqlStore') {
+      mocks['expo-sqlite'] ||= require('./helpers/redcoins-sql.cjs').sqliteHarness().expo;
+      return load('redcoinsSqlStore', mocks);
+    }
     if (id === './redcoinsAccountIdentity') return load('redcoinsAccountIdentity', mocks);
     if (id === './redcoinsSalaryFilter') return load('redcoinsSalaryFilter');
     if (id === './redcoinsStatus') return load('redcoinsStatus');
@@ -167,23 +171,23 @@ test('bank review progress survives durable saves and reopening without touching
   const next = await service.loadRedCoins();
   assert.equal(JSON.stringify(next.bankReviews), JSON.stringify(saved.bankReviews));
   assert.equal(next.accounts[0].balance, 1856.97); assert.equal(next.entries[0].status, 'cleared');
-  assert.equal(JSON.parse(values.get('redcoins_state_v1')).bankReviews['1'].bankBalance, '1856.97');
+  assert.equal(JSON.parse(await service.readSavedRedCoinsRaw()).bankReviews['1'].bankBalance, '1856.97');
 });
 
 test('backup replacement serializes writes, rejects stale ledger/preferences and preserves authoritative money', async () => {
   const { values, service } = runtime();
   const original = state([row('old')]); original.storageVersion = 2; original.statusMappingVersion = 1;
   await service.saveRedCoins(original);
-  const raw = values.get('redcoins_state_v1');
+  const raw = await service.readSavedRedCoinsRaw();
   const restored = { ...original, entries: [], accounts: [account('1', 'Aeon', 1856.97)] };
   values.set('finance-pref', 'changed');
   await assert.rejects(service.replaceRedCoinsFromBackup(restored, raw, { 'finance-pref': 'backup' }, { 'finance-pref': 'old' }), /settings changed/);
-  assert.equal(values.get('redcoins_state_v1'), raw);
+  assert.equal(await service.readSavedRedCoinsRaw(), raw);
   const edit = service.saveRedCoins({ ...original, monthlyBudget: 4000 });
   const stale = service.replaceRedCoinsFromBackup(restored, raw, {}, {});
   await edit; await assert.rejects(stale, /changed/);
-  assert.equal(JSON.parse(values.get('redcoins_state_v1')).monthlyBudget, 4000);
-  await service.replaceRedCoinsFromBackup(restored, values.get('redcoins_state_v1'), { 'finance-pref': 'backup' }, { 'finance-pref': 'changed' });
+  assert.equal(JSON.parse(await service.readSavedRedCoinsRaw()).monthlyBudget, 4000);
+  await service.replaceRedCoinsFromBackup(restored, await service.readSavedRedCoinsRaw(), { 'finance-pref': 'backup' }, { 'finance-pref': 'changed' });
   assert.equal((await service.loadRedCoins()).accounts[0].balance, 1856.97);
   assert.equal((await service.loadRedCoins()).entries.length, 0); assert.equal(values.get('finance-pref'), 'backup');
 });
@@ -197,7 +201,7 @@ test('status repair persists once with exact checkpoint, no FYDB reads and no ba
   assert.equal(first.entries[0].status, 'none'); assert.equal(first.entries[0].legacyStatusUnknown, true);
   assert.equal(first.entries[1].status, 'pending'); assert.equal(first.entries[2].status, 'pending');
   assert.equal(values.get('redcoins_pre_status_mapping_v1'), bytes);
-  assert.equal(JSON.parse(values.get('redcoins_state_v1')).statusMappingVersion, 1);
+  assert.equal(JSON.parse(await service.readSavedRedCoinsRaw()).statusMappingVersion, 1);
   for (let i = 0; i < 20; i++) assert.equal((await service.loadRedCoins()).accounts[0].balance, 1856.97);
   assert.equal(values.get('redcoins_pre_status_mapping_v1'), bytes);
 });

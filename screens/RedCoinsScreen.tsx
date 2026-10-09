@@ -14,7 +14,9 @@ import type { TransactionDetection } from 'bluecoins-drive-reader';
 import { setBluecoinsFixedCommitments, setBluecoinsMonthlyBudget, setBluecoinsPayday, setCashRealityAccounts, setCashRealitySafetyBuffer, type BluecoinsSummary } from '../services/bluecoins';
 import { applyEntryBalance, confirmRedCoinsExport, createRedCoinsDeletion, exportRedCoinsBackup, exportRedCoinsCsv, getRedCoinsSummary, loadRedCoins, saveRedCoins, type RedCoinsAccountType, type RedCoinsEntry, type RedCoinsReminder, type RedCoinsReminderEndType, type RedCoinsState, type RedCoinsType, type RedCoinsWeekendMove } from '../services/redcoins';
 import { aggregateCycleSpending } from '../services/redcoinsBudget';
-import { RedCoinsTermBudgets } from '../components/RedCoinsTermBudgets';
+import { RedCoinsBudgetEditor, type BudgetChoice } from '../components/RedCoinsBudgetEditor';
+import { periodAllocation, replaceTargetBudget, targetBudgetChoices } from '../services/redcoinsBudgetSetup';
+import { termBudgetSummary, validTermBudget } from '../services/redcoinsTermBudget';
 import { favoriteAccountsForHome } from '../services/redcoinsFavorites';
 import { loggerCategories, loggerSuggestions } from '../services/redcoinsLogger';
 import { findIncomeDuplicates, incomeMonth, validIncomePeriod } from '../services/redcoinsIncomeDuplicate';
@@ -28,6 +30,7 @@ import { RedCoinsAnalysis } from '../components/RedCoinsAnalysis';
 import { RedCoinsBankReviewModal } from '../components/RedCoinsBankReviewModal';
 import { migrateAccountPreferences } from '../services/redcoinsAccountIdentity';
 import { subscribeRedCoinsChanges } from '../services/redcoinsEvents';
+import { afterRedCoinsPaint } from '../services/redcoinsSavePaint';
 import { advanceReminderDate, materializeAutomaticReminders, missingReminderAccounts, nextReminderOccurrence, pendingReminderOccurrence, logReminderOccurrenceNow, requestReminderAccess, syncReminderNotifications } from '../services/redcoinsReminders';
 import { projectRedCoinsReminders } from '../services/redcoinsReminderProjection';
 import { deleteRedCoinsLedgerEntry, syncRedCoinsLedger, upsertRedCoinsLedgerEntry } from '../services/redcoinsLedger';
@@ -142,6 +145,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const [type, setType] = useState<RedCoinsType>('expense');
   const [incomePeriod, setIncomePeriod] = useState('');
   const entrySaveLock = useRef(false);
+  const [entrySaving, setEntrySaving] = useState(false);
+  const localWriteSource = useRef({});
   const [account, setAccount] = useState('');
   const [toAccount, setToAccount] = useState('');
   const [category, setCategory] = useState('');
@@ -172,7 +177,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     category: string;
     subcategory: string;
   } | null>(null);
-  const [budgetDraft, setBudgetDraft] = useState('');
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const [planPage, setPlanPage] = useState<'overview' | 'budgets' | 'guards' | 'automation'>('overview');
   const [cycleBudgetDraft, setCycleBudgetDraft] = useState('');
   const [paydayDraft, setPaydayDraft] = useState('25');
   const [safetyBufferDraft, setSafetyBufferDraft] = useState('0');
@@ -197,11 +203,15 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const reminderCards = useMemo(() => state && reminderManagerOpen ? projectRedCoinsReminders(state) : [], [state, reminderManagerOpen]);
 
   const navigateSection = useCallback((next: Section) => {
+    if (next === 'accounts') setCategoriesOpen(false);
+    if (next === 'plan') setPlanPage('overview');
     if (section === next) return;
     sectionHistory.current.push(section);
     setSection(next);
   }, [section]);
   const goBackInsideRedCoins = useCallback(() => {
+    if (section === 'accounts' && categoriesOpen) { setCategoriesOpen(false); return true; }
+    if (section === 'plan' && planPage !== 'overview') { setPlanPage('overview'); return true; }
     const previous = sectionHistory.current.pop();
     if (previous) {
       setSection(previous);
@@ -209,7 +219,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     }
     navigation.navigate('Home');
     return true;
-  }, [navigation]);
+  }, [navigation, section, categoriesOpen, planPage]);
 
   useFocusEffect(useCallback(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', goBackInsideRedCoins);
@@ -300,7 +310,9 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     if (!target || !['home', 'activity', 'accounts', 'plan', 'reports'].includes(target)) return;
     sectionHistory.current = [];
     setSection(target);
-    navigation.setParams({ section: undefined });
+    if (target === 'plan') setPlanPage(['budgets','guards','automation'].includes(route?.params?.planPage) ? route.params.planPage : 'overview');
+    if (target === 'accounts') setCategoriesOpen(false);
+    navigation.setParams({ section: undefined, planPage: undefined });
   }, [route?.params?.section]);
 
   const persist = async (next: RedCoinsState, refreshSource = false) => {
@@ -377,7 +389,10 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     const summary = await getRedCoinsSummary(current);
     if (request === summaryRequest.current) setBluecoins(summary);
   };
-  useEffect(() => subscribeRedCoinsChanges(({ kind }) => {
+  useEffect(() => subscribeRedCoinsChanges(({ kind, source }) => {
+    // Entry saves publish their committed state directly. External changes must
+    // still reload, including due reminders, restores and settings updates.
+    if (source === localWriteSource.current) return;
     void (async () => {
       const current = await loadRedCoins();
       if (kind === 'state') setState(current);
@@ -423,6 +438,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     return () => clearTimeout(timer);
   }, [state?.reminders]);
   const resetEntry = (initialType: RedCoinsType = 'expense') => {
+    if (entrySaveLock.current) return;
     if (!state) return;
     const recent = state.entries.find((entry) => entry.type === initialType);
     const available = loggerCategories(state.categories, state.entries, initialType);
@@ -456,14 +472,15 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setEntryOpen(true);
   };
   const createReminderSchedule = () => {
+    if (entrySaveLock.current) return;
     resetEntry('expense');
     setSchedulingOnly(true);
     setRepeat('monthly');
     setAdvanced(true);
   };
   const suggestions = useMemo(() => {
-    return loggerSuggestions(state?.entries || [], item, type);
-  }, [item, state?.entries, type]);
+    return entryOpen ? loggerSuggestions(state?.entries || [], item, type) : [];
+  }, [entryOpen, item, state?.entries, type]);
   const applyEntryType = (nextType: RedCoinsType) => {
     setType(nextType);
     setIncomePeriod('');
@@ -485,7 +502,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setCategory(entry.category);
     setSubcategory(entry.subcategory);
   };
-  const editEntry = (selectedEntry: RedCoinsEntry) => {
+  const editEntry = (selectedEntry: RedCoinsEntry, duplicateReview = false) => {
+    if (entrySaveLock.current && !duplicateReview) return;
     // SQLite rows contain ledger-display fields; newer metadata is authoritative
     // in the saved state and must survive opening an entry from the ledger.
     const entry = state?.entries.find(row => row.id === selectedEntry.id) || selectedEntry;
@@ -517,7 +535,24 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setAdvanced(!!entry.note || !!entry.labels?.length || (!!entry.repeat && entry.repeat !== 'none'));
     setEntryOpen(true);
   };
+  useEffect(() => {
+    const target = route?.params?.auditTarget;
+    if (!target || !state) return;
+    navigation.setParams({ auditTarget: undefined });
+    setSection(target.section);
+    if (target.section === 'plan') setPlanPage(target.planPage || 'budgets');
+    if (target.section === 'accounts') setCategoriesOpen(false);
+    if (target.entryId) {
+      const entry = state.entries.find(row => row.id === target.entryId);
+      if (entry) editEntry(entry);
+      else Alert.alert('Entry unavailable', 'This result is no longer in the current ledger. Run Check my data again.');
+    } else if (target.accountId) {
+      if (state.accounts.some(account => account.id === target.accountId)) setBankReviewAccountId(target.accountId);
+      else Alert.alert('Account unavailable', 'Run Check my data again.');
+    }
+  }, [route?.params?.auditTarget, state]);
   const editReminderSchedule = (reminder: RedCoinsReminder) => {
+    if (entrySaveLock.current) return;
     const template = reminder.template;
     setEditingEntryId(null);
     setReviewingDetectionId(null);
@@ -547,12 +582,31 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setEntryOpen(true);
   };
   const saveEntryInternal = async () => {
-    let state = await loadRedCoins();
-    if (!state || !item.trim() || !Number(amount) || !account || (type === 'transfer' && !toAccount)) return Alert.alert('Incomplete entry', 'Add item, amount and account first.');
+    if (!item.trim() || !Number(amount) || !account || (type === 'transfer' && !toAccount)) return Alert.alert('Incomplete entry', 'Add item, amount and account first.');
     if (!schedulingOnly && type === 'income' && incomePeriod.trim() && !validIncomePeriod(incomePeriod.trim())) return Alert.alert('Invalid income month', 'Use YYYY-MM, for example 2026-09, or leave it blank to use the transaction month.');
     if (schedulingOnly && (!repeat || repeat === 'none' || repeat === 'installment')) return Alert.alert('Choose a schedule', 'Select daily, weekly, monthly or yearly.');
     if (repeat && repeat !== 'none' && reminderEndType === 'date' && (!reminderEndDate || Number.isNaN(new Date(`${reminderEndDate}T23:59:59`).getTime()))) return Alert.alert('Invalid end date', 'Use YYYY-MM-DD for the recurring end date.');
     if (repeat === 'installment' && (Number(installments) || 0) < 2) return Alert.alert('Invalid instalments', 'Use at least 2 instalments.');
+    Keyboard.dismiss();
+    await afterRedCoinsPaint();
+    let state = await loadRedCoins();
+    // The latest durable state is still authoritative: never save a stale copy
+    // captured when the logger opened, or bypass due-balance reconciliation.
+    if (!state.accounts.some(row => row.name === account) || (type === 'transfer' && !state.accounts.some(row => row.name === toAccount))) throw new Error('This account changed. Please choose the account again.');
+    if (editingEntryId && !state.entries.some(row => row.id === editingEntryId)) throw new Error('This transaction was removed while the logger was open.');
+    const commit = async (next: RedCoinsState, entryIds?: string[]) => {
+      await saveRedCoins(next, localWriteSource.current, entryIds);
+      setEntryOpen(false);
+      await afterRedCoinsPaint();
+      setState(next);
+      const refreshToken = ++summaryRequest.current;
+      // Summary/widget refresh is secondary to the durable transaction commit.
+      void afterRedCoinsPaint().then(async () => {
+        if (refreshToken !== summaryRequest.current) return;
+        await refreshLiveBluecoins(next);
+        await refreshLeanLogWidget();
+      }).catch(console.warn);
+    };
     if (!schedulingOnly && type === 'income') {
       const duplicateDraft = { id: editingEntryId || '', type, item: item.trim(), account, category, subcategory, date: entryDate.toISOString(), amount: Number(amount), incomePeriod: incomePeriod.trim() || undefined };
       const duplicates = findIncomeDuplicates(state.entries, duplicateDraft);
@@ -562,9 +616,9 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           { text: 'Review latest', onPress: () => resolve('review') },
           { text: 'Save anyway', onPress: () => resolve('save') },
         ], { cancelable: true, onDismiss: () => resolve('cancel') }));
-        if (decision === 'cancel') return;
+        if (decision === 'cancel') { setEntryOpen(true); return; }
         state = await loadRedCoins();
-        if (decision === 'review') { const existing = state.entries.find(entry => entry.id === duplicates[0].id); if (existing) editEntry(existing); else Alert.alert('Entry changed', 'The matching transaction was removed. Please check the ledger.'); return; }
+        if (decision === 'review') { const existing = state.entries.find(entry => entry.id === duplicates[0].id); if (existing) editEntry(existing, true); else { setEntryOpen(true); Alert.alert('Entry changed', 'The matching transaction was removed. Please check the ledger.'); } return; }
       }
     }
     if (schedulingOnly) {
@@ -608,13 +662,12 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         applyEntryBalance(next, generated, 1);
         generated.balanceEffectApplied = true;
       });
-      setEntryOpen(false);
+      await commit(next);
       setSchedulingOnly(false);
       setEditingReminderId(null);
       setReminderManagerOpen(true);
-      await Promise.all([persist(next), syncRedCoinsLedger(next.entries)]);
+      void syncRedCoinsLedger(next.entries).then(() => setLedgerRevision(value => value + 1)).catch(console.warn);
       void syncScheduleAccess(next.reminders).catch(console.warn);
-      setLedgerRevision((value) => value + 1);
       return;
     }
     const original = editingEntryId ? state.entries.find((entry) => entry.id === editingEntryId) : undefined;
@@ -708,10 +761,9 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     }
     if (original) applyEntryBalance(next, original, -1);
     applyEntryBalance(next, entry, 1);
-    setEntryOpen(false);
+    await commit(next, hasReminder || editingSeriesTemplate ? undefined : [entry.id]);
     if (reviewingDetectionId) dismissDetection(reviewingDetectionId).catch(() => {});
     navigateSection('activity');
-    void persist(next).catch(() => Alert.alert('Save failed', 'LeanLog could not write this change to local storage. Please try again.'));
     const indexWrite = hasReminder || editingSeriesTemplate ? syncRedCoinsLedger(next.entries) : upsertRedCoinsLedgerEntry(entry);
     void indexWrite
         .then(() => setLedgerRevision((value) => value + 1))
@@ -721,9 +773,13 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const saveEntry = async () => {
     if (entrySaveLock.current) return;
     entrySaveLock.current = true;
+    setEntrySaving(true);
     try { await saveEntryInternal(); }
-    catch (error) { Alert.alert('Could not save entry', error instanceof Error ? error.message : String(error)); }
-    finally { entrySaveLock.current = false; }
+    catch (error) {
+      setEntryOpen(true);
+      Alert.alert('Could not save entry', error instanceof Error ? error.message : String(error));
+    }
+    finally { entrySaveLock.current = false; setEntrySaving(false); }
   };
   const deleteEditingEntry = () => {
     if (!state || !editingEntryId) return;
@@ -931,6 +987,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setDetections((rows) => rows.filter((row) => row.id !== id));
   };
   const reviewDetection = (detection: TransactionDetection) => {
+    if (entrySaveLock.current) return;
     resetEntry();
     setReviewingDetectionId(detection.id);
     setType('expense');
@@ -1007,7 +1064,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   ], { cancelable: true });
 
   const report = useMemo(() => {
-    if (!state) return null;
+    if (!state || section !== 'reports') return null;
     const source = salarySources.find((item) => item.key === reportSalarySource)
       || salarySources.find(item => item.entries[0]?.item.trim().toLowerCase().replace(/\s+/g, ' ') === reportSalarySource)
       || salarySources[0];
@@ -1082,7 +1139,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       accountMovement: [...accountMovement].sort((a, b) => (b[1].incoming + b[1].outgoing) - (a[1].incoming + a[1].outgoing)),
       ongoing: reportMode === 'salary-cycle' && !nextAnchor,
     };
-  }, [state, salarySources, reportSalarySource, reportCycleOffset, reportMode, reportCustomStart, reportCustomEnd]);
+  }, [section, state, salarySources, reportSalarySource, reportCycleOffset, reportMode, reportCustomStart, reportCustomEnd]);
 
   const reportAnalysisScope = useMemo(() => report ? ({ mode: reportMode, label: reportMode === 'salary-cycle' ? report.cycleLabel : `${reportDate(report.start)} — ${reportDate(report.displayEnd)}`, start: report.start, endExclusive: report.endExclusive, salarySource: report.source }) : null, [report, reportMode]);
   const openReportMetricLedger = (type: RedCoinsType) => {
@@ -1135,7 +1192,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     const daysLeft = Math.max(1, Math.ceil((cycleEnd.getTime() + 1 - now.getTime()) / 86400000));
     const cardDebt = bluecoins?.cashReality.cardOutstanding ?? state.accounts.filter((account) => account.type === 'Credit card').reduce((sum, account) => sum + Math.max(0, -account.balance), 0);
     const cash = bluecoins?.cashReality.liquidBalance ?? state.accounts.filter((account) => ['Bank', 'Cash'].includes(account.type)).reduce((sum, account) => sum + account.balance, 0);
-    const allocatedBudget = Object.entries(state.subcategoryBudgets || {}).reduce((sum, [key, value]) => sum + (budgetKeys.has(key) ? Math.max(0, Number(value) || 0) : 0), 0);
+    const allocatedBudget = Object.entries(state.subcategoryBudgets || {}).reduce((sum, [key, value]) => sum + (budgetKeys.has(key) ? Math.max(0, Number(value) || 0) : 0), 0) + periodAllocation(state,now);
     return {
       now,
       cycleStart,
@@ -1163,23 +1220,17 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     );
 
   const { now, cycleRows, spent, income, remaining, daysLeft, cardDebt, cash, trueSpendable, catSpend, topCats, allocatedBudget, unallocatedBudget, subcategorySpend } = finance!;
-  const categoryBudget = (category: string) => budgetCategories.find((group) => group.name === category)?.subcategories.reduce((sum, subcategory) => sum + (state.subcategoryBudgets[budgetKey(category, subcategory)] || 0), 0) || 0;
-  const openBudgetEditor = (category: string, subcategory: string) => {
-    setBudgetEditor({ category, subcategory });
-    setBudgetDraft(String(state.subcategoryBudgets[budgetKey(category, subcategory)] || ''));
-  };
-  const saveSubcategoryBudget = async () => {
+  const categoryBudget = (category: string) => (budgetCategories.find((group) => group.name === category)?.subcategories.reduce((sum, subcategory) => sum + (state.subcategoryBudgets[budgetKey(category, subcategory)] || 0), 0) || 0) + periodAllocation(state,new Date(),category);
+  const openBudgetEditor = (category: string, subcategory: string) => setBudgetEditor({ category, subcategory });
+  const saveBudgetSetup = async (choice: BudgetChoice) => {
     if (!budgetEditor) return;
-    const amountValue = Math.max(0, Number(budgetDraft) || 0);
-    const key = budgetKey(budgetEditor.category, budgetEditor.subcategory);
-    const current = state.subcategoryBudgets[key] || 0;
-    const available = Math.max(0, state.monthlyBudget - (allocatedBudget - current));
-    if (amountValue > available) return Alert.alert('Not enough budget left', `Only ${money(available)} is unallocated. Reduce another subcategory budget or increase the salary-cycle budget first.`);
-    const nextBudgets = { ...state.subcategoryBudgets };
-    if (amountValue > 0) nextBudgets[key] = amountValue;
-    else delete nextBudgets[key];
-    await persist({ ...state, subcategoryBudgets: nextBudgets });
-    setBudgetEditor(null);
+    const current = await loadRedCoins();
+    if (choice && !current.categories.some(c=>c.name===budgetEditor.category && (!budgetEditor.subcategory || c.subcategories.includes(budgetEditor.subcategory)))) throw new Error('This budget target no longer exists. Reopen Budgets to choose a current target.');
+    if (JSON.stringify(targetBudgetChoices(state,budgetEditor.category,budgetEditor.subcategory)) !== JSON.stringify(targetBudgetChoices(current,budgetEditor.category,budgetEditor.subcategory))) throw new Error('Budget changed while this editor was open. Close and reopen it before saving.');
+    const next = replaceTargetBudget(current,budgetEditor.category,budgetEditor.subcategory,choice);
+    const allocation = Object.values(next.subcategoryBudgets).reduce((sum,value)=>sum+Math.max(0,value),0)+periodAllocation(next);
+    if (choice && allocation > current.monthlyBudget + .005) throw new Error(`Planning allocation ${money(allocation)} exceeds cycle ceiling ${money(current.monthlyBudget)}. Reduce another budget or raise the ceiling first.`);
+    await persist(next);
   };
   const saveCycleBudget = async () => {
     const nextValue = Math.max(0, Number(cycleBudgetDraft) || 0);
@@ -1538,63 +1589,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       }}
     />
   );
-  const Accounts = () => {
-    const pending = state.entries.filter((e) => e.origin === 'redcoins' && !e.reconciledImportId && !e.exportedAt && (!e.autoGenerated || new Date(e.date).getTime() <= Date.now()));
-    const awaiting = [...(state.exportBatches || [])].reverse().find((batch) => !batch.confirmedAt);
-    const runExport = async (mode: 'pending' | 'all') => {
-      try {
-      const batch = await exportRedCoinsCsv(state, mode);
-      if (!batch) return;
-      await persist({
-        ...state,
-        exportBatches: [batch, ...(state.exportBatches || [])],
-      });
-      } catch (error) { Alert.alert('Export unavailable', error instanceof Error ? error.message : String(error)); }
-    };
-    return (
-      <>
-        <Title
-          eyebrow="MONEY LIBRARY"
-          title="Your structure, your rules."
-          action="＋ Account"
-          onAction={() => {
-            setEditingAccountId(null);
-            setDraftName('');
-            setDraftType('Bank');
-            setDraftIcon('business');
-            setDraftBalance('0');
-            setManageOpen('account');
-          }}
-        />
-        {(['Bank', 'Cash', 'Credit card', 'Liability', 'Investment'] as RedCoinsAccountType[]).map((type) => {
-          const rows = state.accounts.filter((account) => account.type === type);
-          if (!rows.length) return null;
-          return <View key={type} style={s.accountGroup}>
-            <View style={s.accountGroupHead}>
-              <Text style={s.accountGroupTitle}>{type.toUpperCase()}</Text>
-              <Text style={s.accountGroupTotal}>{money(rows.reduce((sum, account) => sum + account.balance, 0))}</Text>
-            </View>
-            {rows.map((a, index) => (
-              <TouchableOpacity key={a.id} style={[s.accountListRow, index < rows.length - 1 && s.accountListDivider]} onPress={() => openDashboardFilter('account', a.name)} activeOpacity={0.72}>
-                <FinanceAvatar name={a.name} kind={a.type} icon={a.icon} />
-                <View style={{ flex: 1 }}>
-                  <Text style={s.accountListName}>{a.name}</Text>
-                  <Text style={s.accountListMeta}>{a.type} · tap to view ledger</Text>
-                </View>
-                <Text style={[s.accountListBalance, a.balance < 0 && { color: C.coral }]}>{a.balance < 0 ? '− ' : ''}{money(a.balance)}</Text>
-                <TouchableOpacity style={[s.accountEdit, { alignItems: 'center' }]} accessibilityLabel={`Semak ${a.name} dengan bank`} onPress={() => setBankReviewAccountId(a.id)} hitSlop={8}><Ionicons name="checkmark-done-outline" size={19} color="#168A65" /><Text style={{ fontSize: 7, fontWeight: '800', color: '#168A65' }}>SEMAK</Text></TouchableOpacity>
-                <TouchableOpacity style={s.accountEdit} onPress={() => {
-                  setEditingAccountId(a.id);
-                  setDraftName(a.name);
-                  setDraftType(a.type);
-                  setDraftBalance(String(a.balance));
-                  setDraftIcon(a.icon || inferFinanceIcon(a.name, a.type));
-                  setManageOpen('account');
-                }} hitSlop={8}><Ionicons name="create-outline" size={17} color={C.muted} /></TouchableOpacity>
-              </TouchableOpacity>
-            ))}
-          </View>;
-        })}
+  const Categories = () => <><TouchableOpacity style={s.automationCard} onPress={() => setCategoriesOpen(false)}><Ionicons name="arrow-back" size={20} color={C.ink}/><Text style={s.automationTitle}>Back to Accounts</Text></TouchableOpacity>
         <Title
           eyebrow="CATEGORIES"
           title="Built around your life."
@@ -1646,6 +1641,68 @@ export default function RedCoinsScreen({ navigation, route }: any) {
             </TouchableOpacity>
           </View>
         ))}
+
+  </>;
+  const Accounts = () => {
+    if (categoriesOpen) return Categories();
+    const pending = state.entries.filter((e) => e.origin === 'redcoins' && !e.reconciledImportId && !e.exportedAt && (!e.autoGenerated || new Date(e.date).getTime() <= Date.now()));
+    const awaiting = [...(state.exportBatches || [])].reverse().find((batch) => !batch.confirmedAt);
+    const runExport = async (mode: 'pending' | 'all') => {
+      try {
+      const batch = await exportRedCoinsCsv(state, mode);
+      if (!batch) return;
+      await persist({
+        ...state,
+        exportBatches: [batch, ...(state.exportBatches || [])],
+      });
+      } catch (error) { Alert.alert('Export unavailable', error instanceof Error ? error.message : String(error)); }
+    };
+    return (
+      <>
+        <Title
+          eyebrow="MONEY LIBRARY"
+          title="Your structure, your rules."
+          action="＋ Account"
+          onAction={() => {
+            setEditingAccountId(null);
+            setDraftName('');
+            setDraftType('Bank');
+            setDraftIcon('business');
+            setDraftBalance('0');
+            setManageOpen('account');
+          }}
+        />
+        <TouchableOpacity style={s.automationCard} onPress={() => setCategoriesOpen(true)}><View style={{flex:1}}><Text style={s.automationTitle}>Manage categories</Text><Text style={s.automationCopy}>Categories, subcategories and icons</Text></View><Ionicons name="chevron-forward" size={18} color={C.ink}/></TouchableOpacity>
+        {(['Bank', 'Cash', 'Credit card', 'Liability', 'Investment'] as RedCoinsAccountType[]).map((type) => {
+          const rows = state.accounts.filter((account) => account.type === type);
+          if (!rows.length) return null;
+          return <View key={type} style={s.accountGroup}>
+            <View style={s.accountGroupHead}>
+              <Text style={s.accountGroupTitle}>{type.toUpperCase()}</Text>
+              <Text style={s.accountGroupTotal}>{money(rows.reduce((sum, account) => sum + account.balance, 0))}</Text>
+            </View>
+            {rows.map((a, index) => (
+              <TouchableOpacity key={a.id} style={[s.accountListRow, index < rows.length - 1 && s.accountListDivider]} onPress={() => openDashboardFilter('account', a.name)} activeOpacity={0.72}>
+                <FinanceAvatar name={a.name} kind={a.type} icon={a.icon} />
+                <View style={{ flex: 1 }}>
+                  <Text style={s.accountListName}>{a.name}</Text>
+                  <Text style={s.accountListMeta}>{a.type} · tap to view ledger</Text>
+                </View>
+                <Text style={[s.accountListBalance, a.balance < 0 && { color: C.coral }]}>{a.balance < 0 ? '− ' : ''}{money(a.balance)}</Text>
+                <TouchableOpacity style={[s.accountEdit, { alignItems: 'center' }]} accessibilityLabel={`Semak ${a.name} dengan bank`} onPress={() => setBankReviewAccountId(a.id)} hitSlop={8}><Ionicons name="checkmark-done-outline" size={19} color="#168A65" /><Text style={{ fontSize: 7, fontWeight: '800', color: '#168A65' }}>SEMAK</Text></TouchableOpacity>
+                <TouchableOpacity style={s.accountEdit} onPress={() => {
+                  setEditingAccountId(a.id);
+                  setDraftName(a.name);
+                  setDraftType(a.type);
+                  setDraftBalance(String(a.balance));
+                  setDraftIcon(a.icon || inferFinanceIcon(a.name, a.type));
+                  setManageOpen('account');
+                }} hitSlop={8}><Ionicons name="create-outline" size={17} color={C.muted} /></TouchableOpacity>
+              </TouchableOpacity>
+            ))}
+          </View>;
+        })}
+
         <Title eyebrow="DATA BRIDGE" title="RedCoins → Bluecoins." />
         <View style={s.exportCard}>
           <Text style={s.exportTitle}>Weekly hand-off</Text>
@@ -1684,7 +1741,13 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   };
   const Plan = () => (
     <>
-      <Title eyebrow="SALARY-CYCLE PLAN" title="Give every ringgit a job." />
+      {planPage !== 'overview' && <TouchableOpacity style={s.automationCard} onPress={() => setPlanPage('overview')}><Ionicons name="arrow-back" size={20} color={C.ink}/><Text style={s.automationTitle}>Back to Plan</Text></TouchableOpacity>}
+      {planPage === 'overview' && <>
+        <Title eyebrow="PLAN" title="Give every ringgit a job." />
+        {([ ['budgets','Budgets',`${money(state.monthlyBudget)} cycle ceiling · ${money(allocatedBudget)} planning allocation`], ['guards','Spending guards',`${bluecoins?.spendingGuards.length || 0} limits watching your spending`], ['automation','Reminders & auto-log',`${state.reminders.filter(r=>r.enabled).length} active schedules · ${detections.length} detected payments to review`] ] as const).map(([page,title,copy]) => <TouchableOpacity key={page} style={s.automationCard} onPress={() => setPlanPage(page)}><View style={{flex:1}}><Text style={s.automationTitle}>{title}</Text><Text style={s.automationCopy}>{copy}</Text></View><Ionicons name="chevron-forward" size={18} color={C.ink}/></TouchableOpacity>)}
+      </>}
+      {planPage === 'automation' && <>
+      <Title eyebrow="AUTOMATION" title="Scheduled & detected." />
       <TouchableOpacity style={s.automationCard} onPress={() => setReminderManagerOpen(true)} activeOpacity={0.8}>
         <View style={s.automationIcon}><Ionicons name="repeat" size={21} color={C.ink} /></View>
         <View style={{ flex: 1 }}>
@@ -1740,6 +1803,9 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         ))}
         {!detections.length && <Text style={s.detectorEmpty}>A matching bank, wallet or SMS notification will appear here before you save it as a transaction.</Text>}
       </View>
+      </>}
+      {planPage === 'budgets' && <>
+      <Title eyebrow="BUDGETS" title="One setup, any period." />
       <View style={s.card}>
         <Text style={s.cardTitle}>Budget pool</Text>
         <View style={s.budgetPoolRow}>
@@ -1758,7 +1824,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
             ]}
           />
         </View>
-        <Text style={s.poolHint}>Subcategory budgets share this one pool. Category totals are calculated automatically.</Text>
+        <Text style={s.poolHint}>Cycle allocations + active period budgets expressed as monthly equivalents. Custom ranges use a 30.44-day monthly estimate. Conflict targets are not counted twice. This is planning allocation, not an extra expense or cash deduction.</Text>
       </View>
       <View style={s.card}>
         <Text style={s.cardTitle}>Plan controls</Text>
@@ -1781,7 +1847,6 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         <Field label="SAFETY BUFFER" value={safetyBufferDraft} onChange={setSafetyBufferDraft} numeric />
         <TouchableOpacity style={s.planInlineSave} onPress={async () => { const value = Math.max(0, Number(safetyBufferDraft) || 0); await setCashRealitySafetyBuffer(value); await persist({ ...state, safetyBuffer: value }, true); }}><Text style={s.planInlineSaveText}>SAVE SAFETY BUFFER</Text></TouchableOpacity>
       </View>
-      <RedCoinsTermBudgets state={state} categories={budgetCategories} save={async termBudgets => { const current = await loadRedCoins(); await persist({ ...current, termBudgets }); }} />
       <Title eyebrow="BUDGET BY SUBCATEGORY" title="Build the cycle from below." />
       {budgetCategories.map((group) => {
         const groupBudget = categoryBudget(group.name);
@@ -1794,11 +1859,11 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                 <Text style={s.budgetCategoryName}>
                   {ICON_LIBRARY.includes(group.icon) ? <Ionicons name={group.icon as any} size={14} color={C.ink} /> : group.icon} {group.name}
                 </Text>
-                <Text style={s.budgetCategoryMeta}>{money(groupSpent)} spent this cycle</Text>
+                <Text style={s.budgetCategoryMeta}>{money(groupSpent)} spent this cycle · allocation is a planning equivalent</Text>
               </View>
               <View style={s.budgetCategoryTotal}>
                 <Text style={s.budgetCategoryAmount}>{money(groupBudget)}</Text>
-                <Text style={s.budgetCategoryLabel}>CATEGORY BUDGET</Text>
+                <Text style={s.budgetCategoryLabel}>MONTHLY PLAN EQ.</Text>
               </View>
               <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={17} color={C.muted} />
             </TouchableOpacity>
@@ -1815,26 +1880,30 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                 />
               </View>
               <Text style={s.categoryBudgetProgressText}>
-                {groupBudget > 0 ? `${Math.round((groupSpent / groupBudget) * 100)}% · ${money(groupSpent)} of ${money(groupBudget)}` : 'No budget allocated'}
+                {groupBudget > 0 ? `${Math.round((groupSpent / groupBudget) * 100)}% · ${money(groupSpent)} of ${money(groupBudget)}` : 'No allocation · open a subcategory to set its period'}
               </Text>
             </View>
+            {expanded && <TouchableOpacity style={s.subBudgetRow} onPress={() => openBudgetEditor(group.name,'')}><Text style={s.subBudgetName}>Category-wide period budget</Text><Text style={s.subBudgetSpent}>{(state.termBudgets || []).filter(b=>b.category===group.name && !b.subcategory).map(b=>`${money(b.amount)} · ${b.startDay} — ${b.endDay}`).join(' / ') || 'Optional · avoid overlap with subcategory budgets'}</Text></TouchableOpacity>}
             {expanded &&
               group.subcategories.map((sub) => {
                 const key = budgetKey(group.name, sub);
-                const limit = state.subcategoryBudgets[key] || 0;
-                const used = subcategorySpend[key] || 0;
+                const choices = targetBudgetChoices(state,group.name,sub);
+                const period = choices.periods.length === 1 && !choices.conflict && validTermBudget(choices.periods[0]) ? termBudgetSummary(choices.periods[0],state.entries) : null;
+                const limit = period?.limit || choices.cycle;
+                const used = period?.spent ?? (subcategorySpend[key] || 0);
                 const percent = limit ? (used / limit) * 100 : 0;
+                const periodLabel = choices.conflict ? 'Overlapping saved budgets · tap to choose one' : period ? `${period.startDay} — ${period.endDay} · ${period.status} · ${money(period.remaining)} left` : 'Salary cycle';
                 return (
                   <TouchableOpacity key={sub} style={s.subBudgetRow} onPress={() => openBudgetEditor(group.name, sub)}>
                     <View style={s.subBudgetTop}>
                       <View style={{ flex: 1 }}>
                         <Text style={s.subBudgetName}>{sub}</Text>
-                        <Text style={s.subBudgetSpent}>{money(used)} spent</Text>
+                        <Text style={s.subBudgetSpent}>{periodLabel}</Text><Text style={s.subBudgetSpent}>{money(used)} spent{period && choices.periods[0].reserve ? ` · reserve suggestion ${money(period.monthlyReserve)}/month` : ''}</Text>
                       </View>
-                      <Text style={[s.subBudgetLimit, !limit && { color: C.muted }]}>{limit ? money(limit) : 'SET BUDGET'}</Text>
+                      <Text style={[s.subBudgetLimit, !limit && { color: C.muted }]}>{choices.conflict ? 'RESOLVE' : limit ? money(limit) : 'SET BUDGET'}</Text>
                       <Ionicons name="chevron-forward" size={15} color={C.muted} />
                     </View>
-                    {limit > 0 && (
+                    {limit > 0 && !choices.conflict && (
                       <View style={s.subBudgetTrack}>
                         <View
                           style={[
@@ -1853,6 +1922,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           </View>
         );
       })}
+      {(state.termBudgets || []).filter(b=>!state.categories.some(c=>c.name===b.category && (!b.subcategory || c.subcategories.includes(b.subcategory)))).map(b=><TouchableOpacity key={b.id} style={s.automationCard} onPress={()=>openBudgetEditor(b.category,b.subcategory || '')}><View style={{flex:1}}><Text style={s.automationTitle}>Budget target unavailable</Text><Text style={s.automationCopy}>{b.category} / {b.subcategory || 'whole category'} · {money(b.amount)}. Review/remove this saved setup, then recreate under a current target.</Text></View><Ionicons name="chevron-forward" size={18} color={C.coral}/></TouchableOpacity>)}
       <View style={s.card}>
         <Text style={s.cardTitle}>Cash reality</Text>
         <Text style={s.realityLabel}>TRUE CASH AVAILABLE</Text>
@@ -1924,6 +1994,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         ))}
         {!bluecoins?.monthly.expectedFixedCommitments.items.length && <Empty text="Pick recurring items in Budget Coach to build this list." />}
       </View>
+      </>}
+      {planPage === 'guards' && <>
       <Title eyebrow="SPENDING GUARDS" title="Boundaries before regret." action="＋ GUARD" onAction={() => { setGuardDraft({ name: '', scope: 'account', target: bluecoins?.guardOptions.accounts[0] || '', limit: '' }); setGuardEditorOpen(true); }} />
       <View style={s.guardList}>
         {bluecoins?.spendingGuards.map((guard) => (
@@ -1947,6 +2019,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         ))}
         {!bluecoins?.spendingGuards.length && <Empty text="No spending guard configured yet." />}
       </View>
+      </>}
     </>
   );
   const exportCurrentReportPdf = async () => {
@@ -2101,7 +2174,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           </View>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
+        <ScrollView key={`${section}-${section === 'plan' ? planPage : section === 'accounts' ? categoriesOpen : ''}`} contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
           {section === 'home' ? Home() : section === 'accounts' ? Accounts() : section === 'plan' ? Plan() : Reports()}
         </ScrollView>
       )}
@@ -2241,12 +2314,13 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           suggestions,
           chooseSuggestion,
           saveEntry,
+          saving: entrySaving,
           entryDate,
           setEntryDate,
           state,
         }}
       />
-      <BudgetModal visible={!!budgetEditor} target={budgetEditor} value={budgetDraft} setValue={setBudgetDraft} allocated={allocatedBudget} total={state.monthlyBudget} current={budgetEditor ? state.subcategoryBudgets[budgetKey(budgetEditor.category, budgetEditor.subcategory)] || 0 : 0} close={() => setBudgetEditor(null)} save={saveSubcategoryBudget} />
+      <RedCoinsBudgetEditor target={budgetEditor} state={state} close={() => setBudgetEditor(null)} save={saveBudgetSetup} />
       <ManageModal
         visible={!!manageOpen}
         mode={manageOpen}
@@ -2926,7 +3000,7 @@ function EntryModal(p: any) {
   useEffect(() => {
     if (p.visible) setSuggestionOpen(true);
   }, [p.visible]);
-  const cats = useMemo(() => loggerCategories(p.state.categories, p.state.entries, p.type), [p.state.categories, p.state.entries, p.type]);
+  const cats = useMemo(() => p.visible ? loggerCategories(p.state.categories, p.state.entries, p.type) : [], [p.visible, p.state.categories, p.state.entries, p.type]);
   const openPicker = (value: typeof picker) => {
     setPickerSearch('');
     setPicker(value);
@@ -2937,7 +3011,7 @@ function EntryModal(p: any) {
     requestAnimationFrame(() => amountRef.current?.focus());
   };
   return (
-    <Modal visible={p.visible} animationType="slide" onRequestClose={p.close}>
+    <Modal visible={p.visible} animationType={p.saving ? 'none' : 'slide'} onRequestClose={p.close}>
       <SafeAreaView style={s.modal}>
         <View style={s.modalHead}>
           <TouchableOpacity onPress={p.close}>
@@ -3086,6 +3160,7 @@ function EntryModal(p: any) {
               },
             ]}
             onPress={p.saveEntry}
+            disabled={p.saving}
           >
             <Ionicons name="save-outline" size={19} color="#FFF" />
             <Text style={s.entrySaveText}>{p.schedulingOnly ? (p.editingSchedule ? 'UPDATE SCHEDULE' : 'SAVE SCHEDULE') : p.editing ? `UPDATE ${p.type.toUpperCase()}` : `SAVE ${p.type.toUpperCase()}`}</Text>
@@ -3208,41 +3283,7 @@ function Chip({ text, active, onPress }: any) {
     </TouchableOpacity>
   );
 }
-function BudgetModal({ visible, target, value, setValue, allocated, total, current, close, save }: any) {
-  const available = Math.max(0, total - allocated + current);
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={close}>
-      <KeyboardAvoidingView style={s.keyboardSheetShade} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
-        <Pressable style={s.keyboardSheetFill} onPress={close}>
-          <Pressable style={[s.sheet, s.keyboardScrollableSheet]} onPress={() => {}}>
-          <View style={s.sheetGrab} />
-          <ScrollView keyboardShouldPersistTaps="always" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}>
-          <Text style={s.eyebrow}>SUBCATEGORY BUDGET</Text>
-          <Text style={s.sheetTitle}>{target?.subcategory || 'Budget'}</Text>
-          <Text style={s.budgetModalParent}>
-            {target?.category} · up to {money(available)} available
-          </Text>
-          <View style={s.budgetAmountInput}>
-            <Text style={s.budgetCurrency}>RM</Text>
-            <TextInput value={value} onChangeText={setValue} autoFocus keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor="#A69F92" style={s.budgetAmountText} />
-          </View>
-          <View style={s.budgetModalSummary}>
-            <Text style={s.budgetModalLabel}>CYCLE CEILING</Text>
-            <Text style={s.budgetModalValue}>{money(total)}</Text>
-            <Text style={s.budgetModalLabel}>ALLOCATED AFTER SAVE</Text>
-            <Text style={s.budgetModalValue}>{money(allocated - current + Math.max(0, Number(value) || 0))}</Text>
-          </View>
-          <Text style={s.poolHint}>Enter 0 to remove this subcategory allocation.</Text>
-          <TouchableOpacity style={s.sheetSave} onPress={save}>
-            <Text style={s.sheetSaveText}>SAVE BUDGET</Text>
-          </TouchableOpacity>
-          </ScrollView>
-          </Pressable>
-        </Pressable>
-      </KeyboardAvoidingView>
-    </Modal>
-  );
-}
+
 function ManageModal({ visible, mode, close, draft, save, remove, editing }: any) {
   const [iconSearch, setIconSearch] = useState('');
   useEffect(() => {
