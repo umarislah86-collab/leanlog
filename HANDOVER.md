@@ -2,9 +2,10 @@
 
 Updated: 9 October 2026 (Asia/Kuala_Lumpur).
 
-## Release in progress — v2.9.17 ARM64
+## Latest published release — v2.9.17 ARM64 (9 October)
 
-- User requested APK build and immediate GitHub publication. Version bumped to 2.9.17; EAS preview-arm64 uses remote auto-increment. Includes six app themes and bundled typography detailed below. 221 tests, TypeScript and Expo prebuild config pass. Final APK signing/manifest/ABI verification and GitHub release publication pending; older no-build statements below are historical.
+- Published v2.9.17 / versionCode 22, ARM64-only, source commit `b9a4a5a42bd1eddc2954d2be55c2ba6ca0896057` pushed on `github-release-v221`. EAS `45ef615d-0d44-4131-a4b6-dbffc1d0e78d` FINISHED. Includes all six themes and offline typography below; older unreleased/no-build notes are historical and superseded. 221 tests, TypeScript, Expo prebuild configuration, Android Metro and native build passed. Native theme layouts/focus/large text need phone acceptance.
+- APK: https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.17/leanlog-V2.9.17.apk — 43,536,063 bytes / 41.52 MiB. SHA-256 `2ea1f5524dc98e48b9b8027ea3120e7a635f5da5e9d80a03c96891b1dd151825`. Package/version/code, ARM64 ABI, ZIP CRC integrity, APK v2 signature and signed content digest verified; unchanged certificate `62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c`. All nine theme font hashes match source assets. GitHub latest-release API returns v2.9.17 with matching asset size/digest; Semak Update resolves this APK.
 
 ## Current work — six themes with bundled typography (unreleased)
 
