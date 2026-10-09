@@ -2,9 +2,11 @@
 
 Updated: 9 October 2026 (Asia/Kuala_Lumpur).
 
-## Release in progress — v2.9.16 (9 October)
+## Latest published release — v2.9.16 (9 October)
 
-- User requested ARM64 APK build and GitHub commit/push/publication. Includes all unreleased SQLite Save, Settings/Plan hierarchy, unified budget editor and read-only data audit changes below. Version 2.9.16; remote versionCode auto-increment. 206 tests, TypeScript and Android Metro passed before release. Device verification pending. Release completion metadata will follow; do not interpret submission as a published APK.
+- Published ARM64 APK v2.9.16 / versionCode 21, source commit `2669084b56a758cdc6ea7e21857e94de00fd7a7c`; EAS `5d24b633-8ae0-4158-bc7e-41065e9bd5d0` FINISHED. Includes all SQLite Save, Settings/Plan hierarchy, unified budget editor and read-only data audit changes below. Their older unreleased/no-build notes are historical and superseded by this release. 206 tests, TypeScript, prebuild config, Android Metro and EAS native build passed. Phone migration/Save speed/backup/restore verification pending.
+- APK: https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.16/leanlog-V2.9.16.apk — 43,044,723 bytes / 41.05 MiB. SHA-256 `47589dfde264a181d4e3bb42c8230c12df8366a1e36a8cb1cb04d1496cf2521d`. Manifest package/version/code, ARM64-only libraries, ZIP CRC integrity, APK v2 signature and signed content digest verified. Signer unchanged: `62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c`. GitHub uploaded digest matches; public download HTTP 200 and latest-release API resolves v2.9.16.
+- Before phone update export a fresh RedCoins JSON backup, install over the existing app without clearing data. SQLite migration copies saved balances exactly and keeps recovery JSON; do not downgrade after new SQL-only entries without exporting a fresh backup.
 
 ## Current architecture — authoritative SQLite Save (unreleased; supersedes older JSON/index notes)
 
