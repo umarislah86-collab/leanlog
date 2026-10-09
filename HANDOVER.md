@@ -2,9 +2,10 @@
 
 Updated: 9 October 2026 (Asia/Kuala_Lumpur).
 
-## Release in progress — v2.9.18 ARM64
+## Latest published release — v2.9.18 ARM64 (9 October)
 
-- User confirmed keep LeanLog branding and requested build/push APK. Includes Home contrast/readability, saved six-card order and theme-aware widgets/native fonts below. 233 tests pass. EAS preview-arm64 remote auto-increment; final native APK/signature/font verification and GitHub publication pending. Older unreleased/no-build notes below are historical.
+- User confirmed keep LeanLog branding. Published v2.9.18 / versionCode 23, ARM64-only, source commit `f9c7151a61e2656f8b5adeaf6c799b5e5ff6bc15` pushed on `github-release-v221`. EAS `98814560-0ec5-4408-ae46-d6ba1b9a72c2` FINISHED. Includes Home contrast/readability, saved six-card order and theme-aware widgets/native fonts below. Older unreleased/no-build notes are historical and superseded. 233 tests, TypeScript, prebuild config, Android Metro and native build passed. Phone theme/widget/reorder acceptance remains pending.
+- APK: https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.18/leanlog-V2.9.18.apk — 44,004,901 bytes / 41.97 MiB. SHA-256 `a216ee2bd2e8c8c8fc553e737805f5e7a92aab5b0095e2dc29bedc7126153a3e`. Package/version/code, ARM64 ABI, ZIP CRC, APK v2 signature and content digest verified; signer unchanged `62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c`. All nine Expo font hashes and all nine `assets/fonts/LeanLog*.ttf` native widget copies verified against source. GitHub latest-release asset size/digest match; Semak Update resolves v2.9.18.
 
 ## Current work — theme-aware native Android widgets (unreleased)
 
