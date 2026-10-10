@@ -2,12 +2,14 @@
 
 Updated: 10 October 2026 (Asia/Singapore).
 
-## Current release work — v2.9.19
+## Latest published release — v2.9.19 ARM64 (10 October)
 
 - User authorized ARM64 APK build, push and GitHub publication. Based on v2.9.18 and the latest release branch handover commit.
 - Legacy SQLite migration accepts an absent reminders collection (pre-reminder releases); existing malformed collections still fail closed. Original JSON and its byte-for-byte checkpoint remain intact; balances and transactions are preserved. RedCoins startup now displays load errors and offers retry.
 - Daily widget removes the title/updated row, combines calorie/progress and health stats, reduces padding/gaps and snapshot heights, expands an odd final snapshot to full width, and keeps all action links and amounts. Launcher appearance/resizing and the affected phone's upgrade still require acceptance.
-- Release source version is 2.9.19. Build and publication verification will be recorded after completion.
+- Published v2.9.19 / versionCode 24 from release source commit `14f6315613b7c3b9c513d644ba1059832427ed35`, pushed to `github-release-v221`. EAS `8c2bddcd-fbe4-42ec-9dd9-488f9cc07689` FINISHED using `preview-arm64` and the existing remote keystore. 235 tests, TypeScript, Expo Android prebuild config and Android Metro export (1297 modules) passed.
+- APK: https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.19/leanlog-V2.9.19.apk — 44,005,765 bytes / 41.97 MiB. SHA-256 `914a47e2340062479f0a051fb54480c4997e1a150f57511dfd775382aed27ffa`. Package `com.calorietracker.app`, version/code, ARM64-only native libraries, ZIP CRC, APK v2 signature and signed content digest verified. Signer unchanged: `62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c`.
+- GitHub tag points at the exact EAS source commit. Latest release is v2.9.19, uploaded asset size/digest match local verification and the public APK URL returns HTTP 200. The affected phone's migration and compact Daily widget launcher appearance/resizing still require phone acceptance; do not infer device success from automated checks.
 
 ## Latest published release — v2.9.18 ARM64 (9 October)
 
