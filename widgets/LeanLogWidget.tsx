@@ -22,7 +22,7 @@ export type LeanLogWidgetProps = {
 
 export function LeanLogWidget({ eaten, burned, meals, goal, steps, guards, bottomMode = 'guards', accounts = [], cashReality, themeId = 'cream' }: LeanLogWidgetProps) {
   const left = Math.max(0, goal - eaten);
-  const pct = Math.min(100, Math.round((eaten / Math.max(goal, 1)) * 100));
+  const pct = Math.max(0, Math.min(100, Math.round((eaten / Math.max(goal, 1)) * 100)));
   const visibleGuards = guards.slice(0, 4);
   const guardRows = Array.from({ length: Math.ceil(visibleGuards.length / 2) }, (_, index) => visibleGuards.slice(index * 2, index * 2 + 2));
   const visibleAccounts = accounts.slice(0, 4);
@@ -47,8 +47,8 @@ export function LeanLogWidget({ eaten, burned, meals, goal, steps, guards, botto
       </FlexWidget>
       <TextWidget text={`${steps.toLocaleString()} STEPS · ${meals} MEALS · ${burned.toLocaleString()} BURNED`} maxLines={1} style={{ color: '#7C756B', fontSize: 8, fontWeight: '700' }} />
       <FlexWidget style={{ width: 'match_parent', height: 3, flexDirection: 'row', backgroundColor: '#DED5C6', borderRadius: 2, marginTop: 3, overflow: 'hidden' }}>
-        <FlexWidget style={{ flex: Math.max(4, pct), height: 3, backgroundColor: '#FF6542', borderRadius: 2 }} />
-        <FlexWidget style={{ flex: Math.max(0, 100 - Math.max(4, pct)), height: 3 }} />
+        {pct > 0 && <FlexWidget style={{ flex: pct, height: 3, backgroundColor: '#FF6542', borderRadius: 2 }} />}
+        {pct < 100 && <FlexWidget style={{ flex: 100 - pct, height: 3 }} />}
       </FlexWidget>
       {cashReality && <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', marginTop: 3, backgroundColor: '#EEE3CF', borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2, justifyContent: 'space-between' }}>
         <TextWidget text="TRUE SPENDABLE CASH" maxLines={1} style={{ color: '#172033', fontSize: 8, fontWeight: '700' }} />

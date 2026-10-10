@@ -105,12 +105,13 @@ test('paused native frames cannot strand a pending save when the app backgrounds
   await task;
   assert.equal(finished, true);
 });
-test('logger commits before closing/index work; failures retain draft', () => {
+test('logger previews before disk work; failures retain draft', () => {
   const source = fs.readFileSync(path.join(__dirname, '../screens/RedCoinsScreen.tsx'), 'utf8');
   const save = source.slice(source.indexOf('const saveEntryInternal ='), source.indexOf('const deleteEditingEntry ='));
-  assert.ok(save.indexOf('await afterRedCoinsPaint()') < save.indexOf('await loadRedCoins()'));
-  assert.ok(save.indexOf('await saveRedCoins(next, localWriteSource.current, entryIds)') < save.indexOf('setEntryOpen(false)'));
-  assert.ok(save.indexOf('setEntryOpen(false)') < save.indexOf('setState(next)'));
+  assert.match(save, /let workingState = state/);
+  assert.ok(save.indexOf('setState(next)') < save.indexOf('write: () => saveRedCoins'));
+  assert.ok(save.indexOf('setEntryOpen(false)') < save.indexOf('write: () => saveRedCoins'));
+  assert.match(save, /rollback: async/);
   assert.ok(save.lastIndexOf('await commit(next)') < save.indexOf('upsertRedCoinsLedgerEntry(entry)'));
   assert.match(save, /decision === 'cancel'.*setEntryOpen\(true\)/);
   assert.match(save, /catch \(error\) \{\s*setEntryOpen\(true\)/);
@@ -121,3 +122,30 @@ test('logger commits before closing/index work; failures retain draft', () => {
   assert.match(source, /return entryOpen \? loggerSuggestions/);
   assert.match(source, /if \(refreshToken !== summaryRequest.current\) return/);
 });
+
+ test('preview is immediate while a slow durable write remains pending', async () => {
+  const { commitRedCoinsPreview } = load('redcoinsSavePreview');
+  const steps = [];
+  let release;
+  const pending = commitRedCoinsPreview({
+    preview: () => steps.push('visible'),
+    yieldToUI: async () => { steps.push('paint'); },
+    write: () => new Promise(resolve => { steps.push('write'); release = resolve; }),
+    rollback: async () => assert.fail('must not roll back success'),
+  });
+  assert.deepEqual(steps, ['visible', 'paint']);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(steps, ['visible', 'paint', 'write']);
+  release();
+  await pending;
+ });
+ test('disk failure rolls back the preview before reporting failure', async () => {
+  const { commitRedCoinsPreview } = load('redcoinsSavePreview');
+  const steps = [];
+  await assert.rejects(commitRedCoinsPreview({
+    preview: () => steps.push('visible'), yieldToUI: async () => {},
+    write: async () => { throw new Error('disk full'); },
+    rollback: async () => steps.push('restored'),
+  }), /disk full/);
+  assert.deepEqual(steps, ['visible', 'restored']);
+ });

@@ -1,6 +1,6 @@
 /** App appearance only. Finance meaning, chart series, PDFs and widgets stay independent. */
 export const APP_THEME_KEY = 'leanlog_appearance_v1';
-export type AppThemeId = 'cream' | 'midnight' | 'neutral' | 'grove' | 'dusk' | 'folio';
+export type AppThemeId = 'cream' | 'midnight' | 'neutral' | 'grove' | 'dusk' | 'folio' | 'onyx';
 export const appThemes = {
   cream: { id: 'cream', name: 'Original / Cream', description: 'Warm paper, navy and the original LeanLog accents.', dark: false, canvas: '#FFF9ED', surface: '#FFFDF7', surfaceAlt: '#F3EAD7', hero: '#101A2B', heroRaised: '#26334A', text: '#101722', muted: '#697180', onHero: '#FFFDF7', heroMuted: '#AAB5C7', border: '#DED5C5', accent: '#FF6542', mint: '#8FD6B4', mintTint: '#DDF1E7', coralTint: '#FFE6DC', blueTint: '#E8E8FF', warningTint: '#F2E7CB', expense: '#EF3F43', income: '#168A65', transfer: '#528FF2' },
   midnight: { id: 'midnight', name: 'Midnight', description: 'Layered navy, soft mint and coral. Made for low light.', dark: true, canvas: '#0B1220', surface: '#142033', surfaceAlt: '#1C2B41', hero: '#101A2B', heroRaised: '#23334C', text: '#F3F1EB', muted: '#A9B5C7', onHero: '#FFFDF7', heroMuted: '#B3BFD0', border: '#34455E', accent: '#FF856B', mint: '#8FD6B4', mintTint: '#183A35', coralTint: '#452B2B', blueTint: '#282F52', warningTint: '#3A3223', expense: '#FF8383', income: '#6CD5AF', transfer: '#8BB6FF' },
@@ -8,9 +8,10 @@ export const appThemes = {
   grove: { id: 'grove', name: 'Grove', description: 'Quiet sage paper. Lora headlines with Manrope body.', dark: false, canvas: '#F1F4EB', surface: '#FAFCF6', surfaceAlt: '#E3E9DA', hero: '#203A32', heroRaised: '#345047', text: '#20342C', muted: '#566451', onHero: '#FAFCF6', heroMuted: '#BECCC1', border: '#CDD7C5', accent: '#38604C', mint: '#A8D8B7', mintTint: '#DEEDDF', coralTint: '#F4E1D9', blueTint: '#E2E8F2', warningTint: '#EEE5CC', expense: '#EF3F43', income: '#168A65', transfer: '#528FF2' },
   dusk: { id: 'dusk', name: 'Dusk / Studio', description: 'Plum-black, lilac light. Space Grotesk throughout.', dark: true, canvas: '#17131E', surface: '#241F2D', surfaceAlt: '#302939', hero: '#211B2B', heroRaised: '#3A3046', text: '#F5EFF8', muted: '#BDB0C7', onHero: '#FCF7FF', heroMuted: '#C6B7D2', border: '#4D415B', accent: '#CEADF2', mint: '#A8D8CC', mintTint: '#243D37', coralTint: '#462D35', blueTint: '#30304D', warningTint: '#403625', expense: '#FF8383', income: '#6CD5AF', transfer: '#8BB6FF' },
   folio: { id: 'folio', name: 'Folio', description: 'Bookish ivory and oxblood. Lora with crisp Space Grotesk.', dark: false, canvas: '#F7EFE7', surface: '#FFFAF5', surfaceAlt: '#EBDFD3', hero: '#3B2328', heroRaised: '#54353C', text: '#39292B', muted: '#6B5855', onHero: '#FFF8EE', heroMuted: '#D1BDB7', border: '#D9C9BC', accent: '#813847', mint: '#C5D9B2', mintTint: '#E8EFDF', coralTint: '#F1DCD5', blueTint: '#E9E5F0', warningTint: '#EEE2C8', expense: '#EF3F43', income: '#168A65', transfer: '#528FF2' },
+  onyx: { id: 'onyx', name: 'Onyx Gold', description: 'Charcoal black, warm gold accents and ivory text. Space Grotesk with Manrope.', dark: true, canvas: '#0E0E10', surface: '#1A1A1D', surfaceAlt: '#252528', hero: '#141416', heroRaised: '#29272A', text: '#F5F0E6', muted: '#BAB5AB', onHero: '#FFF8E8', heroMuted: '#C9C0B0', border: '#46423A', accent: '#DDBB68', mint: '#DDBB68', mintTint: '#332D1E', coralTint: '#40272A', blueTint: '#262E40', warningTint: '#37301E', expense: '#FF8383', income: '#6CD5AF', transfer: '#8BB6FF' },
 } as const;
 export type AppPalette = typeof appThemes[AppThemeId];
-export const themeIds: AppThemeId[] = ['cream', 'midnight', 'neutral', 'grove', 'dusk', 'folio'];
+export const themeIds: AppThemeId[] = ['cream', 'midnight', 'neutral', 'grove', 'dusk', 'folio', 'onyx'];
 export const validThemeId = (value: unknown): AppThemeId => typeof value === 'string' && themeIds.includes(value as AppThemeId) ? value as AppThemeId : 'cream';
 
 export const themeTypography = {
@@ -20,6 +21,7 @@ export const themeTypography = {
   grove: { heading: 'Lora', body: 'Manrope', label: 'Manrope', number: 'Lora' },
   dusk: { heading: 'SpaceGrotesk', body: 'SpaceGrotesk', label: 'SpaceGrotesk', number: 'SpaceGrotesk' },
   folio: { heading: 'Lora', body: 'SpaceGrotesk', label: 'SpaceGrotesk', number: 'Lora' },
+  onyx: { heading: 'SpaceGrotesk', body: 'Manrope', label: 'SpaceGrotesk', number: 'SpaceGrotesk' },
 } as const;
 export type TypographyRole = keyof typeof themeTypography.cream;
 /** Resolve explicit static font faces; never ask Android to synthesize a custom weight. */

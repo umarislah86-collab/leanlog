@@ -60,8 +60,19 @@ const displayName = () => {
 };
 
 export default function HomeScreen({ navigation }: any) {
-  const styles = useThemeStyles(baseStyles);
-  const { themed } = useTheme();
+  const themedStyles = useThemeStyles(baseStyles);
+  const { themed, palette } = useTheme();
+  // These surfaces keep their bright identity colours in every theme.
+  // Apply foregrounds after theme mapping so dark-mode body text cannot leak in.
+  const styles = useMemo(() => {
+    if (!palette.dark) return themedStyles;
+    const next = { ...themedStyles };
+    for (const key of ['moneyEyebrow', 'moneyValue', 'moneySub', 'connectMoney', 'changeText', 'changeLabel', 'dayAmount', 'dayLabel', 'categoryHeading', 'categoryName', 'categoryAmount'] as const) {
+      Object.assign(next, { [key]: { ...themedStyles[key], color: '#101722' } });
+    }
+    next.dayBar = { ...themedStyles.dayBar, backgroundColor: '#101722' };
+    return next;
+  }, [themedStyles, palette.dark]);
   const [refreshing, setRefreshing] = useState(false);
   const [bluecoinsLoading, setBluecoinsLoading] = useState(false);
   const [bluecoinsConnected, setBluecoinsConnected] = useState(false);
@@ -579,11 +590,12 @@ export default function HomeScreen({ navigation }: any) {
               const status = habitCheckins[habitDateKey()]?.[habit.id];
               const streak = habitStreak(habit, habitCheckins);
               const activeToday = habit.activeDays.includes(new Date().getDay());
+              const completedText = status === 'done' ? { color: '#101722' } : undefined;
               return (
                 <TouchableOpacity key={habit.id} style={[styles.habitTile, !activeToday && styles.habitTileRest, status === 'done' && { backgroundColor: habit.color }, status === 'skip' && styles.habitTileSkipped]} onPress={() => activeToday && checkHabit(habit)} onLongPress={() => activeToday && skipHabit(habit)} delayLongPress={450} activeOpacity={0.75}>
-                  <Text style={styles.habitEmoji}>{status === 'done' ? '✓' : status === 'skip' ? '—' : habit.emoji}</Text>
-                  <Text style={styles.habitName}>{habit.name}</Text>
-                  <Text style={styles.habitStreak}>{!activeToday ? 'rest day · still saved' : streak ? `🔥 ${streak} day` : status === 'skip' ? 'honest skip' : 'start today'}</Text>
+                  <Text style={[styles.habitEmoji, completedText]}>{status === 'done' ? '✓' : status === 'skip' ? '—' : habit.emoji}</Text>
+                  <Text style={[styles.habitName, completedText]}>{habit.name}</Text>
+                  <Text style={[styles.habitStreak, completedText]}>{!activeToday ? 'rest day · still saved' : streak ? `🔥 ${streak} day` : status === 'skip' ? 'honest skip' : 'start today'}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -648,10 +660,10 @@ export default function HomeScreen({ navigation }: any) {
           <TouchableOpacity style={styles.moneyCard} onPress={bluecoinsConnected && bluecoins ? openBudgetCoach : () => navigation.navigate('Settings')} activeOpacity={0.9}>
             <View style={styles.moneyTop}>
               <Text style={styles.moneyEyebrow}>BUDGET COACH · LAST 7 DAYS</Text>
-              <Ionicons name="wallet-outline" size={22} color={themed(colors.text, 'color')} />
+              <Ionicons name="wallet-outline" size={22} color={'#101722'} />
             </View>
             {bluecoinsLoading ? (
-              <ActivityIndicator color={themed(colors.text, 'color')} style={{ marginTop: 28 }} />
+              <ActivityIndicator color={'#101722'} style={{ marginTop: 28 }} />
             ) : bluecoins ? (
               <>
                 <View style={styles.moneySummaryRow}>

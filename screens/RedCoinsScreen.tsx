@@ -2,7 +2,7 @@ import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/Th
 import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert, AppState, BackHandler, InteractionManager, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, AppState, BackHandler, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { RedCoinsSetup } from '../components/RedCoinsSetup';
 import { needsRedCoinsSetup } from '../services/redcoinsOnboarding';
@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import BluecoinsDriveReader from 'bluecoins-drive-reader';
 import type { TransactionDetection } from 'bluecoins-drive-reader';
 import { setBluecoinsFixedCommitments, setBluecoinsMonthlyBudget, setBluecoinsPayday, setCashRealityAccounts, setCashRealitySafetyBuffer, type BluecoinsSummary } from '../services/bluecoins';
-import { applyEntryBalance, confirmRedCoinsExport, createRedCoinsDeletion, exportRedCoinsBackup, exportRedCoinsCsv, getRedCoinsSummary, loadRedCoins, saveRedCoins, type RedCoinsAccountType, type RedCoinsEntry, type RedCoinsReminder, type RedCoinsReminderEndType, type RedCoinsState, type RedCoinsType, type RedCoinsWeekendMove } from '../services/redcoins';
+import { applyEntryBalance, confirmRedCoinsExport, exportRedCoinsBackup, exportRedCoinsCsv, getRedCoinsSummary, loadRedCoins, saveRedCoins, type RedCoinsAccountType, type RedCoinsEntry, type RedCoinsReminder, type RedCoinsReminderEndType, type RedCoinsState, type RedCoinsType, type RedCoinsWeekendMove } from '../services/redcoins';
 import { aggregateCycleSpending } from '../services/redcoinsBudget';
 import { RedCoinsBudgetEditor, type BudgetChoice } from '../components/RedCoinsBudgetEditor';
 import { periodAllocation, replaceTargetBudget, targetBudgetChoices } from '../services/redcoinsBudgetSetup';
@@ -38,6 +38,7 @@ import { RedCoinsBankReviewModal } from '../components/RedCoinsBankReviewModal';
 import { migrateAccountPreferences } from '../services/redcoinsAccountIdentity';
 import { subscribeRedCoinsChanges } from '../services/redcoinsEvents';
 import { afterRedCoinsPaint } from '../services/redcoinsSavePaint';
+import { commitRedCoinsPreview } from '../services/redcoinsSavePreview';
 import { advanceReminderDate, materializeAutomaticReminders, missingReminderAccounts, nextReminderOccurrence, pendingReminderOccurrence, logReminderOccurrenceNow, requestReminderAccess, syncReminderNotifications } from '../services/redcoinsReminders';
 import { projectRedCoinsReminders } from '../services/redcoinsReminderProjection';
 import { deleteRedCoinsLedgerEntry, syncRedCoinsLedger, upsertRedCoinsLedgerEntry } from '../services/redcoinsLedger';
@@ -352,9 +353,27 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     refreshLeanLogWidget().catch(() => {});
   };
   useEffect(() => { void readRedCoinsClipboard().then(setCopiedEntries).catch(console.warn); }, []);
+  const commitLedgerChange = async (next: RedCoinsState, previewUI: () => void, restoreUI: () => void) => {
+    if (!state || entrySaveLock.current) throw new Error('Another transaction is still saving. Please try again.');
+    const previous = state;
+    entrySaveLock.current = true;
+    try {
+      await commitRedCoinsPreview({
+        preview: () => { setState(next); previewUI(); },
+        yieldToUI: afterRedCoinsPaint,
+        write: () => saveRedCoins(next, localWriteSource.current),
+        rollback: async () => {
+          try { setState(await loadRedCoins()); }
+          catch (error) { setState(previous); console.warn(error); }
+          restoreUI();
+        },
+      });
+      void afterRedCoinsPaint().then(() => refreshLiveBluecoins(next)).then(() => refreshLeanLogWidget()).catch(console.warn);
+    } finally { entrySaveLock.current = false; }
+  };
   const releaseBatch = () => { batchLock.current = false; setBatchBusy(false); };
   const runConfirmedBatch = (message: string, mutation: (current: RedCoinsState) => RedCoinsState, destructive = false) => {
-    if (batchLock.current) return;
+    if (batchLock.current || entrySaveLock.current) return;
     batchLock.current = true;
     setBatchBusy(true);
     Alert.alert(destructive ? 'Delete permanently?' : 'Apply to all these transactions?', message, [
@@ -362,16 +381,21 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       { text: destructive ? 'Delete' : 'Apply', style: destructive ? 'destructive' : 'default', onPress: () => {
         void (async () => {
           try {
-            const current = await loadRedCoins();
-            const next = mutation(current);
-            await persist(next);
-            setBatchOpen(null);
-            setSelectedIds([]);
+            if (!state) throw new Error('RedCoins is still loading.');
+            const previousSelection = [...selectedIds];
+            const previousModal = batchOpen;
+            const next = mutation(state);
+            await commitLedgerChange(next, () => {
+              setBatchOpen(null);
+              setSelectedIds([]);
+            }, () => {
+              setSelectedIds(previousSelection);
+              setBatchOpen(previousModal);
+            });
             // Local state is already live. Index repair must not roll back a
             // successfully persisted batch or hold up its visual result.
             void syncRedCoinsLedger(next.entries).then(() => setLedgerRevision(value => value + 1)).catch(error => console.warn('Batch ledger indexing failed', error));
           } catch (error) {
-            void loadRedCoins().then(setState).catch(console.warn);
             Alert.alert('Batch change failed', error instanceof Error ? error.message : 'Please try again.');
           } finally { releaseBatch(); }
         })();
@@ -394,15 +418,19 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     runConfirmedBatch(`${ids.length} transactions.\n\n${detail}`, current => applyRedCoinsBatch(current, ids, action), action.kind === 'delete');
   };
   const copyBatchSelection = async () => {
-    if (batchLock.current) return;
+    if (!state || batchLock.current || entrySaveLock.current) return;
+    const previousCopied = copiedEntries;
+    const previousModal = batchOpen;
     batchLock.current = true; setBatchBusy(true);
     try {
-      const current = await loadRedCoins();
-      const rows = current.entries.filter(entry => selectedIds.includes(entry.id));
+      const rows = state.entries.filter(entry => selectedIds.includes(entry.id));
       if (rows.length !== new Set(selectedIds).size) throw new Error('Selection changed. Select transactions again.');
-      await copyRedCoinsEntries(rows);
-      setCopiedEntries(await readRedCoinsClipboard());
-      setBatchOpen(null);
+      await commitRedCoinsPreview({
+        preview: () => { setCopiedEntries(rows); setBatchOpen(null); },
+        yieldToUI: afterRedCoinsPaint,
+        write: () => copyRedCoinsEntries(rows),
+        rollback: async () => { setCopiedEntries(previousCopied); setBatchOpen(previousModal); },
+      });
       Alert.alert('Copied', `${rows.length} transactions. Use PASTE under the ledger search to create copies.`);
     } catch (error) { Alert.alert('Copy failed', error instanceof Error ? error.message : 'Please try again.'); }
     finally { releaseBatch(); }
@@ -423,8 +451,10 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     // Entry saves publish their committed state directly. External changes must
     // still reload, including due reminders, restores and settings updates.
     if (source === localWriteSource.current) return;
+    if (kind === 'state' && (entrySaveLock.current || batchLock.current)) return;
     void (async () => {
       const current = await loadRedCoins();
+      if (kind === 'state' && (entrySaveLock.current || batchLock.current)) return;
       if (kind === 'state') setState(current);
       await refreshLiveBluecoins(current);
     })().catch(console.warn);
@@ -618,23 +648,33 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setEntryOpen(true);
   };
   const saveEntryInternal = async () => {
+    if (!state) throw new Error('RedCoins is still loading. Please try again.');
     if (!item.trim() || !Number(amount) || !account || (type === 'transfer' && !toAccount)) return Alert.alert('Incomplete entry', 'Add item, amount and account first.');
     if (!schedulingOnly && type === 'income' && incomePeriod.trim() && !validIncomePeriod(incomePeriod.trim())) return Alert.alert('Invalid income month', 'Use YYYY-MM, for example 2026-09, or leave it blank to use the transaction month.');
     if (schedulingOnly && (!repeat || repeat === 'none' || repeat === 'installment')) return Alert.alert('Choose a schedule', 'Select daily, weekly, monthly or yearly.');
     if (repeat && repeat !== 'none' && reminderEndType === 'date' && (!reminderEndDate || Number.isNaN(new Date(`${reminderEndDate}T23:59:59`).getTime()))) return Alert.alert('Invalid end date', 'Use YYYY-MM-DD for the recurring end date.');
     if (repeat === 'installment' && (Number(installments) || 0) < 2) return Alert.alert('Invalid instalments', 'Use at least 2 instalments.');
     Keyboard.dismiss();
-    await afterRedCoinsPaint();
-    let state = await loadRedCoins();
-    // The latest durable state is still authoritative: never save a stale copy
-    // captured when the logger opened, or bypass due-balance reconciliation.
-    if (!state.accounts.some(row => row.name === account) || (type === 'transfer' && !state.accounts.some(row => row.name === toAccount))) throw new Error('This account changed. Please choose the account again.');
-    if (editingEntryId && !state.entries.some(row => row.id === editingEntryId)) throw new Error('This transaction was removed while the logger was open.');
+    let workingState = state;
+    // Render from the live snapshot immediately. SQLite checks its revision
+    // atomically and rejects stale saves rather than overwriting another edit.
+    if (!workingState.accounts.some(row => row.name === account) || (type === 'transfer' && !workingState.accounts.some(row => row.name === toAccount))) throw new Error('This account changed. Please choose the account again.');
+    if (editingEntryId && !workingState.entries.some(row => row.id === editingEntryId)) throw new Error('This transaction was removed while the logger was open.');
     const commit = async (next: RedCoinsState, entryIds?: string[]) => {
-      await saveRedCoins(next, localWriteSource.current, entryIds);
-      setEntryOpen(false);
-      await afterRedCoinsPaint();
-      setState(next);
+      await commitRedCoinsPreview({
+        preview: () => {
+          setState(next);
+          setEntryOpen(false);
+          if (!schedulingOnly) navigateSection('activity');
+        },
+        yieldToUI: afterRedCoinsPaint,
+        write: () => saveRedCoins(next, localWriteSource.current, entryIds),
+        rollback: async () => {
+          // Reload durable data, preserving any intervening external changes.
+          try { setState(await loadRedCoins()); }
+          catch (error) { setState(workingState); console.warn(error); }
+        },
+      });
       const refreshToken = ++summaryRequest.current;
       // Summary/widget refresh is secondary to the durable transaction commit.
       void afterRedCoinsPaint().then(async () => {
@@ -645,7 +685,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     };
     if (!schedulingOnly && type === 'income') {
       const duplicateDraft = { id: editingEntryId || '', type, item: item.trim(), account, category, subcategory, date: entryDate.toISOString(), amount: Number(amount), incomePeriod: incomePeriod.trim() || undefined };
-      const duplicates = findIncomeDuplicates(state.entries, duplicateDraft);
+      const duplicates = findIncomeDuplicates(workingState.entries, duplicateDraft);
       if (duplicates.length) {
         const decision = await new Promise<'cancel' | 'review' | 'save'>(resolve => Alert.alert('Possible duplicate income', `${duplicates.length} matching income ${duplicates.length === 1 ? 'entry' : 'entries'} already exist for ${account}.\n\n${duplicates.slice(0, 4).map(entry => `${entry.item} · ${money(entry.amount)} · ${new Date(entry.date).toLocaleDateString('en-MY')} · month ${entry.incomePeriod || incomeMonth(entry.date)}`).join('\n')}\n\nCheck the month/date first. This may be a genuine additional payment; nothing is deleted or merged.`, [
           { text: 'Cancel', style: 'cancel', onPress: () => resolve('cancel') },
@@ -653,12 +693,12 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           { text: 'Save anyway', onPress: () => resolve('save') },
         ], { cancelable: true, onDismiss: () => resolve('cancel') }));
         if (decision === 'cancel') { setEntryOpen(true); return; }
-        state = await loadRedCoins();
-        if (decision === 'review') { const existing = state.entries.find(entry => entry.id === duplicates[0].id); if (existing) editEntry(existing, true); else { setEntryOpen(true); Alert.alert('Entry changed', 'The matching transaction was removed. Please check the ledger.'); } return; }
+        workingState = await loadRedCoins();
+        if (decision === 'review') { const existing = workingState.entries.find(entry => entry.id === duplicates[0].id); if (existing) editEntry(existing, true); else { setEntryOpen(true); Alert.alert('Entry changed', 'The matching transaction was removed. Please check the ledger.'); } return; }
       }
     }
     if (schedulingOnly) {
-      const existing = editingReminderId ? state.reminders.find((reminder) => reminder.id === editingReminderId) : undefined;
+      const existing = editingReminderId ? workingState.reminders.find((reminder) => reminder.id === editingReminderId) : undefined;
       const reminderId = existing?.id || `series-${Date.now()}`;
       const reminder: RedCoinsReminder = {
         id: reminderId,
@@ -689,10 +729,10 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         notificationIds: existing?.notificationIds || [],
       };
       const next: RedCoinsState = {
-        ...state,
-        reminders: existing ? state.reminders.map((row) => row.id === reminderId ? reminder : row) : [...state.reminders, reminder],
-        entries: state.entries.filter((entry) => entry.reminderSeriesId !== reminderId || !entry.autoGenerated || new Date(entry.date).getTime() <= Date.now()),
-        accounts: state.accounts.map((entry) => ({ ...entry })),
+        ...workingState,
+        reminders: existing ? workingState.reminders.map((row) => row.id === reminderId ? reminder : row) : [...workingState.reminders, reminder],
+        entries: workingState.entries.filter((entry) => entry.reminderSeriesId !== reminderId || !entry.autoGenerated || new Date(entry.date).getTime() <= Date.now()),
+        accounts: workingState.accounts.map((entry) => ({ ...entry })),
       };
       materializeAutomaticReminders(next).forEach((generated) => {
         applyEntryBalance(next, generated, 1);
@@ -706,12 +746,12 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       void syncScheduleAccess(next.reminders).catch(console.warn);
       return;
     }
-    const original = editingEntryId ? state.entries.find((entry) => entry.id === editingEntryId) : undefined;
+    const original = editingEntryId ? workingState.entries.find((entry) => entry.id === editingEntryId) : undefined;
     const hasReminder = repeat && repeat !== 'none';
     const editingSeriesTemplate = !!original?.repeat && original.repeat !== 'none';
     const reminderFrequency = (repeat === 'installment' ? 'monthly' : repeat) as RedCoinsReminder['frequency'];
     const reminderSeriesId = hasReminder ? (original?.reminderSeriesId || `series-${Date.now()}`) : original?.reminderSeriesId;
-    const existingSchedule = state.reminders.find((candidate) => candidate.id === original?.reminderSeriesId);
+    const existingSchedule = workingState.reminders.find((candidate) => candidate.id === original?.reminderSeriesId);
     const entry: RedCoinsEntry = {
       id: original?.id || `${Date.now()}`,
       item: item.trim(),
@@ -743,13 +783,13 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       receipts: [...(original?.receipts || []), ...receiptDrafts],
     };
     const next: RedCoinsState = {
-      ...state,
-      entries: (original ? state.entries.map((row) => (row.id === original.id ? entry : row)) : [entry, ...state.entries])
+      ...workingState,
+      entries: (original ? workingState.entries.map((row) => (row.id === original.id ? entry : row)) : [entry, ...workingState.entries])
         .filter((row) => !editingSeriesTemplate || !row.autoGenerated || row.reminderSeriesId !== original?.reminderSeriesId || new Date(row.date).getTime() <= Date.now()),
-      reminders: editingSeriesTemplate ? state.reminders.filter((reminder) => reminder.id !== original?.reminderSeriesId) : [...state.reminders],
-      accounts: state.accounts.map((a) => ({ ...a })),
+      reminders: editingSeriesTemplate ? workingState.reminders.filter((reminder) => reminder.id !== original?.reminderSeriesId) : [...workingState.reminders],
+      accounts: workingState.accounts.map((a) => ({ ...a })),
       entryDefaults: {
-        ...(state.entryDefaults || {}),
+        ...(workingState.entryDefaults || {}),
         [type]: {
           account,
           toAccount: type === 'transfer' ? toAccount : undefined,
@@ -802,8 +842,6 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     await commit(next, hasReminder || editingSeriesTemplate ? undefined : [entry.id]);
     if (receiptDrafts.length) {
       setReceiptDrafts([]);
-      setEditingEntryId(entry.id);
-      setEntryOpen(true);
       // Finance is already committed. Folder failures must never invite replaying the transaction.
       const failedCopies: string[] = [];
       try {
@@ -837,55 +875,41 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     }
     finally { entrySaveLock.current = false; setEntrySaving(false); }
   };
+  const deleteLedgerEntry = async (entry: RedCoinsEntry, fromLogger = false) => {
+    if (!state || entrySaveLock.current || batchLock.current || receiptBusy) return;
+    try {
+      const next = applyRedCoinsBatch(state, [entry.id], { kind: 'delete' });
+      const previousSelection = [...selectedIds];
+      await commitLedgerChange(next, () => {
+        setSelectedIds(ids => ids.filter(id => id !== entry.id));
+        if (fromLogger) { setEntryOpen(false); setEditingEntryId(null); }
+      }, () => {
+        setSelectedIds(previousSelection);
+        if (fromLogger) { setEditingEntryId(entry.id); setEntryOpen(true); }
+      });
+      // Secondary index changes only follow a successful authoritative write.
+      void deleteRedCoinsLedgerEntry(entry.id)
+        .then(() => setLedgerRevision(value => value + 1)).catch(console.warn);
+    } catch (error) {
+      Alert.alert('Delete failed', error instanceof Error ? error.message : 'Please try again.');
+    }
+  };
   const deleteEditingEntry = () => {
-    if (!state || !editingEntryId) return;
-    const original = state.entries.find((entry) => entry.id === editingEntryId);
+    if (!state || !editingEntryId || entrySaveLock.current || batchLock.current || receiptBusy) return;
+    const original = state.entries.find(entry => entry.id === editingEntryId);
     if (!original) return;
     Alert.alert('Delete transaction?', `${original.item} · ${money(original.amount)}`, [
       { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          const next = {
-            ...state,
-            entries: state.entries.filter((entry) => entry.id !== original.id),
-            deletedEntries: [createRedCoinsDeletion(original), ...(state.deletedEntries || [])],
-            accounts: state.accounts.map((entry) => ({ ...entry })),
-          };
-          applyEntryBalance(next, original, -1);
-          setEntryOpen(false);
-          setEditingEntryId(null);
-          InteractionManager.runAfterInteractions(() => {
-            deleteRedCoinsLedgerEntry(original.id)
-              .then(() => setLedgerRevision((value) => value + 1))
-              .catch((error) => console.warn('RedCoins ledger delete failed', error));
-            persist(next).catch(() => Alert.alert('Delete failed', 'LeanLog could not persist this change.'));
-          });
-        },
-      },
+      { text: 'Delete', style: 'destructive', onPress: () => { void deleteLedgerEntry(original, true); } },
     ]);
   };
-  const removeEntry = (entry: RedCoinsEntry) =>
+  const removeEntry = (entry: RedCoinsEntry) => {
+    if (entrySaveLock.current || batchLock.current || receiptBusy) return;
     Alert.alert('Delete transaction permanently?', `${entry.item} · This cannot be restored.`, [
       { text: 'Cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          if (!state) return;
-          const next = {
-            ...state,
-            entries: state.entries.filter((e) => e.id !== entry.id),
-            deletedEntries: [createRedCoinsDeletion(entry), ...(state.deletedEntries || [])],
-            accounts: state.accounts.map((a) => ({ ...a })),
-          };
-          applyEntryBalance(next, entry, -1);
-          await Promise.all([persist(next), deleteRedCoinsLedgerEntry(entry.id)]);
-          setLedgerRevision((value) => value + 1);
-        },
-      },
+      { text: 'Delete', style: 'destructive', onPress: () => { void deleteLedgerEntry(entry); } },
     ]);
+  };
   const toggleReminder = async (reminder: RedCoinsReminder) => {
     if (!state) return;
     const next: RedCoinsState = {

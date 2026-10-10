@@ -39,7 +39,7 @@ const luminance = hex => { const rgb = hex.replace('#', '').match(/../g).map(x =
 const contrast = (a, b) => { const x = luminance(a), y = luminance(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
 
 test('six explicit themes, unknown/missing preference safely defaults to Original', () => {
-  assert.equal(Object.keys(appThemes).length, 6);
+  assert.equal(Object.keys(appThemes).length, 7);
   for (const value of [null, undefined, 'auto', 'invalid', '{}']) assert.equal(validThemeId(value), 'cream');
   assert.equal(validThemeId('midnight'), 'midnight'); assert.equal(validThemeId('neutral'), 'neutral');
   for (const id of api.themeIds) assert.equal(validThemeId(id), id);

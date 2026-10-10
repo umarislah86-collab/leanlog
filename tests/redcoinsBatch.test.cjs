@@ -180,3 +180,36 @@ test('malformed persisted clipboard is harmless', async () => {
   storage.set('redcoins_bulk_clipboard_v1', JSON.stringify({ version: 1, entries: [null, { type: 'expense', amount: 'wrong' }] }));
   assert.equal((await batch.readRedCoinsClipboard()).length, 0);
 });
+
+for (const scenario of [
+  { name: 'single delete', ids: ['1'], action: { kind: 'delete' } },
+  { name: 'bulk delete', ids: ['1', '2'], action: { kind: 'delete' } },
+  { name: 'bulk amount edit', ids: ['1', '2'], action: { kind: 'amount', value: 25 } },
+  { name: 'bulk paste', paste: true },
+]) test(`${scenario.name} previews entries/balances before storage and rolls back a failed write`, async () => {
+  const { commitRedCoinsPreview } = load('redcoinsSavePreview');
+  const original = state([row('1'), row('2')]);
+  const next = scenario.paste
+    ? batch.pasteRedCoinsEntries(original, [row('copy')], null, now, () => 'new')
+    : batch.applyRedCoinsBatch(original, scenario.ids, scenario.action, now);
+  let visible = original;
+  let modalOpen = true;
+  let rejectWrite;
+  const pending = commitRedCoinsPreview({
+    preview: () => { visible = next; modalOpen = false; },
+    yieldToUI: async () => {},
+    write: () => new Promise((_, reject) => { rejectWrite = reject; }),
+    rollback: async () => { visible = original; modalOpen = true; },
+  });
+  assert.equal(visible, next);
+  assert.equal(modalOpen, false);
+  assert.notEqual(visible.accounts[0].balance, original.accounts[0].balance);
+  await new Promise(resolve => setImmediate(resolve));
+  const rejection = assert.rejects(pending, /disk full/);
+  rejectWrite(new Error('disk full'));
+  await rejection;
+  assert.equal(visible, original);
+  assert.equal(modalOpen, true);
+  assert.equal(original.entries.length, 2);
+  assert.equal(original.accounts[0].balance, 100);
+});

@@ -2,6 +2,38 @@
 
 Updated: 10 October 2026 (Asia/Singapore).
 
+## Unreleased — accurate widget calorie bar
+
+- Removed daily widget's minimum 4% fill. Zero calories/rounded 0% renders no coloured segment; positive percentages use actual clamped 0–100 progress and 100% omits the empty segment. TypeScript and 11 daily-widget/theme tests pass. No APK build yet.
+
+## Unreleased — full mirror photo viewer
+
+- Gallery thumbnail taps and Body Timeline photo taps open a fullscreen black viewer using resizeMode contain: full original aspect ratio, no crop/stretch. Date and position shown; Previous/Next browse all stored mirror photos; Close/Android Back return to the prior screen. Gallery has a separate Edit control, retaining metadata editing. Edit-modal image now contains the full photo and is tappable into the same viewer. Missing-image error feedback included.
+- TypeScript and diff checks pass. Native modal/image viewing QA pending; no APK build yet. Existing upload resolution is unchanged; viewer cannot recover pixels already removed before storage.
+
+## Unreleased — Appearance modal scrolling
+
+- Replaced nested full-screen/panel Pressables with a passive panel and independent absolute backdrop dismiss target. Safe-area wrapper uses box-none, leaving backdrop reachable without wrapping scroll gestures in press handlers. Modal panel and ScrollView have bounded flex heights; all choices, preview and credits share one vertical scroll area, while Apply stays at the bottom. Android nested scrolling enabled and scroll indicator visible.
+- TypeScript, 16 appearance tests and diff checks pass; native finger-scroll QA pending APK. Updated preview copy to accurately reflect themed launcher widgets.
+
+## Unreleased — Onyx Gold appearance
+
+- Added seventh theme Onyx Gold (onyx) to shared palette/Settings choices and saved-theme validation. Charcoal canvas, layered graphite cards, warm gold accent/action highlights and ivory foreground; red/green/blue finance meanings retained. Space Grotesk headings/numbers and Manrope body reuse bundled fonts. Shared headless widget theme inherits the palette and typography.
+- TypeScript and 22 appearance/widget tests pass, including palette foreground and all five widget contrast checks across every theme. Dark Home bright-card foreground correction also applies. No new APK build yet.
+
+## Unreleased — Home bright-card text contrast
+
+- User screenshots show Studio/Midnight light text on completed blue/green/yellow habit tiles and mustard Budget Coach. Completed habit name/check/streak now uses explicit dark ink on retained bright colours. Dark themes override Budget Coach heading, total, metadata, change badge, chart values/day labels and category names/amounts after theme mapping; wallet/spinner use matching dark ink. Uncompleted dark habit tiles retain their normal foreground.
+- TypeScript and diff checks pass; dark ink contrast against the four built-in habit colours is 7.55–10.66:1 (mustard Budget Coach 9.75:1). Phone visual QA pending; no APK build yet.
+
+## Unreleased — immediate RedCoins Save preview
+
+- Extended to single delete (logger and ledger), bulk edit/delete/paste and Copy. After confirmation, ledger/balances change and bulk/logger modals close before any awaited database/frame work. Shared preview commit reloads durable data on failure, restores selection/modal/draft, and retains SQLite revision protection. Entry mutation lock prevents overlapping saves/deletes/batches. Index delete/sync only follows authoritative write success; summary/widget refresh is secondary. Copy previews clipboard controls and restores them if storage fails.
+- Validation now 293 tests plus TypeScript and diff checks pass, including slow-write and disk-failure scenarios for single delete, bulk delete, amount edit and paste. No new APK/build/publication yet.
+- User requested Save immediately close the logger and show the transaction in the ledger, with persistence behind the UI. Logger now builds from the live screen snapshot, publishes entry/balance state and navigates to Activity synchronously before yielding frames and writing SQLite. Existing revision check prevents stale snapshots overwriting concurrent changes; save lock remains until durable work completes.
+- Failed writes reload durable state (fallback to previous snapshot if reload fails), reopen the retained draft and show the save error. External state notifications cannot replace an in-flight preview, including reloads already underway. Summary/widget/index/reminder refresh remains after durable success. Receipt folder copying no longer reopens the logger on success; failed copies still preserve originals and report retry instructions.
+- 289 tests and TypeScript pass, including controlled slow-write preview and failed-write rollback tests; existing SQLite concurrency and atomic-balance tests pass. Native phone latency still needs verification. No new APK/version bump/publication for this change yet.
+
 ## Latest published release — v2.9.22 (10 October 2026)
 
 - User approved compact protein slider/card ordering in Expo Go, then explicitly authorized APK build and GitHub push/publication. Supersedes earlier QC-only/no-build notes below.

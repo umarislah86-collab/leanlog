@@ -30,7 +30,7 @@ test('Original retains exact tree identity/style objects', () => {
   const style = { color: '#172033', fontSize: 11 }; assert.equal(theme.widgetThemeStyle(style, 'cream', 'Title'), style);
   const node = React.createElement(mocks['react-native-android-widget'].TextWidget, { text: 'Title', style }); assert.equal(theme.themedWidgetTree(node, 'cream'), node);
 });
-test('all five widget types build headlessly for all six themes, keeping actions and values', () => {
+test('all five widget types build headlessly for every theme, keeping actions and values', () => {
   for (const id of api.themeIds) for (const widget of samples(id)) {
     const tree = buildWidgetTree(widget); const text = JSON.stringify(tree);
     assert.match(text, /match_parent/);

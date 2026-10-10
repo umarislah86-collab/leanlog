@@ -22,6 +22,7 @@ import { macroTargets } from '../services/proteinTargets';
 import { foodCalendarDate } from '../services/proteinTimeline';
 import { ProgressCardOrderModal } from '../components/ProgressCardOrderModal';
 import { loadProgressOrder, normalizeProgressOrder, type ProgressCardId } from '../services/progressCardOrder';
+import { FullPhotoViewer } from '../components/FullPhotoViewer';
 import { ProteinDaySlider } from '../components/ProteinDaySlider';
 import WeightAreaChart from '../components/WeightAreaChart';
 import { Ionicons } from '@expo/vector-icons';
@@ -266,6 +267,7 @@ export default function ProgressScreen() {
   const [showMirrorGalleryModal, setShowMirrorGalleryModal] = useState(false);
   const [mirrorGallerySelected, setMirrorGallerySelected] = useState<MirrorPhoto | null>(null);
   const [mirrorUploadLoading, setMirrorUploadLoading] = useState(false);
+  const [fullPhotoId, setFullPhotoId] = useState<string | null>(null);
   const [showMirrorDetailModal, setShowMirrorDetailModal] = useState(false);
   const [mirrorDetailPhoto, setMirrorDetailPhoto] = useState<MirrorPhoto | null>(null);
   const [mirrorDetailDate, setMirrorDetailDate] = useState('');
@@ -777,7 +779,7 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
                 <Text style={styles.timelineItemTitle}>{item.title}</Text>
                 <Text style={styles.timelineDetail}>{item.detail}</Text>
               </View>
-              {item.image && <Image source={{ uri: `data:image/jpeg;base64,${item.image}` }} style={styles.timelineImage} />}
+              {item.image && <TouchableOpacity onPress={() => setFullPhotoId(item.id.slice(6))} accessibilityLabel="View full mirror photo"><Image source={{ uri: `data:image/jpeg;base64,${item.image}` }} style={styles.timelineImage} /></TouchableOpacity>}
             </View>
           )) : <Text style={styles.timelineEmpty}>{hiddenWeightCount ? 'Weight check-ins are tucked away. Expand them whenever you need the full record.' : 'Finish a workout or add a mirror photo to begin your timeline.'}</Text>}
         </View>
@@ -1126,8 +1128,13 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
         </View>
       </Modal>
 
+      <FullPhotoViewer
+        photos={mirrorPhotos.map(photo => ({ id: photo.id, uri: `data:image/jpeg;base64,${photo.base64}`, label: photo.displayDate || photo.id }))}
+        selectedId={fullPhotoId} onSelect={setFullPhotoId} onClose={() => setFullPhotoId(null)}
+      />
+
       {/* Mirror Gallery Modal */}
-      <Modal visible={showMirrorGalleryModal} transparent animationType="slide">
+      <Modal visible={showMirrorGalleryModal} transparent animationType="slide" onRequestClose={() => setShowMirrorGalleryModal(false)}>
         <View style={styles.mirrorModalOverlay}>
           <View style={[styles.mirrorModalBox, { maxHeight: '85%', padding: 16, width: '94%' }]}>
             <Text style={styles.mirrorModalTitle}>{t('mirrorGalleryTitle')}</Text>
@@ -1137,22 +1144,25 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
               <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
                   {mirrorPhotos.map((p) => (
-                    <TouchableOpacity key={p.id} style={{ width: '47%' }} onPress={() => openMirrorDetail(p)}>
+                    <View key={p.id} style={{ width: '47%' }}>
+                      <TouchableOpacity onPress={() => setFullPhotoId(p.id)} accessibilityLabel="View full mirror photo">
                       <Image
                         source={{ uri: `data:image/jpeg;base64,${p.base64}` }}
                         style={{ width: '100%', height: 180, borderRadius: 8 }}
                         resizeMode="cover"
                       />
+                      </TouchableOpacity>
                       <Text style={{ color: themed('#CBD2DD', 'color'), fontSize: 11, marginTop: 4, textAlign: 'center' }}>
                         {p.displayDate || p.id}
                       </Text>
+                      <TouchableOpacity onPress={() => openMirrorDetail(p)} accessibilityLabel="Edit mirror photo details" style={{ paddingVertical: 8, alignItems: 'center' }}><Text style={{ color: themed('#FF6542', 'color'), fontSize: 12 }}>✎ Edit</Text></TouchableOpacity>
                       {p.weight !== undefined && (
                         <Text style={{ color: themed('#FF6542', 'color'), fontSize: 11, textAlign: 'center' }}>{p.weight} kg</Text>
                       )}
                       {p.waist !== undefined && (
                         <Text style={{ color: themed('#8D9BFF', 'color'), fontSize: 11, textAlign: 'center' }}>{t('waistUnit')} {p.waist} cm</Text>
                       )}
-                    </TouchableOpacity>
+                    </View>
                   ))}
                 </View>
               </ScrollView>
@@ -1165,15 +1175,17 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
       </Modal>
 
       {/* Mirror Photo Detail / Edit Modal */}
-      <Modal visible={showMirrorDetailModal} transparent animationType="fade">
+      <Modal visible={showMirrorDetailModal} transparent animationType="fade" onRequestClose={() => setShowMirrorDetailModal(false)}>
         <View style={styles.centeredOverlay}>
           <View style={[styles.modalBox, { width: '92%' }]}>
             {mirrorDetailPhoto && (<>
+              <TouchableOpacity onPress={() => setFullPhotoId(mirrorDetailPhoto.id)} accessibilityLabel="View full mirror photo">
               <Image
                 source={{ uri: `data:image/jpeg;base64,${mirrorDetailPhoto.base64}` }}
                 style={{ width: '100%', height: 200, borderRadius: 10, marginBottom: 12 }}
-                resizeMode="cover"
+                resizeMode="contain"
               />
+              </TouchableOpacity>
               <Text style={styles.modalLabel}>{t('dateLabel')}</Text>
               <TouchableOpacity style={styles.pickerBtn} onPress={() => setShowMirrorDetailDatePicker(true)}>
                 <Text style={styles.pickerBtnText}>📅 {mirrorDetailDate || t('pickDate')}</Text>

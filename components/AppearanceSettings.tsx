@@ -50,10 +50,11 @@ export function AppearanceSettings() {
       <Ionicons name="chevron-forward" size={18} color={palette.muted} />
     </Pressable>
     <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
-      <Pressable onPress={close} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.65)', justifyContent: 'center' }}>
-        <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1, marginHorizontal: 16, marginVertical: 12, justifyContent: 'center' }}>
-          <Pressable onPress={() => {}} style={{ maxHeight: '100%', backgroundColor: palette.canvas, borderRadius: 26, overflow: 'hidden' }}>
-            <ScrollView style={{ flexShrink: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20 }}>
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,.65)' }}>
+        <Pressable onPress={close} accessibilityLabel="Close appearance preview" style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }} />
+        <SafeAreaView pointerEvents="box-none" edges={['top', 'bottom']} style={{ flex: 1, marginHorizontal: 16, marginVertical: 12, justifyContent: 'center' }}>
+          <View style={{ flex: 1, backgroundColor: palette.canvas, borderRadius: 26, overflow: 'hidden' }}>
+            <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled showsVerticalScrollIndicator contentContainerStyle={{ padding: 20 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                 <View style={{ flex: 1 }}><Text style={{ color: palette.text, fontFamily: 'serif', fontSize: 27 }}>Make it yours.</Text><Text style={{ color: palette.muted, fontSize: 12, marginTop: 6 }}>Preview first. Apply when it feels right.</Text></View>
                 <Pressable disabled={saving} onPress={close} accessibilityRole="button" accessibilityLabel="Close appearance preview" hitSlop={12}><Ionicons name="close" size={25} color={palette.text} /></Pressable>
@@ -70,7 +71,7 @@ export function AppearanceSettings() {
               </View>
               <ThemePreview palette={p} />
               {!fontsLoaded && <Text style={{ color: palette.muted, fontSize: 11, marginTop: 12 }}>Custom fonts could not load. System fonts are being used; reopen the app to retry.</Text>}
-              <Text style={{ color: palette.muted, fontSize: 11, lineHeight: 17, marginTop: 12 }}>Sample data only. Expense, income and transfer colours keep their meaning. PDFs and launcher widgets keep their original design.</Text>
+              <Text style={{ color: palette.muted, fontSize: 11, lineHeight: 17, marginTop: 12 }}>Sample data only. Expense, income and transfer colours keep their meaning. Launcher widgets follow your theme. PDF exports keep their original design.</Text>
               <Pressable onPress={() => setShowCredits(value => !value)} accessibilityRole="button" accessibilityState={{ expanded: showCredits }} style={{ paddingVertical: 12 }}><Text style={{ color: palette.muted, fontSize: 11 }}>Font credits & licences {showCredits ? '−' : '+'}</Text></Pressable>
               {showCredits && <Text selectable style={{ color: palette.muted, fontSize: 10, lineHeight: 16 }}>{themeFontLicenses}</Text>}
               {!!error && <Text accessibilityRole="alert" style={{ color: palette.dark ? '#FF9B88' : '#B33C2B', fontSize: 12, marginTop: 12 }}>{error}</Text>}
@@ -78,9 +79,9 @@ export function AppearanceSettings() {
             <Pressable onPress={() => { void apply(); }} disabled={saving || preview === palette.id} accessibilityRole="button" accessibilityState={{ disabled: saving || preview === palette.id }} style={{ marginHorizontal: 20, marginBottom: 20, backgroundColor: palette.hero, padding: 16, borderRadius: 16, alignItems: 'center', opacity: saving || preview === palette.id ? .5 : 1 }}>
               {saving ? <ActivityIndicator color={palette.onHero} /> : <Text style={{ color: palette.onHero, fontWeight: '800', fontSize: 13 }}>{preview === palette.id ? 'Already active' : `Apply ${p.name}`}</Text>}
             </Pressable>
-          </Pressable>
+          </View>
         </SafeAreaView>
-      </Pressable>
+      </View>
     </Modal>
   </>;
 }
