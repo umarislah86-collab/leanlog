@@ -75,6 +75,7 @@ export function openRedCoinsSql(): Promise<SQLite.SQLiteDatabase> {
       PRAGMA journal_mode = WAL;
       PRAGMA synchronous = FULL;
       CREATE TABLE IF NOT EXISTS rc_meta (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS rc_recovery (key TEXT PRIMARY KEY NOT NULL, payload TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS rc_records (kind TEXT NOT NULL, id TEXT NOT NULL, rank REAL NOT NULL, payload TEXT NOT NULL CHECK(json_valid(payload)), PRIMARY KEY(kind,id));
       CREATE INDEX IF NOT EXISTS rc_entry_date ON rc_records(kind,json_extract(payload,'$.date') DESC,id DESC);
       CREATE INDEX IF NOT EXISTS rc_entry_account ON rc_records(kind,json_extract(payload,'$.account'));
@@ -101,10 +102,16 @@ export function openRedCoinsSql(): Promise<SQLite.SQLiteDatabase> {
 async function metaValue(db: Pick<SQLite.SQLiteDatabase, 'getFirstAsync'>, key: string) {
   return (await db.getFirstAsync<{ value: string }>('SELECT value FROM rc_meta WHERE key=?', key))?.value;
 }
-async function checkpoint(raw: string) {
-  const existing = await AsyncStorage.getItem(CHECKPOINT_KEY);
-  if (existing === null) await AsyncStorage.setItem(CHECKPOINT_KEY, raw);
-  if (await AsyncStorage.getItem(CHECKPOINT_KEY) !== (existing ?? raw)) throw new Error('SQLite migration safety checkpoint could not be verified. Original JSON kept.');
+export async function saveRedCoinsRecovery(key: string, raw: string) {
+  const db = await openRedCoinsSql();
+  const existing = await db.getFirstAsync<{ payload: string }>('SELECT payload FROM rc_recovery WHERE key=?', key);
+  if (existing) return;
+  // Preserve any checkpoint made by an earlier APK. Never create another
+  // ledger-sized AsyncStorage entry: Android caps that database at 6 MB.
+  const original = await AsyncStorage.getItem(key) ?? raw;
+  await db.runAsync('INSERT OR IGNORE INTO rc_recovery(key,payload) VALUES (?,?)', key, original);
+  const verified = await db.getFirstAsync<{ payload: string }>('SELECT payload FROM rc_recovery WHERE key=?', key);
+  if (verified?.payload !== original) throw new Error('SQLite migration safety checkpoint could not be verified. Original data kept.');
 }
 async function applyRows(tx: Pick<SQLite.SQLiteDatabase, 'prepareAsync' | 'runAsync'>, state: RedCoinsState, previous: Map<string, Row>, revision: number, entryIds?: string[]) {
   if (state.accounts.some(account => !Number.isFinite(account.balance)) || state.entries.some(entry => !Number.isFinite(entry.amount))) throw new Error('Invalid money values. Nothing was saved.');
@@ -137,7 +144,7 @@ async function migrate(db: SQLite.SQLiteDatabase) {
   const state = JSON.parse(raw) as RedCoinsState;
   if (!Array.isArray(state.entries) || !Array.isArray(state.accounts) || !Array.isArray(state.categories) || (state.reminders !== undefined && !Array.isArray(state.reminders))) throw new Error('Legacy RedCoins snapshot is invalid. Original JSON kept; restore a verified backup.');
   if (state.accounts.some(account => !Number.isFinite(account.balance)) || state.entries.some(entry => !Number.isFinite(entry.amount))) throw new Error('Invalid money values. SQLite migration cancelled; original data kept.');
-  await checkpoint(raw);
+  await saveRedCoinsRecovery(CHECKPOINT_KEY, raw);
   // Releases before reminders existed have no field. Keep the original JSON
   // checkpoint byte-for-byte, then add only the missing optional collection.
   state.reminders ??= [];

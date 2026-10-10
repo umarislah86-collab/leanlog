@@ -2,6 +2,13 @@
 
 Updated: 10 October 2026 (Asia/Singapore).
 
+## Current corrective release — v2.9.20
+
+- Affected spouse phone reports `database or disk is full (code 13 SQLITE_FULL)` on v2.9.19; user's own phone opens normally. Actual free device storage is not yet supplied. Legacy migration duplicated complete ledger checkpoints into Android AsyncStorage, whose pinned native default is 6 MB. Reproduced checkpoint failure near that cap; successful upgraded phones may already be reading authoritative SQLite.
+- All three large recovery checkpoints now live in additive `rc_recovery` SQLite storage, verified before financial migration/save. Existing AsyncStorage checkpoints are copied without changing their original bytes and are never deleted/overwritten. The original legacy state also remains untouched. Real disk-full during checkpoint creation still rejects safely with no financial rows initialized.
+- Native config plugin sets AsyncStorage capacity to 32 MB for retained legacy data and small preferences. Expo introspection confirms the generated Gradle property. All 239 tests, TypeScript and Android prebuild config passed; includes near-6-MB regression, full service migration without large AsyncStorage writes, immutable prior checkpoints and real-disk-full failure/retry.
+- Hotfix v2.9.20 is corrective follow-through for the previously requested build/push and failing phone upgrade. Native build, publication and phone acceptance pending.
+
 ## Latest published release — v2.9.19 ARM64 (10 October)
 
 - User authorized ARM64 APK build, push and GitHub publication. Based on v2.9.18 and the latest release branch handover commit.

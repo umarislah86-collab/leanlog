@@ -11,21 +11,21 @@ function runtime(harness = sqliteHarness(), values = new Map()) {
   const storage = { getItem: async key => values.get(key) ?? null, setItem: async (key, value) => values.set(key, value), multiSet: async pairs => { if (prefError) throw new Error('native preference failure'); pairs.forEach(([key, value]) => values.set(key, value)); } };
   const api = {};
   vm.runInNewContext(compiled, { exports: api, console: { warn() {} }, require: id => id === 'expo-sqlite' ? harness.expo : storage });
-  return { api, harness, values, failPreferences: value => { prefError = value; } };
+  return { api, harness, values, storage, recovery: key => harness.db.prepare('SELECT payload FROM rc_recovery WHERE key=?').get(key)?.payload, failPreferences: value => { prefError = value; } };
 }
 test('one-time migration preserves exact saved balances/order and immutable JSON recovery', async () => {
   const raw = JSON.stringify(fixture());
   const r = runtime(undefined, new Map([['redcoins_state_v1', raw]]));
   const migrated = await r.api.readRedCoinsSql();
   assert.equal(JSON.stringify(migrated), raw);
-  assert.equal(r.values.get('redcoins_pre_sqlite_v1'), raw);
+  assert.equal(r.recovery('redcoins_pre_sqlite_v1'), raw);
   migrated.accounts[0].balance = 1556.97;
   await r.api.writeRedCoinsSql(migrated);
   r.values.set('redcoins_state_v1', JSON.stringify({ ...fixture(), monthlyBudget: 999 }));
   const restarted = runtime(r.harness, r.values);
   assert.equal((await restarted.api.readRedCoinsSql()).accounts[0].balance, 1556.97);
   assert.equal((await restarted.api.readRedCoinsSql()).monthlyBudget, 2000);
-  assert.equal(r.values.get('redcoins_pre_sqlite_v1'), raw);
+  assert.equal(r.recovery('redcoins_pre_sqlite_v1'), raw);
 });
 test('upgrade from before reminders preserves transactions, balances and original recovery JSON', async () => {
   const legacy = fixture();
@@ -35,7 +35,7 @@ test('upgrade from before reminders preserves transactions, balances and origina
   const migrated = await r.api.readRedCoinsSql();
   assert.equal(JSON.stringify(migrated), JSON.stringify({ ...legacy, reminders: [] }));
   assert.equal(r.values.get('redcoins_state_v1'), raw);
-  assert.equal(r.values.get('redcoins_pre_sqlite_v1'), raw);
+  assert.equal(r.recovery('redcoins_pre_sqlite_v1'), raw);
   const restarted = runtime(r.harness, r.values);
   assert.deepEqual(JSON.parse(JSON.stringify(await restarted.api.readRedCoinsSql())), JSON.parse(JSON.stringify(migrated)));
 });
@@ -48,6 +48,51 @@ test('malformed existing reminders still reject migration without replacing lega
     assert.equal(r.values.get('redcoins_state_v1'), raw);
     assert.equal(r.harness.db.prepare('SELECT count(*) n FROM rc_records').get().n, 0);
   }
+});
+
+test('migration succeeds near the 6 MB AsyncStorage cap without duplicating the ledger there', async () => {
+  const legacy = fixture();
+  legacy.entries = Array.from({ length: 3000 }, (_, i) => ({ ...legacy.entries[0], id: `entry-${i}`, note: 'x'.repeat(180) }));
+  const raw = JSON.stringify(legacy);
+  const cap = 6 * 1024 * 1024;
+  const values = new Map([['redcoins_state_v1', raw], ['other-app-data', 'x'.repeat(cap - Buffer.byteLength(raw) - 256)]]);
+  const r = runtime(undefined, values);
+  const originalSet = r.storage.setItem;
+  r.storage.setItem = async (key, value) => {
+    const bytes = [...values].reduce((sum, [k, v]) => sum + (k === key ? 0 : Buffer.byteLength(v)), 0) + Buffer.byteLength(value);
+    if (bytes > cap) throw new Error('database or disk is full (code 13 SQLITE_FULL)');
+    await originalSet(key, value);
+  };
+  // Reproduce the old failing checkpoint operation using the same quota.
+  await assert.rejects(r.storage.setItem('old-copy', raw), /SQLITE_FULL/);
+  const migrated = await r.api.readRedCoinsSql();
+  assert.equal(migrated.entries.length, 3000);
+  assert.equal(migrated.accounts[0].balance, legacy.accounts[0].balance);
+  assert.equal(r.recovery('redcoins_pre_sqlite_v1'), raw);
+  assert.equal(values.has('redcoins_pre_sqlite_v1'), false);
+  assert.equal(values.get('redcoins_state_v1'), raw);
+});
+
+test('earlier recovery checkpoint is preserved and never overwritten on retry', async () => {
+  const raw = JSON.stringify(fixture());
+  const older = JSON.stringify({ ...fixture(), monthlyBudget: 1234 });
+  const r = runtime(undefined, new Map([['redcoins_state_v1', raw], ['redcoins_pre_sqlite_v1', older]]));
+  await r.api.readRedCoinsSql();
+  assert.equal(r.recovery('redcoins_pre_sqlite_v1'), older);
+  assert.equal(r.values.get('redcoins_pre_sqlite_v1'), older);
+  await r.api.saveRedCoinsRecovery('redcoins_pre_sqlite_v1', 'changed');
+  assert.equal(r.recovery('redcoins_pre_sqlite_v1'), older);
+});
+
+test('real disk-full during recovery cancels migration and preserves original finance data', async () => {
+  const raw = JSON.stringify(fixture());
+  const r = runtime(undefined, new Map([['redcoins_state_v1', raw]]));
+  r.harness.fail(sql => { if (sql.includes('INSERT OR IGNORE INTO rc_recovery')) throw new Error('SQLITE_FULL'); });
+  await assert.rejects(r.api.readRedCoinsSql(), /SQLITE_FULL/);
+  assert.equal(r.harness.db.prepare('SELECT count(*) n FROM rc_records').get().n, 0);
+  assert.equal(r.values.get('redcoins_state_v1'), raw);
+  r.harness.fail(null);
+  assert.equal((await r.api.readRedCoinsSql()).accounts[0].balance, fixture().accounts[0].balance);
 });
 
 test('read-only audit returns legacy snapshot without financial migration', async () => {
@@ -63,7 +108,7 @@ test('failed migration rolls back all SQL rows and leaves legacy/checkpoint inta
   await assert.rejects(r.api.readRedCoinsSql(), /disk full/);
   assert.equal(r.harness.db.prepare('SELECT count(*) n FROM rc_records').get().n, 0);
   assert.equal(r.values.get('redcoins_state_v1'), raw);
-  assert.equal(r.values.get('redcoins_pre_sqlite_v1'), raw);
+  assert.equal(r.recovery('redcoins_pre_sqlite_v1'), raw);
   r.harness.fail(null);
   assert.equal((await r.api.readRedCoinsSql()).accounts[0].balance, 1856.97);
 });

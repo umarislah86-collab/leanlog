@@ -3,7 +3,7 @@
     "name": "LeanLog",
     "slug": "umarcoc93",
     "scheme": "leanlog",
-    "version": "2.9.19",
+    "version": "2.9.20",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
@@ -29,6 +29,7 @@
       ]
     },
     "plugins": [
+      "./plugins/withAsyncStorageCapacity",
       "./plugins/withLeanLogShortcuts",
       "./plugins/withWidgetThemeFonts",
       [

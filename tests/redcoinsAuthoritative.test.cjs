@@ -157,9 +157,10 @@ test('local account rename/icon/current balance survive source rename and transf
 
 function runtime() {
   const values = new Map();
+  const harness = require('./helpers/redcoins-sql.cjs').sqliteHarness();
   const storage = { getItem: async key => values.get(key) || null, setItem: async (key, value) => values.set(key, value), multiSet: async pairs => { pairs.forEach(([key, value]) => values.set(key, value)); }, getAllKeys: async () => [...values.keys()] };
-  const service = load('redcoins', { '@react-native-async-storage/async-storage': storage, 'expo-file-system/legacy': {}, 'expo-sharing': {}, './exportFile': {}, './redcoinsReminders': { materializeAutomaticReminders: () => [] }, './spendingGuards': { loadSpendingGuards: async () => [], syncPinnedGuardSnapshot: async () => {}, WIDGET_CASH_REALITY_KEY: 'cash' }, './redcoinsEvents': { emitRedCoinsChange: () => {} } });
-  return { values, storage, service };
+  const service = load('redcoins', { 'expo-sqlite': harness.expo, '@react-native-async-storage/async-storage': storage, 'expo-file-system/legacy': {}, 'expo-sharing': {}, './exportFile': {}, './redcoinsReminders': { materializeAutomaticReminders: () => [] }, './spendingGuards': { loadSpendingGuards: async () => [], syncPinnedGuardSnapshot: async () => {}, WIDGET_CASH_REALITY_KEY: 'cash' }, './redcoinsEvents': { emitRedCoinsChange: () => {} } });
+  return { values, storage, service, recovery: key => harness.db.prepare('SELECT payload FROM rc_recovery WHERE key=?').get(key)?.payload };
 }
 
 test('bank review progress survives durable saves and reopening without touching balances or statuses', async () => {
@@ -193,17 +194,37 @@ test('backup replacement serializes writes, rejects stale ledger/preferences and
 });
 
 test('status repair persists once with exact checkpoint, no FYDB reads and no balance replay', async () => {
-  const { values, service } = runtime();
+  const { values, service, recovery } = runtime();
   const saved = state([row('old-pending', { status: 'pending' }), row('user-edited', { status: 'pending', editedAt: '2026-10-07' }), row('own-pending', { origin: 'redcoins', status: 'pending' })], [account('1', 'Aeon', 1856.97)]);
   saved.storageVersion = 2;
   const bytes = JSON.stringify(saved); values.set('redcoins_state_v1', bytes);
   const first = await service.loadRedCoins();
   assert.equal(first.entries[0].status, 'none'); assert.equal(first.entries[0].legacyStatusUnknown, true);
   assert.equal(first.entries[1].status, 'pending'); assert.equal(first.entries[2].status, 'pending');
-  assert.equal(values.get('redcoins_pre_status_mapping_v1'), bytes);
+  assert.equal(recovery('redcoins_pre_status_mapping_v1'), bytes);
   assert.equal(JSON.parse(await service.readSavedRedCoinsRaw()).statusMappingVersion, 1);
   for (let i = 0; i < 20; i++) assert.equal((await service.loadRedCoins()).accounts[0].balance, 1856.97);
-  assert.equal(values.get('redcoins_pre_status_mapping_v1'), bytes);
+  assert.equal(recovery('redcoins_pre_status_mapping_v1'), bytes);
+});
+
+test('complete legacy upgrade never writes ledger-sized recovery copies into AsyncStorage', async () => {
+  const { values, storage, service, recovery } = runtime();
+  const saved = state([row('old-pending', { status: 'pending' })], [account('1', 'Aeon', 1856.97)]);
+  const bytes = JSON.stringify(saved);
+  values.set('redcoins_state_v1', bytes);
+  const originalSet = storage.setItem;
+  storage.setItem = async (key, value) => {
+    if (key.startsWith('redcoins_pre_')) throw new Error('database or disk is full (code 13 SQLITE_FULL)');
+    return originalSet(key, value);
+  };
+  const loaded = await service.loadRedCoins();
+  assert.equal(loaded.accounts[0].balance, 1856.97);
+  assert.equal(loaded.entries[0].status, 'none');
+  assert.equal(recovery('redcoins_pre_sqlite_v1'), bytes);
+  assert.equal(recovery('redcoins_pre_authoritative_v1'), bytes);
+  assert.equal(recovery('redcoins_pre_status_mapping_v1'), bytes);
+  assert.equal(values.get('redcoins_state_v1'), bytes);
+  assert.equal((await service.loadRedCoins()).accounts[0].balance, 1856.97);
 });
 
 test('explicit import recovers raw review metadata even when None label is unchanged, without replaying money', () => {
@@ -226,7 +247,7 @@ test('opening empty RedCoins does not permanently initialize an empty cash selec
   assert.equal(projected.cashReality.liquidBalance, 100);
 });
 test('one-time migration saves exact recovery backup and fifty opens preserve every balance/adjustment without FYDB access', async () => {
-  const { values, service } = runtime();
+  const { values, service, recovery } = runtime();
   const saved = state([row('adjustment', { type: 'income', origin: 'redcoins', amount: 600 })], [account('1', 'Aeon', 1856.97)]);
   const bytes = JSON.stringify(saved); values.set('redcoins_state_v1', bytes);
   for (let i = 0; i < 50; i++) {
@@ -234,7 +255,7 @@ test('one-time migration saves exact recovery backup and fifty opens preserve ev
     assert.equal(result.accounts[0].balance, 1856.97); assert.equal(result.entries[0].amount, 600); assert.equal(result.storageVersion, 2);
     const projected = await service.getRedCoinsSummary(result, now); assert.equal(projected.cashReality.liquidBalance, 1856.97);
   }
-  assert.equal(values.get('redcoins_pre_authoritative_v1'), bytes); assert.equal(values.get('bluecoins_auto_sync_v1'), 'false');
+  assert.equal(recovery('redcoins_pre_authoritative_v1'), bytes); assert.equal(values.get('bluecoins_auto_sync_v1'), 'false');
 });
 test('future imported transaction becomes due once without reopening or reading Bluecoins', async () => {
   const { values, service } = runtime();

@@ -10,7 +10,7 @@ import { buildRedCoinsSummary } from './redcoinsSummary';
 import { prepareRedCoinsImport } from './redcoinsImportPlan';
 import { migrateAccountPreferences } from './redcoinsAccountIdentity';
 import { repairLegacyBluecoinsStatuses } from './redcoinsStatus';
-import { cloneRedCoinsState, hasRedCoinsSqlData, markRedCoinsRevision, readRedCoinsSql, writeRedCoinsSql } from './redcoinsSqlStore';
+import { cloneRedCoinsState, hasRedCoinsSqlData, markRedCoinsRevision, readRedCoinsSql, saveRedCoinsRecovery, writeRedCoinsSql } from './redcoinsSqlStore';
 
 let stateWrites: Promise<void> = Promise.resolve();
 export async function flushRedCoinsWrites() { await stateWrites; }
@@ -227,7 +227,7 @@ export async function loadRedCoins(): Promise<RedCoinsState> {
   if (saved.storageVersion !== 2) {
     // One-time, byte-for-byte recovery checkpoint BEFORE any migration.
     // Never reconstruct balances from a FYDB or remove manual adjustments.
-    if (recoveryRaw && !await AsyncStorage.getItem('redcoins_pre_authoritative_v1')) await AsyncStorage.setItem('redcoins_pre_authoritative_v1', recoveryRaw);
+    if (recoveryRaw) await saveRedCoinsRecovery('redcoins_pre_authoritative_v1', recoveryRaw);
     saved.storageVersion = 2;
     saved.entries.forEach(entry => {
       // A legacy saved balance is the migration baseline. Missing flags are
@@ -258,7 +258,7 @@ export async function loadRedCoins(): Promise<RedCoinsState> {
   }
   const generated = materializeAutomaticReminders(saved);
   const statusRepaired = repairLegacyBluecoinsStatuses(saved);
-  if (statusRepaired && recoveryRaw && !await AsyncStorage.getItem('redcoins_pre_status_mapping_v1')) await AsyncStorage.setItem('redcoins_pre_status_mapping_v1', recoveryRaw);
+  if (statusRepaired && recoveryRaw) await saveRedCoinsRecovery('redcoins_pre_status_mapping_v1', recoveryRaw);
   const balanceChanged = reconcileScheduledBalanceEffects(saved);
   const { trash: _legacyTrash, ...normalized } = saved;
   if (!durable || originalStorageVersion !== 2 || statusRepaired || balanceChanged || generated.length) await saveRedCoins(normalized);
