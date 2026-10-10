@@ -1,6 +1,13 @@
 # LeanLog — Codex handover
 
-Updated: 9 October 2026 (Asia/Kuala_Lumpur).
+Updated: 10 October 2026 (Asia/Singapore).
+
+## Current release work — v2.9.19
+
+- User authorized ARM64 APK build, push and GitHub publication. Based on v2.9.18 and the latest release branch handover commit.
+- Legacy SQLite migration accepts an absent reminders collection (pre-reminder releases); existing malformed collections still fail closed. Original JSON and its byte-for-byte checkpoint remain intact; balances and transactions are preserved. RedCoins startup now displays load errors and offers retry.
+- Daily widget removes the title/updated row, combines calorie/progress and health stats, reduces padding/gaps and snapshot heights, expands an odd final snapshot to full width, and keeps all action links and amounts. Launcher appearance/resizing and the affected phone's upgrade still require acceptance.
+- Release source version is 2.9.19. Build and publication verification will be recorded after completion.
 
 ## Latest published release — v2.9.18 ARM64 (9 October)
 

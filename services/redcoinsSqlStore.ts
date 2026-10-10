@@ -135,9 +135,12 @@ async function migrate(db: SQLite.SQLiteDatabase) {
   const raw = await AsyncStorage.getItem(LEGACY_KEY);
   if (!raw) return;
   const state = JSON.parse(raw) as RedCoinsState;
-  if (!Array.isArray(state.entries) || !Array.isArray(state.accounts) || !Array.isArray(state.categories) || !Array.isArray(state.reminders)) throw new Error('Legacy RedCoins snapshot is invalid. Original JSON kept; restore a verified backup.');
+  if (!Array.isArray(state.entries) || !Array.isArray(state.accounts) || !Array.isArray(state.categories) || (state.reminders !== undefined && !Array.isArray(state.reminders))) throw new Error('Legacy RedCoins snapshot is invalid. Original JSON kept; restore a verified backup.');
   if (state.accounts.some(account => !Number.isFinite(account.balance)) || state.entries.some(entry => !Number.isFinite(entry.amount))) throw new Error('Invalid money values. SQLite migration cancelled; original data kept.');
   await checkpoint(raw);
+  // Releases before reminders existed have no field. Keep the original JSON
+  // checkpoint byte-for-byte, then add only the missing optional collection.
+  state.reminders ??= [];
   let migrated: typeof cache = null;
   await db.withExclusiveTransactionAsync(async tx => {
     if (await metaValue(tx, 'initialized')) return;

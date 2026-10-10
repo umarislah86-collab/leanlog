@@ -27,6 +27,29 @@ test('one-time migration preserves exact saved balances/order and immutable JSON
   assert.equal((await restarted.api.readRedCoinsSql()).monthlyBudget, 2000);
   assert.equal(r.values.get('redcoins_pre_sqlite_v1'), raw);
 });
+test('upgrade from before reminders preserves transactions, balances and original recovery JSON', async () => {
+  const legacy = fixture();
+  delete legacy.reminders;
+  const raw = JSON.stringify(legacy);
+  const r = runtime(undefined, new Map([['redcoins_state_v1', raw]]));
+  const migrated = await r.api.readRedCoinsSql();
+  assert.equal(JSON.stringify(migrated), JSON.stringify({ ...legacy, reminders: [] }));
+  assert.equal(r.values.get('redcoins_state_v1'), raw);
+  assert.equal(r.values.get('redcoins_pre_sqlite_v1'), raw);
+  const restarted = runtime(r.harness, r.values);
+  assert.deepEqual(JSON.parse(JSON.stringify(await restarted.api.readRedCoinsSql())), JSON.parse(JSON.stringify(migrated)));
+});
+
+test('malformed existing reminders still reject migration without replacing legacy data', async () => {
+  for (const reminders of [null, {}, 'invalid']) {
+    const raw = JSON.stringify({ ...fixture(), reminders });
+    const r = runtime(undefined, new Map([['redcoins_state_v1', raw]]));
+    await assert.rejects(r.api.readRedCoinsSql(), /snapshot is invalid/);
+    assert.equal(r.values.get('redcoins_state_v1'), raw);
+    assert.equal(r.harness.db.prepare('SELECT count(*) n FROM rc_records').get().n, 0);
+  }
+});
+
 test('read-only audit returns legacy snapshot without financial migration', async () => {
   const r = runtime(undefined, new Map([['redcoins_state_v1', JSON.stringify(fixture())]]));
   assert.equal((await r.api.readRedCoinsSql(false)).accounts[0].balance, 1856.97);

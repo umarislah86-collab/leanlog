@@ -66,7 +66,7 @@ test('actual widget tree builder accepts default guards and empty, odd, full acc
   }
 });
 
-test('snapshot columns have identical zero-base weights, fixed heights and gutters despite unequal labels', () => {
+test('compact snapshot columns share weights and odd rows use all available width', () => {
   const collect = (element, result = []) => {
     if (Array.isArray(element)) element.forEach(child => collect(child, result));
     else if (element?.props) { result.push(element); collect(element.props.children, result); }
@@ -82,11 +82,11 @@ test('snapshot columns have identical zero-base weights, fixed heights and gutte
       const rows = collect(LeanLogWidget(props)).filter(e => String(e.key || '').startsWith(`${bottomMode === 'accounts' ? 'account' : 'guard'}-row-`));
       assert.equal(rows.length, Math.ceil(count / 2));
       rows.forEach(row => {
-        const cells = collect(row.props.children).filter(e => e.props.style?.width === 0 && e.props.style?.height === 32);
-        assert.equal(cells.length, 2, 'odd rows must keep an equal-width empty slot');
+        const cells = collect(row.props.children).filter(e => e.props.style?.width === 0 && e.props.style?.height === 27);
+        assert.equal(cells.length, Math.min(2, count - rows.indexOf(row) * 2), 'no empty placeholder in odd rows');
         cells.forEach(cell => assert.equal(cell.props.style.flex, 1));
-        assert.equal(cells[0].props.style.marginRight, 3);
-        assert.equal(cells[1].props.style.marginRight || 0, 0);
+        assert.equal(cells[0].props.style.marginRight, cells.length === 2 ? 3 : 0);
+        if (cells[1]) assert.equal(cells[1].props.style.marginRight || 0, 0);
       });
       assert.doesNotThrow(() => buildWidgetTree(LeanLogWidget(props)));
     }

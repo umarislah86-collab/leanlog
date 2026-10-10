@@ -113,6 +113,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     return () => { active = false; };
   }, []);
   const [state, setState] = useState<RedCoinsState | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [bluecoins, setBluecoins] = useState<BluecoinsSummary | null>(null);
   const summaryRequest = useRef(0);
   const [section, setSection] = useState<Section>('home');
@@ -267,8 +269,11 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       } catch (error) {
         console.warn('RedCoins SQLite migration failed', error);
       }
-    })();
-  }, []);
+    })().catch(error => {
+      console.warn('RedCoins open failed', error);
+      setLoadError(error instanceof Error ? error.message : String(error));
+    });
+  }, [loadAttempt]);
 
   const salaryLedgerWindow = useMemo(() => {
     if (filterDateMode !== 'cycle') return null;
@@ -1232,7 +1237,13 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   if (!state)
     return (
       <SafeAreaView style={s.loading}>
-        <Text style={s.loadingText}>Opening your money room…</Text>
+        <Text style={s.loadingText}>{loadError ? 'Could not open RedCoins' : 'Opening your money room…'}</Text>
+        {loadError && <>
+          <Text style={{ color: appPalette.text, padding: 20, textAlign: 'center' }}>{loadError}</Text>
+          <TouchableOpacity accessibilityRole="button" onPress={() => { setLoadError(null); setLoadAttempt(value => value + 1); }} style={{ padding: 16 }}>
+            <Text style={{ color: appPalette.text, fontWeight: '700' }}>Try again</Text>
+          </TouchableOpacity>
+        </>}
       </SafeAreaView>
     );
 
