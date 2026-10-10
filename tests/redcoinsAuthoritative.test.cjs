@@ -31,6 +31,17 @@ const { prepareRedCoinsImport: prepare } = load('redcoinsImportPlan', { '@react-
 const { buildRedCoinsSummary: project } = load('redcoinsSummary', { './redcoinsGuards': load('redcoinsGuards') });
 const prefs = { selectedAccounts: ['Aeon'], fixedCommitments: [], guards: [] };
 
+test('Bluecoins source updates preserve RedCoins receipt originals and folder references', () => {
+  const receipts = [{ id: 'rc-original-123', originalName: 'coffee.pdf', mimeType: 'application/pdf', size: 400, status: 'saved', savedUri: 'content://folder/receipt.pdf', savedFolderUri: 'content://folder', savedName: 'coffee.pdf' }];
+  const original = state([row('old', { receipts })]);
+  const changed = summary([row('old', { note: 'Source corrected', amount: 12 })]);
+  const result = prepare(original, changed, now);
+  assert.equal(result.state.entries[0].note, 'Source corrected');
+  assert.equal(result.state.entries[0].amount, 12);
+  assert.equal(JSON.stringify(result.state.entries[0].receipts), JSON.stringify(receipts));
+  assert.equal(result.state.accounts[0].balance, 98);
+});
+
 test('summary and salary guards share the salary timestamp, with no rewriting of early loan dates', () => {
   const saved = state([
     row('salary-aug', { type: 'income', item: 'DXC', subcategory: 'Salary', date: '2026-08-25T18:00:00+08:00' }),
@@ -300,4 +311,71 @@ test('index failure after durable import returns a warning instead of pretending
   const result = await importer.commitRedCoinsImport(await importer.stageRedCoinsImport());
   assert.equal((await service.loadRedCoins()).accounts[0].balance, 80);
   assert.equal(result.warnings.length, 1);
+});
+
+const onboarding = load('redcoinsOnboarding');
+const setupDraft = (patch = {}) => ({ name: 'Wallet', type: 'Cash', balance: '125.50', categories: ['Food', 'Income'], budget: '', payday: '', ...patch });
+test('fresh standalone setup commits opening money and marker to real SQLite without a transaction', async () => {
+  const { service } = runtime();
+  const original = await service.loadRedCoins();
+  assert.equal(onboarding.needsRedCoinsSetup(original), true);
+  const next = onboarding.finishRedCoinsSetup(original, setupDraft({ budget: '750', payday: '31' }));
+  await service.saveRedCoins(next);
+  const reopened = await service.loadRedCoins();
+  assert.equal(reopened.accounts[0].balance, 125.5);
+  assert.equal(reopened.entries.length, 0);
+  assert.equal(reopened.monthlyBudget, 750);
+  assert.equal(reopened.payday, 31);
+  assert.equal(reopened.onboarding.status, 'completed');
+  assert.equal(onboarding.needsRedCoinsSetup(reopened), false);
+  const logger = load('redcoinsLogger');
+  assert.equal(logger.loggerCategories(reopened.categories, [], 'expense')[0].name, 'Food');
+  assert.equal(logger.loggerCategories(reopened.categories, [], 'income')[0].name, 'Income');
+  const parsed = load('redcoinsBackupFormat').parseRedCoinsBackup(JSON.stringify({ format: 'redcoins-backup', version: 1, exportedAt: new Date().toISOString(), state: reopened }));
+  assert.equal(parsed.state.onboarding.status, 'completed');
+});
+test('skipping setup is durable and keeps the empty ledger and preferences intact', async () => {
+  const { service } = runtime();
+  const original = await service.loadRedCoins();
+  await service.saveRedCoins(onboarding.finishRedCoinsSetup(original));
+  const reopened = await service.loadRedCoins();
+  assert.equal(reopened.onboarding.status, 'skipped');
+  assert.equal(reopened.accounts.length, 0);
+  assert.equal(reopened.entries.length, 0);
+  assert.equal(reopened.monthlyBudget, original.monthlyBudget);
+  assert.equal(onboarding.needsRedCoinsSetup(reopened), false);
+});
+test('existing data and deletion/import history never qualify for automatic setup', () => {
+  const empty = state([], []);
+  assert.equal(onboarding.needsRedCoinsSetup(empty), true);
+  for (const patch of [{ accounts: [account('a','Bank')] }, { categories: [{ name: 'Food' }] }, { entries: [row('e')] }, { reminders: [{ id: 'r' }] }, { importedSource: 'backup.fydb' }, { importSnapshot: {} }, { deletedEntries: [{ id: 'gone' }] }, { deletedAccountNames: ['Old bank'] }, { deletedSubcategories: { Food: ['Old'] } }, { exportBatches: [{ id: 'export' }] }, { subcategoryBudgets: { Food: 100 } }, { termBudgets: [{ id: 'budget' }] }]) {
+    const existing = { ...empty, ...patch };
+    assert.equal(onboarding.needsRedCoinsSetup(existing), false);
+    assert.throws(() => onboarding.finishRedCoinsSetup(existing, setupDraft()), /changed during setup/);
+  }
+});
+test('credit card setup records debt without fabricating spending', () => {
+  const next = onboarding.finishRedCoinsSetup(state([], []), setupDraft({ type: 'Credit card', balance: '500.25' }));
+  assert.equal(next.accounts[0].balance, -500.25);
+  assert.equal(next.entries.length, 0);
+  assert.throws(() => onboarding.setupAccount(setupDraft({ type: 'Credit card', balance: '-50' })), /positive/);
+});
+test('invalid setup values cannot mutate or partially save the original ledger', () => {
+  const empty = state([], []), original = JSON.stringify(empty);
+  for (const patch of [{ name: '  ' }, { balance: '1e9' }, { balance: '12oops' }, { balance: 'Infinity' }, { balance: '1.234' }, { categories: ['Income'] }, { budget: '-1' }, { payday: '0' }, { payday: '32' }, { payday: '2.5' }]) assert.throws(() => onboarding.finishRedCoinsSetup(empty, setupDraft(patch)));
+  assert.equal(JSON.stringify(empty), original);
+  const next = onboarding.finishRedCoinsSetup(empty, setupDraft());
+  assert.equal(next.monthlyBudget, empty.monthlyBudget);
+  assert.equal(next.payday, empty.payday);
+});
+test('concurrent account creation prevents a stale wizard commit from overwriting money', async () => {
+  const { service } = runtime();
+  const old = await service.loadRedCoins();
+  const concurrent = await service.loadRedCoins();
+  concurrent.accounts.push(account('existing', 'Bank', 888));
+  await service.saveRedCoins(concurrent);
+  await assert.rejects(service.saveRedCoins(onboarding.finishRedCoinsSetup(old, setupDraft())), /changed|revision|stale/i);
+  const current = await service.loadRedCoins();
+  assert.equal(current.accounts[0].balance, 888);
+  assert.equal(current.onboarding, undefined);
 });

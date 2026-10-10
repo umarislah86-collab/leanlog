@@ -11,6 +11,7 @@ import { prepareRedCoinsImport } from './redcoinsImportPlan';
 import { migrateAccountPreferences } from './redcoinsAccountIdentity';
 import { repairLegacyBluecoinsStatuses } from './redcoinsStatus';
 import { cloneRedCoinsState, hasRedCoinsSqlData, markRedCoinsRevision, readRedCoinsSql, saveRedCoinsRecovery, writeRedCoinsSql } from './redcoinsSqlStore';
+import type { RedCoinsReceipt } from './receiptFiles';
 
 let stateWrites: Promise<void> = Promise.resolve();
 export async function flushRedCoinsWrites() { await stateWrites; }
@@ -79,6 +80,7 @@ export interface RedCoinsEntry {
   scheduledFor?: string;
   split?: string;
   attachment?: string;
+  receipts?: RedCoinsReceipt[];
   origin?: 'bluecoins' | 'redcoins';
   exportedAt?: string;
   editedAt?: string;
@@ -112,6 +114,7 @@ export interface RedCoinsExportBatch {
 }
 export type RedCoinsDeletion = Pick<RedCoinsEntry, 'id' | 'type' | 'item' | 'amount' | 'date' | 'account' | 'reconciledImportId' | 'duplicateOfId' | 'exportedAt'>;
 export interface RedCoinsState {
+  onboarding?: { version: 1; status: 'completed' | 'skipped' };
   storageVersion?: 2;
   statusMappingVersion?: 1;
   importSnapshot?: { sourceName: string; sourceDate?: string; importedAt: string; entries: { id: string }[] };

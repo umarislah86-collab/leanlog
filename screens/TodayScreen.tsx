@@ -18,8 +18,13 @@ import { fsUpsert, fsDelete, fsSetSettings, fsFetchAll, fsFetchSettings } from '
 import { useLanguage } from '../context/LanguageContext';
 import type { FoodEntry, FoodItem, ActivityEntry, MealCategory, UserProfile, ActivityLevel } from '../types';
 import MacroRings from '../components/MacroRings';
+import { ProteinSettings, proteinDraft, proteinSettings } from '../components/ProteinSettings';
+import { macroTargets, snapshotProteinTarget, validateProteinSettings } from '../services/proteinTargets';
 import { refreshLeanLogWidget } from '../services/widget';
+import { latestLoggedWeight, profileWithLoggedWeight, syncProfileWeight } from '../services/currentWeight';
 import { openNativeImagePicker } from '../services/mediaPicker';
+import { FoodImageReview } from '../components/FoodImageReview';
+import { MAX_MEAL_IMAGES, foodImageInput, parseFoodImageReview, type MealPhoto, type MealImageReview } from '../services/foodImageAnalysis';
 
 const WEIGHT_KEY = 'weight_entries';
 const PROFILE_PHOTO_KEY = 'profile_photo';
@@ -109,8 +114,9 @@ export default function TodayScreen() {
 
   // Image detail modal (shown after picking image, before AI analysis)
   const [showImageDetailModal, setShowImageDetailModal] = useState(false);
-  const [pendingImageUri, setPendingImageUri] = useState<string | null>(null);
-  const [pendingImageBase64, setPendingImageBase64] = useState<string | null>(null);
+  const [pendingPhotos, setPendingPhotos] = useState<MealPhoto[]>([]);
+  const analysisLock = useRef(false);
+  const [foodReview, setFoodReview] = useState<{ review: MealImageReview; photos: MealPhoto[]; category: MealCategory; entryDate?: string; entryTime?: string } | null>(null);
   const [imageDetailNote, setImageDetailNote] = useState('');
   const [imageBackdateEnabled, setImageBackdateEnabled] = useState(false);
   const [imageBackdateDate, setImageBackdateDate] = useState(new Date());
@@ -137,6 +143,9 @@ export default function TodayScreen() {
   const [profileHeight, setProfileHeight] = useState('170');
   const [profileAge, setProfileAge] = useState('25');
   const [profileGender, setProfileGender] = useState<'lelaki' | 'perempuan'>('lelaki');
+  const [proteinForm, setProteinForm] = useState(() => proteinDraft(null));
+  const [bodyOpen, setBodyOpen] = useState(false);
+  const [proteinOpen, setProteinOpen] = useState(0);
   const [profileActivityLevel, setProfileActivityLevel] = useState<ActivityLevel>('moderate');
 
   // Activity via image
@@ -158,6 +167,13 @@ export default function TodayScreen() {
   const progressAnim = useRef(new Animated.Value(0)).current;
 
   const today = new Date().toLocaleDateString('ms-MY');
+  useEffect(() => { if (userProfile) void snapshotProteinTarget(userProfile).catch(console.warn); }, [userProfile, today]);
+  useEffect(() => {
+    if ((route.params as any)?.proteinSetup && dataHydrated) {
+      setProteinForm(proteinDraft(userProfile)); setBodyOpen(false); setProteinOpen(value => value + 1); setShowProfileModal(true);
+      navigation.setParams({ proteinSetup: undefined });
+    }
+  }, [route.params, dataHydrated, userProfile]);
   const todayFood = foodEntries.filter((e) => e.date === today);
   const todayActivities = activityEntries.filter((e) => e.date === today);
   const totalConsumed = todayFood.reduce((sum, e) => sum + e.calories, 0);
@@ -222,7 +238,7 @@ export default function TodayScreen() {
       if (params.quickAction === 'activity') {
         setShowActivitySourcePicker(true);
       } else if (params.quickAction === 'weight') {
-        setNewWeight('70.0');
+        setNewWeight(String(latestWeight ?? userProfile?.weight ?? 70));
         setNewWeightDate(new Date());
         setShowWeightModal(true);
       } else {
@@ -271,23 +287,17 @@ export default function TodayScreen() {
     setFoodEntries(food);
     setActivityEntries(activities);
 
-    if (savedWeights) {
-      const weights = JSON.parse(savedWeights);
-      if (weights.length > 0) {
-        const sorted = [...weights].sort((a: any, b: any) => {
-          const pa = a.date.split('/'), pb = b.date.split('/');
-          return new Date(+pb[2], +pb[1]-1, +pb[0]).getTime() - new Date(+pa[2], +pa[1]-1, +pa[0]).getTime();
-        });
-        setLatestWeight(sorted[0].weight);
-      }
-    }
+    const weights = savedWeights ? JSON.parse(savedWeights) : [];
+    setLatestWeight(latestLoggedWeight(weights));
     if (savedProfilePhoto) setProfilePhotoBase64(savedProfilePhoto);
 
     if (savedGoal) setCalorieGoal(Number(savedGoal));
     if (savedProfile) {
-      const p = JSON.parse(savedProfile);
+      const p = profileWithLoggedWeight(JSON.parse(savedProfile), weights);
+      void syncProfileWeight(weights).catch(console.warn);
       setUserProfile(p);
-      setProfileWeight((Math.round(p.weight * 2) / 2).toFixed(1));
+      setProteinForm(proteinDraft(p));
+      setProfileWeight(String(p.weight));
       setProfileHeight(String(Math.round(p.height)));
       setProfileAge(String(Math.round(p.age)));
       setProfileGender(p.gender);
@@ -301,9 +311,10 @@ export default function TodayScreen() {
         await AsyncStorage.setItem(GOAL_KEY, String(settings.goal));
       }
       if (settings?.profile && !savedProfile) {
-        const p = settings.profile;
+        const p = profileWithLoggedWeight(settings.profile, weights);
         setUserProfile(p);
-        setProfileWeight((Math.round(p.weight * 2) / 2).toFixed(1));
+      setProteinForm(proteinDraft(p));
+        setProfileWeight(String(p.weight));
         setProfileHeight(String(Math.round(p.height)));
         setProfileAge(String(Math.round(p.age)));
         setProfileGender(p.gender);
@@ -328,7 +339,10 @@ export default function TodayScreen() {
     });
     await AsyncStorage.setItem(WEIGHT_KEY, JSON.stringify(updated));
     fsUpsert('weightEntries', entry.id, entry);
-    setNewWeight('70.0');
+    setLatestWeight(latestLoggedWeight(updated));
+    if (userProfile) { const synced = profileWithLoggedWeight(userProfile, updated); setUserProfile(synced); setProfileWeight(String(synced.weight)); }
+    void syncProfileWeight(updated).catch(console.warn);
+    setNewWeight(String(latestWeight ?? userProfile?.weight ?? 70));
     setNewWeightDate(new Date());
     setShowWeightModal(false);
   };
@@ -388,7 +402,7 @@ export default function TodayScreen() {
   };
 
   const launchNativeImagePicker = (useCamera: boolean) => {
-    if (!pickerBusy.current) setPendingPicker(useCamera);
+    if (!pickerBusy.current && !analysisLock.current) setPendingPicker(useCamera);
   };
 
   // Launch only after React has removed both native source dialogs, with the
@@ -412,64 +426,52 @@ export default function TodayScreen() {
   }, [pendingPicker, showSourcePicker, showActivitySourcePicker, isFocused, appActive]);
 
   const pickImage = async (useCamera: boolean) => {
-    const result = await openNativeImagePicker(ImagePicker, useCamera);
+    const result = await openNativeImagePicker(ImagePicker, useCamera, pendingImageFor === 'food' ? MAX_MEAL_IMAGES : 1);
     if (!result) { Alert.alert(t('permRequired'), t('permCameraMsg')); return; }
-    if (!result.canceled && result.assets[0]?.uri) {
-      const uri = result.assets[0].uri;
-      const compressed = await ImageManipulator.manipulateAsync(
-        uri,
-        [{ resize: { width: 800 } }],
-        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
-      );
-      if (compressed.base64) {
-        setPendingImageUri(uri);
-        setPendingImageBase64(compressed.base64);
-        setImageDetailNote('');
-        setImageBackdateEnabled(false);
-        setImageBackdateDate(new Date());
-        setTimeout(() => setShowImageDetailModal(true), 300);
-      }
+    if (result.canceled) return;
+    const limit = pendingImageFor === 'food' ? MAX_MEAL_IMAGES : 1;
+    const assets = result.assets.filter(asset => asset.uri);
+    if (assets.length > limit) { Alert.alert('Gambar terlalu banyak', `Pilih maksimum ${limit} gambar sekali.`); return; }
+    const photos: MealPhoto[] = [];
+    for (const asset of assets) {
+      const longest = Math.max(asset.width, asset.height);
+      const resize = longest > 800 ? [{ resize: asset.width >= asset.height ? { width: 800 } : { height: 800 } }] : [];
+      const compressed = await ImageManipulator.manipulateAsync(asset.uri, resize,
+        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true });
+      if (!compressed.base64) throw new Error('Gambar tidak dapat disediakan. Pilih semula.');
+      photos.push({ uri: asset.uri, base64: compressed.base64 });
     }
+    if (!photos.length) return;
+    setPendingPhotos(photos);
+    setImageDetailNote(''); setImageBackdateEnabled(false); setImageBackdateDate(new Date());
+    setTimeout(() => setShowImageDetailModal(true), 300);
   };
 
   const confirmImageAnalysis = async () => {
-    if (!pendingImageUri || !pendingImageBase64) return;
+    if (!pendingPhotos.length || analysisLock.current) return;
+    analysisLock.current = true;
     const entryDate = imageBackdateEnabled ? formatEntryDate(imageBackdateDate) : undefined;
     const entryTime = imageBackdateEnabled ? formatEntryTime(imageBackdateDate) : undefined;
     setShowImageDetailModal(false);
-    if (pendingImageFor === 'activity') {
-      await analyzeImageActivity(pendingImageBase64, imageDetailNote.trim(), entryDate, entryTime);
-    } else {
-      await analyzeImageFood(pendingImageUri, pendingImageBase64, pendingCategory, imageDetailNote.trim(), entryDate, entryTime);
-    }
+    try {
+      if (pendingImageFor === 'activity') {
+        await analyzeImageActivity(pendingPhotos[0].base64, imageDetailNote.trim(), entryDate, entryTime);
+      } else {
+        await analyzeImageFood(pendingPhotos, pendingCategory, imageDetailNote.trim(), entryDate, entryTime);
+      }
+    } finally { analysisLock.current = false; }
   };
 
-  const analyzeImageFood = async (uri: string, base64: string, category: MealCategory, extraNote?: string, entryDate?: string, entryTime?: string) => {
-    setLoadingMsg(t('aiAnalysing'));
-    setLoading(true);
+  const analyzeImageFood = async (photos: MealPhoto[], category: MealCategory, extraNote = '', entryDate?: string, entryTime?: string) => {
+    setLoadingMsg(t('aiAnalysing')); setLoading(true);
     try {
-      const noteText = extraNote ? `\nMaklumat tambahan dari pengguna: "${extraNote}"` : '';
-      const prompt = `Analisa SEMUA makanan dalam gambar ini dengan teliti.${noteText}
-Balas dalam format JSON sahaja, tanpa teks lain:
-{
-  "nama": "nama keseluruhan hidangan",
-  "kalori": 850,
-  "items": [
-    {"nama": "item 1", "kalori": 300, "protein": 10, "karbohidrat": 45, "lemak": 8}
-  ]
-}
-Anggarkan kalori dan makro setiap item. Jumlah kalori items mesti sama dengan kalori keseluruhan.`;
-      const output = await runLeanLogAi('food_image', [
-          { type: 'image', mime_type: 'image/jpeg', data: base64 },
-          { type: 'text', text: prompt },
-        ]);
-      const data = parseJSON(output);
-      addFoodEntry({ name: data.nama, calories: data.kalori, imageUri: uri, items: data.items ?? [], category, entryDate, entryTime });
+      const output = await runLeanLogAi('food_image', foodImageInput(photos, extraNote));
+      const review = parseFoodImageReview(output, photos.length);
+      setFoodReview({ review, photos, category, entryDate, entryTime });
     } catch (err) {
       Alert.alert(t('error'), err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
+      setShowImageDetailModal(true);
+    } finally { setLoading(false); }
   };
 
   const analyzeImageActivity = async (base64: string, extraNote?: string, entryDate?: string, entryTime?: string) => {
@@ -555,7 +557,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
   };
 
   const addFoodEntry = (data: {
-    name: string; calories: number; imageUri?: string; items: FoodItem[];
+    name: string; calories: number; imageUri?: string; imageUris?: string[]; items: FoodItem[];
     category: MealCategory; entryDate?: string; entryTime?: string;
   }) => {
     const entry: FoodEntry = {
@@ -564,6 +566,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
       name: data.name,
       calories: data.calories,
       imageUri: data.imageUri,
+      ...(data.imageUris?.length ? { imageUris: data.imageUris } : {}),
       time: data.entryTime ?? new Date().toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' }),
       date: data.entryDate ?? today,
       items: data.items,
@@ -609,15 +612,17 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
     fsSetSettings({ goal: val });
   };
 
-  const saveProfile = () => {
-    const weight = parseFloat(profileWeight);
+  const saveProfile = async () => {
+    const weight = latestWeight ?? parseFloat(profileWeight);
     const height = parseFloat(profileHeight);
     const age = parseInt(profileAge);
     if (isNaN(weight) || isNaN(height) || isNaN(age)) { Alert.alert(t('error'), t('invalidProfile')); return; }
-    const profile: UserProfile = { weight, height, age, gender: profileGender, activityLevel: profileActivityLevel };
+    const protein = proteinSettings(proteinForm);
+    try { validateProteinSettings(protein, weight, calorieGoal); } catch (error) { Alert.alert(t('error'), (error as Error).message); return; }
+    const profile: UserProfile = { weight, height, age, gender: profileGender, activityLevel: profileActivityLevel, protein };
+    try { await AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); } catch { Alert.alert(t('error'), 'Profile belum dapat disimpan. Cuba lagi.'); return; }
     setUserProfile(profile);
-    AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
-    fsSetSettings({ profile });
+    void fsSetSettings({ profile }).catch(console.warn);
     setShowProfileModal(false);
     const tdee = calculateTDEE(profile);
     Alert.alert(
@@ -686,12 +691,10 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
   const totalMacro = (key: keyof FoodItem) =>
     todayFood.reduce((sum, e) => sum + e.items.reduce((s, i) => s + (Number(i[key]) || 0), 0), 0);
 
-  const proteinGoal = Math.round(calorieGoal * 0.25 / 4);
-  const carbsGoal   = Math.round(calorieGoal * 0.45 / 4);
-  const fatGoal     = Math.round(calorieGoal * 0.30 / 9);
+  const { protein: proteinGoal, carbs: carbsGoal, fat: fatGoal } = macroTargets(userProfile, calorieGoal);
 
   const sssCarbsGoal   = Math.round(calorieGoal * 0.25 / 4);
-  const sssProteinGoal = Math.round(calorieGoal * 0.25 / 4);
+  const sssProteinGoal = proteinGoal;
   const sssVegGoal     = 5;
 
   const changeVeg = async (delta: number) => {
@@ -760,7 +763,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
                 <Text style={styles.weightBadgeText}>{latestWeight} kg</Text>
               </View>
             )}
-            <TouchableOpacity style={styles.profilePhotoBtn} onPress={() => setShowProfileModal(true)}>
+            <TouchableOpacity style={styles.profilePhotoBtn} onPress={() => { setProteinForm(proteinDraft(userProfile)); setShowProfileModal(true); }}>
               {profilePhotoBase64
                 ? <Image source={{ uri: `data:image/jpeg;base64,${profilePhotoBase64}` }} style={styles.profilePhotoImg} />
                 : <View style={styles.profileDefaultAvatar}>
@@ -806,6 +809,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
               </View>
             </View>
             <MacroRings
+              proteinTarget={proteinGoal}
               compact
               protein={totalMacro('protein')}
               carbs={totalMacro('karbohidrat')}
@@ -854,6 +858,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
       )}
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <TouchableOpacity onPress={() => { setProteinForm(proteinDraft(userProfile)); setBodyOpen(false); setProteinOpen(value => value + 1); setShowProfileModal(true); }} style={{ paddingVertical: 10 }}><Text style={{ color: palette.accent }}>Target protein {proteinGoal}g · Ubah di Profile</Text></TouchableOpacity>
         {/* Suku Suku Separuh Card */}
         {nutritionMode === 'sss' && (() => {
           const vegPct  = Math.min(1, vegServings / sssVegGoal);
@@ -1020,7 +1025,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
               <View style={styles.utilityRule} />
               <TouchableOpacity style={styles.loggerUtilityRow} onPress={() => {
                 setShowCategoryPicker(false);
-                setNewWeight('70.0'); setNewWeightDate(new Date());
+                setNewWeight(String(latestWeight ?? userProfile?.weight ?? 70)); setNewWeightDate(new Date());
                 setTimeout(() => setShowWeightModal(true), 300);
               }}>
                 <View style={[styles.utilityIcon, styles.utilityIconCoral]}><Ionicons name="scale-outline" size={20} color={themed("#101A2B", 'color')} /></View>
@@ -1107,7 +1112,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
               <View style={styles.categoryIcon}><Ionicons name="images-outline" size={21} color={themed("#101A2B", 'color')} /></View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.categoryLabel}>{t('gallery')}</Text>
-                <Text style={styles.categorySubtitle}>{t('gallerySub')}</Text>
+                <Text style={styles.categorySubtitle}>Pilih 1–3 gambar untuk satu meal</Text>
               </View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.categoryRow} onPress={() => handleSourceSelect('text')}>
@@ -1333,15 +1338,19 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
                   <Text style={styles.profilePhotoChangeBtnText}>{profilePhotoBase64 ? t('changePhoto') : t('addPhoto')}</Text>
                 </TouchableOpacity>
               </View>
+              <TouchableOpacity onPress={() => setBodyOpen(value => !value)}><Text style={styles.modalLabel}>Body & Activity · {profileWeight}kg {bodyOpen ? '⌃' : '⌄'}</Text></TouchableOpacity>
+              {bodyOpen && <>
               <Text style={styles.modalLabel}>{t('weight')}</Text>
               <TextInput
                 style={styles.modalInput}
                 value={profileWeight}
+                editable={latestWeight === null}
                 onChangeText={setProfileWeight}
                 keyboardType="numeric"
                 placeholder="cth: 85.5"
                 placeholderTextColor={themed("#7D8799", 'color')}
               />
+              {latestWeight !== null && <Text style={styles.modalHint}>Berat ikut rekod logger terkini. Update melalui Log Weight.</Text>}
               <Text style={styles.modalLabel}>{t('height')}</Text>
               <View style={styles.pickerContainer}>
                 <Picker selectedValue={profileHeight} onValueChange={(v) => setProfileHeight(String(v))} style={{ color: themed('#FFFDF7', 'color'), backgroundColor: themed('#26334A', 'backgroundColor') }} dropdownIconColor="#FF6542">
@@ -1378,6 +1387,8 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
                   </Text>
                 </View>
               )}
+              </>}
+              <ProteinSettings draft={proteinForm} weight={latestWeight ?? Number(profileWeight)} onChange={setProteinForm} openRequested={proteinOpen} />
               <View style={styles.modalBtns}>
                 <TouchableOpacity style={styles.modalCancel} onPress={() => setShowProfileModal(false)}><Text style={styles.modalCancelText}>{t('cancel')}</Text></TouchableOpacity>
                 <TouchableOpacity style={styles.modalSave} onPress={saveProfile}><Text style={styles.modalSaveText}>{t('save')}</Text></TouchableOpacity>
@@ -1437,7 +1448,9 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
         <View style={styles.detailOverlay}>
           <View style={styles.detailBox}>
             {selectedEntry && (<>
-              {selectedEntry.imageUri
+              {selectedEntry.imageUris?.length
+                ? <ScrollView horizontal style={{ maxHeight: 180 }}>{selectedEntry.imageUris.map((uri, index) => <Image key={`${index}-${uri}`} source={{ uri }} style={[styles.detailImage, { width: 220, marginRight: 8 }]} />)}</ScrollView>
+                : selectedEntry.imageUri
                 ? <Image source={{ uri: selectedEntry.imageUri }} style={styles.detailImage} />
                 : <View style={[styles.detailImage, styles.noDetailImage]}><Text style={{ fontSize: 48 }}>📝</Text><Text style={{ color: themed('#7D8799', 'color'), fontSize: 12, marginTop: 8 }}>{t('textInput')}</Text></View>
               }
@@ -1475,14 +1488,29 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
         </View>
       </Modal>
 
+      {foodReview && <FoodImageReview review={foodReview.review} photos={foodReview.photos}
+        onChange={review => setFoodReview(current => current ? { ...current, review } : null)}
+        onCancel={() => { setFoodReview(null); setPendingPhotos([]); }}
+        onSave={meal => {
+          const included = new Set(foodReview.review.plates.filter(plate => plate.decision === 'include' && plate.items.some(item => Number(item.portion) > 0)).map(plate => plate.imageIndex));
+          const imageUris = foodReview.photos.filter((_, index) => included.has(index + 1)).map(photo => photo.uri);
+          addFoodEntry({ ...meal, imageUri: imageUris[0], imageUris, category: foodReview.category, entryDate: foodReview.entryDate, entryTime: foodReview.entryTime });
+          setFoodReview(null); setPendingPhotos([]);
+        }} />}
+
       {/* ── Image Detail Modal ── */}
-      <Modal visible={showImageDetailModal} transparent animationType="fade">
+      <Modal visible={showImageDetailModal} transparent animationType="fade" onRequestClose={() => { setShowImageDetailModal(false); setPendingPhotos([]); }}>
         <View style={styles.centeredOverlay}>
           <View style={[styles.modalBox, { width: '92%' }]}>
             <Text style={styles.modalTitle}>{t('confirmImageTitle')}</Text>
-            {pendingImageUri && (
-              <Image source={{ uri: pendingImageUri }} style={{ width: '100%', height: 170, borderRadius: 10, marginBottom: 12 }} resizeMode="cover" />
-            )}
+            {pendingImageFor === 'food' && <Text style={styles.modalHint}>Pilih sehingga 3 gambar untuk satu meal. Lebih banyak gambar menggunakan lebih banyak token AI.</Text>}
+            <ScrollView horizontal style={{ maxHeight: 150, marginBottom: 12 }}>
+              {pendingPhotos.map((photo, index) => <View key={photo.uri} style={{ marginRight: 8 }}>
+                <Image source={{ uri: photo.uri }} style={{ width: 140, height: 110, borderRadius: 10 }} />
+                <Text style={styles.modalHint}>Gambar {index + 1}</Text>
+                {pendingPhotos.length > 1 && <TouchableOpacity accessibilityRole="button" onPress={() => setPendingPhotos(rows => rows.filter((_, i) => i !== index))}><Text style={styles.modalHint}>Buang</Text></TouchableOpacity>}
+              </View>)}
+            </ScrollView>
             <Text style={styles.modalLabel}>{t('imageExtraInfo')}</Text>
             <TextInput
               style={[styles.modalInput, { height: 80, textAlignVertical: 'top' }]}
@@ -1513,7 +1541,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
               </View>
             )}
             <View style={styles.modalBtns}>
-              <TouchableOpacity style={styles.modalCancel} onPress={() => setShowImageDetailModal(false)}>
+              <TouchableOpacity style={styles.modalCancel} onPress={() => { setShowImageDetailModal(false); setPendingPhotos([]); }}>
                 <Text style={styles.modalCancelText}>{t('cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.modalSave} onPress={confirmImageAnalysis}>

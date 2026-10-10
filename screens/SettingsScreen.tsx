@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Platform, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRoute } from '@react-navigation/native';
 import { auth, signOut, fsUpsert, fsSetSettings, fsFetchAll, fsFetchSettings, fsUploadAppState, fsFetchAppState } from '../firebase';
 
 let Notifications: any = null;
@@ -126,10 +127,12 @@ async function cancelNotif(notifId: string) {
 function SettingsGroup({ title, summary, initiallyOpen = false, children }: { title: string; summary: string; initiallyOpen?: boolean; children: React.ReactNode }) {
   const { themed } = useTheme();
   const [open, setOpen] = useState(initiallyOpen);
+  useEffect(() => { if (initiallyOpen) setOpen(true); }, [initiallyOpen]);
   return <View style={{marginBottom:16}}><TouchableOpacity accessibilityRole="button" accessibilityState={{expanded:open}} onPress={()=>setOpen(value=>!value)} style={{backgroundColor:themed('#FFFDF7', 'backgroundColor'),borderWidth:1,borderColor:themed('#E4DFD3', 'borderColor'),borderRadius:20,padding:18,flexDirection:'row',alignItems:'center',gap:12}}><View style={{flex:1}}><Text style={{color:themed('#101A2B', 'color'),fontSize:17,fontWeight:'700'}}>{title}</Text><Text style={{color:themed('#737A85', 'color'),fontSize:11,lineHeight:17,marginTop:5}}>{summary}</Text></View><Ionicons name={open?'chevron-up':'chevron-down'} size={18} color={themed("#737A85", 'color')} /></TouchableOpacity>{open && <View style={{paddingTop:12}}>{children}</View>}</View>;
 }
 
 export default function SettingsScreen() {
+  const route = useRoute<any>();
   const styles = useThemeStyles(baseStyles);
   const { themed } = useTheme();
   const { lang, setLang, t } = useLanguage();
@@ -591,7 +594,7 @@ export default function SettingsScreen() {
           <TouchableOpacity style={styles.widgetButton} onPress={() => addHomeWidget('LeanLogAutomation', 'LeanLog Bills & Automation')}><Text style={styles.widgetButtonText}>＋ Automation & bills</Text></TouchableOpacity>
         </View>
         </SettingsGroup>
-        <SettingsGroup title="Data & recovery" summary="Cloud checkpoint, Bluecoins import, RedCoins backup and data health">
+        <SettingsGroup title="Data & recovery" summary="Cloud checkpoint, Bluecoins import, RedCoins backup and data health" initiallyOpen={!!route.params?.redcoinsImport}>
         {/* Cloud Sync */}
         <Text style={styles.sectionLabel}>{t('cloudSync')}</Text>
         <View style={styles.syncCard}>

@@ -7,7 +7,8 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { profileWithLoggedWeight, syncProfileWeight } from '../services/currentWeight';
 import { runLeanLogAi } from '../services/ai';
 import { useLanguage } from '../context/LanguageContext';
 import type { FoodEntry, ActivityEntry, WeightEntry, UserProfile, GymSession } from '../types';
@@ -17,6 +18,8 @@ import * as Print from 'expo-print';
 import { deliverExport } from '../services/exportFile';
 import { buildProgressReport, progressReportData } from '../services/progressReport';
 import * as FileSystem from 'expo-file-system/legacy';
+import { loadProteinHistory, snapshotProteinTarget, proteinDayKey, type ProteinHistory } from '../services/proteinTargets';
+import { ProteinCalendar } from '../components/ProteinCalendar';
 import WeightAreaChart from '../components/WeightAreaChart';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -223,6 +226,7 @@ interface DaySummary {
 }
 
 export default function ProgressScreen() {
+  const navigation = useNavigation<any>();
   const styles = useThemeStyles(baseStyles);
   const { themed } = useTheme();
   const { t, lang } = useLanguage();
@@ -242,6 +246,7 @@ export default function ProgressScreen() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackText, setFeedbackText] = useState('');
   const [loadingFeedback, setLoadingFeedback] = useState(false);
+  const [proteinHistory, setProteinHistory] = useState<ProteinHistory>({});
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [exportLoading, setExportLoading] = useState(false);
   const [calYear, setCalYear] = useState(() => new Date().getFullYear());
@@ -320,7 +325,8 @@ export default function ProgressScreen() {
     setAllActivities(activities);
     setWeightEntries(weights.sort((a, b) => parseDateKey(b.date) - parseDateKey(a.date)));
     setGoal(calorieGoal);
-    setUserProfile(profile);
+    setUserProfile(profile ? profileWithLoggedWeight(profile, weights) : null);
+    setProteinHistory(await (profile ? snapshotProteinTarget(profileWithLoggedWeight(profile, weights)) : loadProteinHistory()));
     setDaySummaries(buildSummaries(food, activities, p));
 
     const photos = await fsMirrorPhotoFetchAll();
@@ -390,7 +396,7 @@ export default function ProgressScreen() {
     const entry: WeightEntry = { id: Date.now().toString(), weight: w, date };
     const updated = [entry, ...weightEntries].sort((a, b) => parseDateKey(b.date) - parseDateKey(a.date));
     setWeightEntries(updated);
-    AsyncStorage.setItem(WEIGHT_KEY, JSON.stringify(updated));
+    void AsyncStorage.setItem(WEIGHT_KEY, JSON.stringify(updated)).then(() => syncProfileWeight(updated)).then(profile => { if (profile) { setUserProfile(profile); void snapshotProteinTarget(profile).then(setProteinHistory).catch(console.warn); } }).catch(console.warn);
     fsUpsert('weightEntries', entry.id, entry);
     setNewWeight('70.0');
     setShowWeightModal(false);
@@ -403,7 +409,7 @@ export default function ProgressScreen() {
         text: t('delete'), style: 'destructive', onPress: () => {
           const updated = weightEntries.filter((e) => e.id !== id);
           setWeightEntries(updated);
-          AsyncStorage.setItem(WEIGHT_KEY, JSON.stringify(updated));
+          void AsyncStorage.setItem(WEIGHT_KEY, JSON.stringify(updated)).then(() => syncProfileWeight(updated)).then(profile => { if (profile) { setUserProfile(profile); void snapshotProteinTarget(profile).then(setProteinHistory).catch(console.warn); } }).catch(console.warn);
           fsDelete('weightEntries', id);
         },
       },
@@ -702,6 +708,7 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ProteinCalendar food={allFood} profile={userProfile} openSettings={() => navigation.navigate('Log', { proteinSetup: Date.now() })} />
 
         {/* Weight + Chart merged card */}
         <TouchableOpacity style={styles.weightCard} activeOpacity={0.85} onPress={() => setShowWeightListModal(true)}>
@@ -1050,13 +1057,13 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
                     <View style={styles.macroProgressBox}>
                       <Text style={styles.macroSummaryLabel}>{t('macroTotal')}</Text>
                       {[
-                        { label: lang === 'en' ? 'Protein' : 'Protein', value: totalP, target: Math.round(goal * 0.25 / 4), color: themed('#8D9BFF', 'color') },
+                        { label: lang === 'en' ? 'Protein' : 'Protein', value: totalP, target: proteinHistory[proteinDayKey(new Date(parseDateKey(selectedDay)))]?.target ?? 0, color: themed('#8D9BFF', 'color') },
                         { label: lang === 'en' ? 'Carbs' : 'Karbo', value: totalK, target: Math.round(goal * 0.45 / 4), color: themed('#E8B84A', 'color') },
                         { label: lang === 'en' ? 'Fat' : 'Lemak', value: totalL, target: Math.round(goal * 0.30 / 9), color: themed('#FF856B', 'color') },
                       ].map((macro) => (
                         <View key={macro.label} style={styles.journalMacroRow}>
-                          <View style={styles.journalMacroLabels}><Text style={styles.journalMacroName}>{macro.label}</Text><Text style={styles.journalMacroValue}>{macro.value}g / {macro.target}g</Text></View>
-                          <View style={styles.journalMacroTrack}><View style={[styles.journalMacroFill, { width: `${Math.min(100, macro.value / Math.max(macro.target, 1) * 100)}%`, backgroundColor: macro.color }]} /></View>
+                          <View style={styles.journalMacroLabels}><Text style={styles.journalMacroName}>{macro.label}</Text><Text style={styles.journalMacroValue}>{macro.value}g{macro.target ? ` / ${macro.target}g` : ' · target sejarah tiada'}</Text></View>
+                          <View style={styles.journalMacroTrack}><View style={[styles.journalMacroFill, { width: `${macro.target ? Math.min(100, macro.value / macro.target * 100) : 0}%`, backgroundColor: macro.color }]} /></View>
                         </View>
                       ))}
                     </View>

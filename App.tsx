@@ -1,8 +1,8 @@
 import { ThemeText as Text } from './components/ThemePrimitives';
 import { ThemeProvider, useTheme, useThemeStyles } from './context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useEffect, useRef, useState } from 'react';
-import { Animated, TouchableOpacity, View, StyleSheet, Image, Modal } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, TouchableOpacity, View, StyleSheet, Modal } from 'react-native';
 import { DarkTheme, DefaultTheme, NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
@@ -195,17 +195,13 @@ function AppContent() {
   const { palette, fontsLoaded } = useTheme();
   const navigationBase = palette.dark ? DarkTheme : DefaultTheme;
   const navigationFont = (role: keyof typeof navigationBase.fonts, weight: number) => ({ ...navigationBase.fonts[role], ...(fontsLoaded ? themeFont(palette.id, { fontWeight: weight }, 'body') : {}) });
-  const splash = useThemeStyles(baseSplash);
   const snooze = useThemeStyles(baseSnooze);
   useEffect(() => startRedCoinsAutoBackup(), []);
   const navigationRef = useNavigationContainerRef<any>();
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [authReady, setAuthReady] = useState(false);
-  const [minTimeReady, setMinTimeReady] = useState(false);
-  const [showSplash, setShowSplash] = useState(true);
   const [hasProfile, setHasProfile] = useState(false);
   const [showSnoozePicker, setShowSnoozePicker] = useState(false);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
   const { status: trialStatus, recheck: recheckTrial } = useTrial(!!user && hasProfile && authReady);
 
   useEffect(() => {
@@ -233,29 +229,7 @@ function AppContent() {
     await markFastingDay();
   };
 
-  // Fade in on mount, start 3s timer
-  useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 700,
-      useNativeDriver: true,
-    }).start();
-
-    const timer = setTimeout(() => setMinTimeReady(true), 3000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Fade out when auth, min time, and (if applicable) trial check are all ready
   const trialReady = !user || !hasProfile || trialStatus !== 'loading';
-  useEffect(() => {
-    if (authReady && minTimeReady && trialReady) {
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }).start(() => setShowSplash(false));
-    }
-  }, [authReady, minTimeReady, trialReady]);
 
   useEffect(() => {
     const DATA_KEYS = ['calorie_entries', 'activity_entries', 'weight_entries', 'calorie_goal', 'user_profile'];
@@ -309,19 +283,10 @@ function AppContent() {
     return unsub;
   }, []);
 
-  if (showSplash) {
-    return (
-      <Animated.View style={[splash.container, { opacity: fadeAnim }]}>
-        <Image source={require('./assets/brand-mark.png')} style={splash.logo} />
-        <Text style={splash.appName}>LeanLog</Text>
-        <Text style={splash.tagline}>by Abdullah Umar</Text>
-        <View style={splash.divider} />
-        <Text style={splash.dua}>
-          Doakan Abdullah Umar{'\n'}sihat sejahtera,{'\n'}dimurahkan rezeki,
-        </Text>
-        <Text style={splash.amin}>Amiiinn 🤲</Text>
-      </Animated.View>
-    );
+  if (!authReady || !trialReady) {
+    return <View style={{ flex: 1, backgroundColor: palette.canvas, alignItems: 'center', justifyContent: 'center' }}>
+      <ActivityIndicator accessibilityLabel="Loading LeanLog" color={palette.accent} />
+    </View>;
   }
 
   return (
@@ -457,48 +422,4 @@ const baseQuickDock = StyleSheet.create({
   bodySub: { color: '#7F8BA0', fontSize: 9, marginTop: 3 },
   rule: { height: 1, backgroundColor: '#33415C', marginLeft: 47 },
   hint: { color: '#737A84', fontSize: 9, textAlign: 'center', marginTop: 12 },
-});
-
-const baseSplash = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.ink,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-  },
-  logo: { width: 112, height: 112, borderRadius: 34, marginBottom: 18 },
-  appName: {
-    color: colors.oat,
-    fontSize: 28,
-    fontWeight: 'bold',
-    letterSpacing: 2,
-    marginBottom: 4,
-  },
-  tagline: {
-    color: '#758198',
-    fontSize: 13,
-    letterSpacing: 1,
-    marginBottom: 32,
-  },
-  divider: {
-    width: 48,
-    height: 2,
-    backgroundColor: colors.coral,
-    borderRadius: 2,
-    marginBottom: 32,
-  },
-  dua: {
-    color: '#AEB8C9',
-    fontSize: 17,
-    textAlign: 'center',
-    lineHeight: 28,
-    fontStyle: 'italic',
-  },
-  amin: {
-    color: colors.mint,
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginTop: 12,
-  },
 });

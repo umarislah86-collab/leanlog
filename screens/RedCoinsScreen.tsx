@@ -3,7 +3,9 @@ import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert, AppState, BackHandler, InteractionManager, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import { RedCoinsSetup } from '../components/RedCoinsSetup';
+import { needsRedCoinsSetup } from '../services/redcoinsOnboarding';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -41,6 +43,9 @@ import { projectRedCoinsReminders } from '../services/redcoinsReminderProjection
 import { deleteRedCoinsLedgerEntry, syncRedCoinsLedger, upsertRedCoinsLedgerEntry } from '../services/redcoinsLedger';
 import { saveSpendingGuards, type GuardScope, type SpendingGuard } from '../services/spendingGuards';
 import { refreshLeanLogWidget } from '../services/widget';
+import { RedCoinsReceipts } from '../components/RedCoinsReceipts';
+import type { RedCoinsReceipt } from '../services/receiptFiles';
+import { discardReceiptDrafts, savedReceiptFolder, saveReceiptToFolder } from '../services/redcoinsReceipts';
 
 const C = {
   ink: '#111A2A',
@@ -100,6 +105,7 @@ const ICON_LIBRARY = [
 ];
 
 export default function RedCoinsScreen({ navigation, route }: any) {
+  const isFocused = useIsFocused();
   const themedStyles = useThemeStyles(baseS);
   const { themed, palette: appPalette } = useTheme();
   const s = useMemo(() => applyHomeAppearance(themedStyles, appPalette), [themedStyles, appPalette]);
@@ -171,6 +177,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const [category, setCategory] = useState('');
   const [subcategory, setSubcategory] = useState('');
   const [note, setNote] = useState('');
+  const [receiptDrafts, setReceiptDrafts] = useState<RedCoinsReceipt[]>([]);
+  const [receiptBusy, setReceiptBusy] = useState(false);
   const [labels, setLabels] = useState('');
   const [repeat, setRepeat] = useState<RedCoinsEntry['repeat']>('none');
   const [installments, setInstallments] = useState('');
@@ -305,7 +313,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
 
   useEffect(() => {
     const mode = route?.params?.mode;
-    if (!state || !['expense', 'income', 'transfer'].includes(mode)) return;
+    if (!state || needsRedCoinsSetup(state) || !['expense', 'income', 'transfer'].includes(mode)) return;
     resetEntry(mode as RedCoinsType);
     if (route?.params?.item && !route?.params?.detected) setItem(String(route.params.item));
     if (route?.params?.amount) setAmount(String(route.params.amount));
@@ -325,7 +333,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       fingerprint: undefined,
       source: undefined,
     });
-  }, [route?.params?.mode, route?.params?.fingerprint, state?.createdAt]);
+  }, [route?.params?.mode, route?.params?.fingerprint, state?.createdAt, state?.onboarding?.status, state?.accounts.length]);
 
   useEffect(() => {
     const target = route?.params?.section as Section | undefined;
@@ -460,7 +468,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     return () => clearTimeout(timer);
   }, [state?.reminders]);
   const resetEntry = (initialType: RedCoinsType = 'expense') => {
-    if (entrySaveLock.current) return;
+    if (entrySaveLock.current || receiptBusy) return;
     if (!state) return;
     const recent = state.entries.find((entry) => entry.type === initialType);
     const available = loggerCategories(state.categories, state.entries, initialType);
@@ -480,6 +488,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setCategory(chosen?.name || '');
     setSubcategory(chosen?.subcategories.includes(defaults?.subcategory || recent?.subcategory || '') ? (defaults?.subcategory || recent!.subcategory) : chosen?.subcategories[0] || '');
     setNote('');
+    void discardReceiptDrafts(receiptDrafts).catch(console.warn);
+    setReceiptDrafts([]);
     setLabels('');
     setRepeat('none');
     setInstallments('');
@@ -525,7 +535,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setSubcategory(entry.subcategory);
   };
   const editEntry = (selectedEntry: RedCoinsEntry, duplicateReview = false) => {
-    if (entrySaveLock.current && !duplicateReview) return;
+    if (receiptBusy || (entrySaveLock.current && !duplicateReview)) return;
     // SQLite rows contain ledger-display fields; newer metadata is authoritative
     // in the saved state and must survive opening an entry from the ledger.
     const entry = state?.entries.find(row => row.id === selectedEntry.id) || selectedEntry;
@@ -543,6 +553,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setCategory(entry.category);
     setSubcategory(entry.subcategory);
     setNote(entry.note || '');
+    void discardReceiptDrafts(receiptDrafts).catch(console.warn);
+    setReceiptDrafts([]);
     setLabels((entry.labels || []).join(', '));
     setRepeat(entry.repeat || 'none');
     setInstallments(entry.installments ? String(entry.installments) : '');
@@ -574,7 +586,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     }
   }, [route?.params?.auditTarget, state]);
   const editReminderSchedule = (reminder: RedCoinsReminder) => {
-    if (entrySaveLock.current) return;
+    if (entrySaveLock.current || receiptBusy) return;
     const template = reminder.template;
     setEditingEntryId(null);
     setReviewingDetectionId(null);
@@ -590,6 +602,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setCategory(template.category);
     setSubcategory(template.subcategory);
     setNote(template.note || '');
+    void discardReceiptDrafts(receiptDrafts).catch(console.warn);
+    setReceiptDrafts([]);
     setLabels((template.labels || []).join(', '));
     setRepeat(reminder.frequency);
     setInstallments('');
@@ -725,6 +739,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       exportedAt: original?.exportedAt,
       editedAt: original?.origin === 'bluecoins' ? new Date().toISOString() : original?.editedAt,
       balanceEffectApplied: entryDate.getTime() <= Date.now(),
+      attachment: original?.attachment,
+      receipts: [...(original?.receipts || []), ...receiptDrafts],
     };
     const next: RedCoinsState = {
       ...state,
@@ -784,6 +800,23 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     if (original) applyEntryBalance(next, original, -1);
     applyEntryBalance(next, entry, 1);
     await commit(next, hasReminder || editingSeriesTemplate ? undefined : [entry.id]);
+    if (receiptDrafts.length) {
+      setReceiptDrafts([]);
+      setEditingEntryId(entry.id);
+      setEntryOpen(true);
+      // Finance is already committed. Folder failures must never invite replaying the transaction.
+      const failedCopies: string[] = [];
+      try {
+        if (await savedReceiptFolder()) {
+          for (const receipt of receiptDrafts) {
+            try { await saveReceiptToFolder(entry.id, receipt.id); }
+            catch (error) { failedCopies.push(error instanceof Error ? error.message : 'Receipt copy failed.'); }
+          }
+          setState(await loadRedCoins());
+        }
+      } catch (error) { failedCopies.push(error instanceof Error ? error.message : 'Could not read the receipt folder.'); }
+      if (failedCopies.length) Alert.alert('Transaction saved', `Receipt originals are kept on this phone. Retry Save to folder.\n\n${failedCopies.join('\n')}`);
+    }
     if (reviewingDetectionId) dismissDetection(reviewingDetectionId).catch(() => {});
     navigateSection('activity');
     const indexWrite = hasReminder || editingSeriesTemplate ? syncRedCoinsLedger(next.entries) : upsertRedCoinsLedgerEntry(entry);
@@ -794,6 +827,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   };
   const saveEntry = async () => {
     if (entrySaveLock.current) return;
+    if (receiptBusy) return;
     entrySaveLock.current = true;
     setEntrySaving(true);
     try { await saveEntryInternal(); }
@@ -2172,6 +2206,14 @@ export default function RedCoinsScreen({ navigation, route }: any) {
 
   return (
     <SafeAreaView style={s.safe}>
+      <RedCoinsSetup defaults={state} visible={isFocused && needsRedCoinsSetup(state)} onBluecoins={() => navigation.navigate('Settings', { redcoinsImport: true })}
+        onSaved={(current, firstEntry) => {
+          setState(current);
+          setCycleBudgetDraft(String(current.monthlyBudget)); setPaydayDraft(String(current.payday));
+          void refreshLiveBluecoins(current).catch(console.warn);
+          void refreshLeanLogWidget().catch(console.warn);
+          if (firstEntry) navigation.setParams({ mode: route?.params?.mode || 'expense' });
+        }} />
       <View style={s.header}>
         <TouchableOpacity onPress={goBackInsideRedCoins} style={s.back}>
           <Ionicons name="arrow-back" size={21} color={themed(C.ink, 'color')} />
@@ -2305,7 +2347,12 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         schedulingOnly={schedulingOnly}
         editingSchedule={!!editingReminderId}
         onDelete={deleteEditingEntry}
-        close={() => { setEntryOpen(false); setSchedulingOnly(false); setEditingReminderId(null); }}
+        close={() => { if (receiptBusy || entrySaveLock.current) return; void discardReceiptDrafts(receiptDrafts).catch(console.warn); setReceiptDrafts([]); setEntryOpen(false); setSchedulingOnly(false); setEditingReminderId(null); }}
+        receiptEntry={editingEntryId ? state.entries.find(row => row.id === editingEntryId) : undefined}
+        receiptDrafts={receiptDrafts}
+        setReceiptDrafts={setReceiptDrafts}
+        receiptBusy={receiptBusy}
+        setReceiptBusy={setReceiptBusy}
         {...{
           item,
           setItem,
@@ -3207,10 +3254,11 @@ function EntryModal(p: any) {
             </View>
           )}
           <TextInput style={s.noteInput} value={p.note} onChangeText={p.setNote} placeholder="Note" placeholderTextColor={themed(C.muted, 'color')} multiline />
+          {!p.schedulingOnly && <RedCoinsReceipts entry={p.receiptEntry} drafts={p.receiptDrafts} onChange={p.setReceiptDrafts} onBusy={p.setReceiptBusy} visible={p.visible} disabled={p.saving} />}
         </ScrollView>
         <View style={s.entryFooter}>
           {p.editing && !p.schedulingOnly && (
-            <TouchableOpacity style={s.entryDelete} onPress={p.onDelete}>
+            <TouchableOpacity style={s.entryDelete} onPress={p.onDelete} disabled={p.saving || p.receiptBusy}>
               <Text style={s.entryDeleteText}>DELETE</Text>
             </TouchableOpacity>
           )}
@@ -3223,7 +3271,7 @@ function EntryModal(p: any) {
               },
             ]}
             onPress={p.saveEntry}
-            disabled={p.saving}
+            disabled={p.saving || p.receiptBusy}
           >
             <Ionicons name="save-outline" size={19} color={themed("#FFF", 'color')} />
             <Text style={s.entrySaveText}>{p.schedulingOnly ? (p.editingSchedule ? 'UPDATE SCHEDULE' : 'SAVE SCHEDULE') : p.editing ? `UPDATE ${p.type.toUpperCase()}` : `SAVE ${p.type.toUpperCase()}`}</Text>

@@ -27,6 +27,7 @@ export function parseRedCoinsBackup(contents: string): RedCoinsBackup {
   assert(object(data) && data.format === 'redcoins-backup' && data.version === 1, 'Choose a RedCoins JSON backup, not a Bluecoins file or another app backup.');
   assert(validDate(data.exportedAt), 'Backup export date is invalid.');
   const state = data.state;
+  if (state?.onboarding !== undefined) assert(object(state.onboarding) && state.onboarding.version === 1 && ['completed', 'skipped'].includes(state.onboarding.status), 'Invalid setup marker.');
   assert(object(state) && Array.isArray(state.accounts) && Array.isArray(state.entries) && Array.isArray(state.categories), 'Backup is missing accounts, transactions or categories.');
   assert(state.storageVersion === undefined || state.storageVersion === 2, 'This backup uses a newer unsupported storage version.');
   assert(finite(state.monthlyBudget) && state.monthlyBudget >= 0 && finite(state.payday) && state.payday >= 1 && state.payday <= 31 && finite(state.safetyBuffer) && state.safetyBuffer >= 0 && validDate(state.createdAt), 'Invalid budget, payday, buffer or creation date.');
@@ -49,6 +50,19 @@ export function parseRedCoinsBackup(contents: string): RedCoinsBackup {
     if (row.incomePeriod !== undefined) assert(text(row.incomePeriod) && /^\d{4}-(0[1-9]|1[0-2])$/.test(row.incomePeriod), 'Invalid income period.');
     for (const key of ['note', 'icon', 'sourceAccountId', 'sourceToAccountId', 'editedAt']) if (row[key] !== undefined) assert(text(row[key]), `Invalid ${key}.`);
     for (const key of ['labels', 'notificationIds', 'consumedOccurrenceKeys']) if (row[key] !== undefined) assert(Array.isArray(row[key]) && row[key].every(text), `Invalid ${key}.`);
+    if (row.receipts !== undefined) {
+      assert(Array.isArray(row.receipts), 'Invalid receipt list.');
+      unique(row.receipts, 'receipt');
+      row.receipts.forEach((receipt: any) => {
+        assert(text(receipt.id) && /^[\w-]{8,160}$/.test(receipt.id) && text(receipt.originalName) && text(receipt.mimeType) && finite(receipt.size) && receipt.size > 0 && receipt.size <= 20 * 1024 * 1024 && validDate(receipt.createdAt) && ['pending', 'saved', 'failed'].includes(receipt.status), 'Invalid receipt metadata.');
+        for (const key of ['savedUri', 'savedFolderUri']) if (receipt[key] !== undefined) assert(text(receipt[key]) && receipt[key].startsWith('content://'), `Invalid receipt ${key}.`);
+        for (const key of ['savedName', 'error']) if (receipt[key] !== undefined) assert(text(receipt[key]), `Invalid receipt ${key}.`);
+        if (receipt.md5 !== undefined) assert(text(receipt.md5) && /^[a-f0-9]{32}$/i.test(receipt.md5), 'Invalid receipt checksum.');
+        if (receipt.localFileName !== undefined) assert(text(receipt.localFileName) && /^[\w-]{8,160}\.(pdf|jpg|png|webp|heic|heif|gif|tiff|bmp)$/.test(receipt.localFileName) && receipt.localFileName.startsWith(`${receipt.id}.`), 'Invalid local receipt filename.');
+        assert(receipt.localUri === undefined, 'Receipt backups cannot contain arbitrary local file paths.');
+        if (receipt.status === 'saved') assert(receipt.savedUri && receipt.savedFolderUri && receipt.savedName, 'Saved receipt is missing its folder or filename.');
+      });
+    }
   };
   state.entries.forEach((row: any) => entry(row));
   state.categories.forEach((category: any) => {

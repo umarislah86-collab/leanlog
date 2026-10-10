@@ -88,6 +88,7 @@ export default function HomeScreen({ navigation }: any) {
   const [consumed, setConsumed] = useState(0);
   const [burned, setBurned] = useState(0);
   const [protein, setProtein] = useState(0);
+  const [proteinGoal, setProteinGoal] = useState(125);
   const [goal, setGoal] = useState(2000);
   const [tdee, setTdee] = useState<number | null>(null);
   const [healthConnected, setHealthConnected] = useState(false);
@@ -207,6 +208,7 @@ export default function HomeScreen({ navigation }: any) {
     const data = await loadInsightData();
     setWeekly(data.weekly);
     setStreaks(data.streaks);
+    setProteinGoal(data.proteinGoal);
     setNotes(data.notes);
   }, []);
 
@@ -557,7 +559,7 @@ export default function HomeScreen({ navigation }: any) {
               <Text style={styles.briefChipText}>🔥 {streaks?.logging || 0}d log</Text>
             </View>
           </View>
-          <Text style={styles.briefFocus}>{notes[0] ? `Note to self: ${notes[0].text}` : remaining < 0 ? 'One high-target day does not change the trend. Keep the next meal simple.' : protein < Math.round((goal * 0.25) / 4) ? 'Focus: build your next meal around protein.' : 'Focus: keep the rhythm; protein is on track.'}</Text>
+          <Text style={styles.briefFocus}>{notes[0] ? `Note to self: ${notes[0].text}` : remaining < 0 ? 'One high-target day does not change the trend. Keep the next meal simple.' : protein < proteinGoal ? 'Focus: build your next meal around protein.' : 'Focus: keep the rhythm; protein is on track.'}</Text>
         </View>
 
         <View style={styles.habitsCard}>

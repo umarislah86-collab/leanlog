@@ -15,6 +15,7 @@ export interface FoodEntry {
   name: string;
   calories: number;
   imageUri?: string;
+  imageUris?: string[];
   time: string;
   date: string;
   items: FoodItem[];
@@ -32,6 +33,7 @@ export interface ActivityEntry {
 }
 
 export interface UserProfile {
+  protein?: { mode: 'auto' | 'strength' | 'factor' | 'fixed'; factor?: number; grams?: number; referenceWeight?: number };
   weight: number;
   height: number;
   age: number;

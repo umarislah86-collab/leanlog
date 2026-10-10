@@ -54,3 +54,13 @@ test('native launch error propagates to the UI error handler', async () => {
   picker.launchCameraAsync = async () => { throw new Error('native launch failed'); };
   await assert.rejects(openNativeImagePicker(picker, true), /native launch failed/);
 });
+
+test('bulk gallery keeps camera/activity defaults and requests ordered multi-selection only when requested', async () => {
+  const picker = mockPicker({ granted: true });
+  let options;
+  picker.launchImageLibraryAsync = async value => { options=value;return picker.result; };
+  await openNativeImagePicker(picker,false,3);
+  assert.equal(options.allowsMultipleSelection,true);assert.equal(options.selectionLimit,3);assert.equal(options.orderedSelection,true);
+  await openNativeImagePicker(picker,false);
+  assert.equal(options.allowsMultipleSelection,undefined);
+});

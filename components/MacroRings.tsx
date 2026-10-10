@@ -12,6 +12,7 @@ interface Props {
   calorieGoal: number;
   eatenCalories: number;
   compact?: boolean;
+  proteinTarget?: number;
 }
 
 const STROKE_W = 9;
@@ -31,7 +32,7 @@ const RING_DEFS_COMPACT = [
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-export default function MacroRings({ protein, carbs, fat, calorieGoal, eatenCalories, compact }: Props) {
+export default function MacroRings({ protein, carbs, fat, calorieGoal, eatenCalories, compact, proteinTarget }: Props) {
   const styles = useThemeStyles(baseStyles);
   const { themed } = useTheme();
   const { t } = useLanguage();
@@ -42,9 +43,9 @@ export default function MacroRings({ protein, carbs, fat, calorieGoal, eatenCalo
     fat: new Animated.Value(0),
   }).current;
 
-  const proteinGoal = Math.round(calorieGoal * 0.25 / 4);
-  const carbsGoal   = Math.round(calorieGoal * 0.45 / 4);
-  const fatGoal     = Math.round(calorieGoal * 0.30 / 9);
+  const proteinGoal = proteinTarget ?? Math.round(calorieGoal * 0.25 / 4);
+  const carbsGoal   = Math.round(Math.max(0, calorieGoal - proteinGoal * 4) * .6 / 4);
+  const fatGoal     = Math.round(Math.max(0, calorieGoal - proteinGoal * 4) * .4 / 9);
 
   const values: Record<string, number> = { carbs, protein, fat };
   const goals:  Record<string, number> = { carbs: carbsGoal, protein: proteinGoal, fat: fatGoal };
@@ -68,7 +69,7 @@ export default function MacroRings({ protein, carbs, fat, calorieGoal, eatenCalo
       mass: 0.7,
       useNativeDriver: false,
     }))).start();
-  }, [carbs, protein, fat, calorieGoal]);
+  }, [carbs, protein, fat, calorieGoal, proteinTarget]);
 
   const selectedValue = selected ? values[selected] : eatenCalories;
   const selectedGoal = selected ? goals[selected] : calorieGoal;

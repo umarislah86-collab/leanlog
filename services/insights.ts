@@ -1,5 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { ActivityEntry, FoodEntry, WeightEntry } from '../types';
+import type { ActivityEntry, FoodEntry, WeightEntry, UserProfile } from '../types';
+
+import { loadProteinHistory, snapshotProteinTarget, proteinDayKey, proteinTarget, type ProteinHistory } from './proteinTargets';
+import { profileWithLoggedWeight } from './currentWeight';
 
 export type QuickNote = { id: string; text: string; date: string; time: string; pinned?: boolean };
 
@@ -54,7 +57,7 @@ function countStreak(check: (date: string) => boolean) {
   return streak;
 }
 
-export function calculateStreaks(food: FoodEntry[], activities: ActivityEntry[], goal: number): PersonalStreaks {
+export function calculateStreaks(food: FoodEntry[], activities: ActivityEntry[], goal: number, history?: ProteinHistory): PersonalStreaks {
   const proteinGoal = Math.round(goal * 0.25 / 4);
   return {
     logging: countStreak((date) => food.some((entry) => entry.date === date)),
@@ -63,7 +66,7 @@ export function calculateStreaks(food: FoodEntry[], activities: ActivityEntry[],
       return total > 0 && total <= goal;
     }),
     movement: countStreak((date) => activities.some((entry) => entry.date === date)),
-    protein: countStreak((date) => proteinFor(food, date) >= proteinGoal),
+    protein: countStreak((date) => proteinFor(food, date) >= (history ? history[proteinDayKey(parseLocalDate(date))]?.target ?? Infinity : proteinGoal)),
   };
 }
 
@@ -99,21 +102,24 @@ export function calculateWeeklyReview(
 }
 
 export async function loadInsightData() {
-  const [foodRaw, activitiesRaw, weightsRaw, goalRaw, notesRaw] = await Promise.all([
+  const [foodRaw, activitiesRaw, weightsRaw, goalRaw, notesRaw, profileRaw] = await Promise.all([
     AsyncStorage.getItem('calorie_entries'),
     AsyncStorage.getItem('activity_entries'),
     AsyncStorage.getItem('weight_entries'),
     AsyncStorage.getItem('calorie_goal'),
     AsyncStorage.getItem('quick_notes'),
+    AsyncStorage.getItem('user_profile'),
   ]);
   const food: FoodEntry[] = foodRaw ? JSON.parse(foodRaw) : [];
   const activities: ActivityEntry[] = activitiesRaw ? JSON.parse(activitiesRaw) : [];
   const weights: WeightEntry[] = weightsRaw ? JSON.parse(weightsRaw) : [];
   const notes: QuickNote[] = notesRaw ? JSON.parse(notesRaw) : [];
   const goal = Number(goalRaw) || 2000;
+  const profile = profileRaw ? profileWithLoggedWeight(JSON.parse(profileRaw) as UserProfile, weights) : null;
+  const history = await (profile ? snapshotProteinTarget(profile) : loadProteinHistory());
   return {
-    food, activities, weights, notes, goal,
-    streaks: calculateStreaks(food, activities, goal),
+    food, activities, weights, notes, goal, proteinGoal: proteinTarget(profile, goal),
+    streaks: calculateStreaks(food, activities, goal, history),
     weekly: calculateWeeklyReview(food, activities, weights, goal),
   };
 }
