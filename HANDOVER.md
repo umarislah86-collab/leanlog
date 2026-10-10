@@ -2,12 +2,15 @@
 
 Updated: 10 October 2026 (Asia/Singapore).
 
-## Release in progress — v2.9.22 (10 October 2026)
+## Latest published release — v2.9.22 (10 October 2026)
 
 - User approved compact protein slider/card ordering in Expo Go, then explicitly authorized APK build and GitHub push/publication. Supersedes earlier QC-only/no-build notes below.
 - v2.9.22 replaces the additional protein calendar with a compact continuous horizontal protein graph in Progress; original calendar retained. Seven visible day bars, complete history to first food log, missing-day gaps, selected-day current-target status/meal totals/journal link. New Progress card ordering persists after Save, with boundary/normalization/error handling.
-- Use umiaq / @umiaqs-team/umarcoc93, existing original signing key and ARM64-only preview-arm64 profile. Remote autoIncrement expected 26 -> 27; verify before publication. Source QC harness remains separate under outputs and is not part of production APK.
-- 287 tests pass; TypeScript and production prebuild checks/native build/artifact validation are checked for this release. Native build pending. User accepted Expo Go design; device APK behavior still needs installation acceptance.
+- Built with umiaq / @umiaqs-team/umarcoc93, existing original signing key and ARM64-only preview-arm64 profile. Remote autoIncrement verified 26 -> 27. Source QC harness remains separate under outputs and is not part of production APK.
+- Source commit: 4dd3f374c48df5a4df9230c914d87ebe3131e840. EAS build 6e4a3893-63af-4d07-8e2b-f51fe1f6a0b3 finished successfully. Package com.calorietracker.app, version 2.9.22, versionCode 27, ARM64-only verified.
+- Published APK: https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.22/leanlog-V2.9.22.apk (44,103,969 bytes). SHA-256 221830a0a76c6b7283917ec0273f3d7291fd5388a014acedc6de396836b5af21 matches GitHub asset digest; public release is not a draft.
+- APK v2 signature, signed content digest and ZIP CRC verified. Original signer SHA-256 62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c preserved.
+- 287 tests, TypeScript, production prebuild checks and native build/artifact validation pass. User accepted Expo Go design; device APK behavior still needs installation acceptance.
 
 ## Latest QC refinement — compact protein + Progress card order
 
