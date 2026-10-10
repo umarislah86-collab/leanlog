@@ -2,11 +2,13 @@
 
 Updated: 10 October 2026 (Asia/Singapore).
 
-## Release in progress — v2.9.21 (10 October 2026)
+## Latest published release — v2.9.21 (10 October 2026)
 
 - User authorized APK build and GitHub push/publication. Includes all accumulated protein/calendar/current-weight, bulk food photo review, receipt-folder, startup and RedCoins onboarding changes below. Earlier no-build/unreleased statements are historical and superseded by this release authorization.
 - EAS account umiaq, existing @umiaqs-team/umarcoc93 project; remote Android versionCode was 1 and is set to 25 before autoIncrement to 26. Retain original package/signing credentials and ARM64-only preview-arm64 profile.
-- TypeScript, 278 tests and Android Metro export pass. Native build and artifact verification pending. Phone acceptance of new layouts/providers/AI response still pending.
+- TypeScript, 278 tests, Android Metro and native EAS build pass. EAS build 7e1b055f-9886-4f02-b609-072a8ce1f41c FINISHED under umiaq/umiaqs-team, source commit 1fbf2bfa4fc357146cd045ddc3f3dc3a032343db pushed on github-release-v221.
+- APK: https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.21/leanlog-V2.9.21.apk — 44,090,961 bytes (42.05 MiB), versionCode 26, SHA-256 cf315aa347784e23c76b14a6387864b109fbaef4ea3a693127e701b547fa71c1. Verified package com.calorietracker.app, ARM64-only ABI, version/code, ZIP CRC, APK v2 signature and content digest. Original signer unchanged: 62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c. Published GitHub asset digest matches local verified APK.
+- Phone acceptance of new layouts/providers/live AI response remains pending. One Android build used on the new team's quota.
 
 ## Included in v2.9.21 — dynamic protein + calendar (release build)
 
