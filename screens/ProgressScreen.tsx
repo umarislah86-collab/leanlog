@@ -1,7 +1,7 @@
 import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
 import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { fsUpsert, fsDelete, fsFetchAll, fsMirrorPhotoFetchAll, fsMirrorPhotoUpsert, fsMirrorPhotoDelete } from '../firebase';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -18,8 +18,11 @@ import * as Print from 'expo-print';
 import { deliverExport } from '../services/exportFile';
 import { buildProgressReport, progressReportData } from '../services/progressReport';
 import * as FileSystem from 'expo-file-system/legacy';
-import { loadProteinHistory, snapshotProteinTarget, proteinDayKey, type ProteinHistory } from '../services/proteinTargets';
-import { ProteinCalendar } from '../components/ProteinCalendar';
+import { macroTargets } from '../services/proteinTargets';
+import { foodCalendarDate } from '../services/proteinTimeline';
+import { ProgressCardOrderModal } from '../components/ProgressCardOrderModal';
+import { loadProgressOrder, normalizeProgressOrder, type ProgressCardId } from '../services/progressCardOrder';
+import { ProteinDaySlider } from '../components/ProteinDaySlider';
 import WeightAreaChart from '../components/WeightAreaChart';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -230,6 +233,14 @@ export default function ProgressScreen() {
   const styles = useThemeStyles(baseStyles);
   const { themed } = useTheme();
   const { t, lang } = useLanguage();
+  const [cardOrder, setCardOrder] = useState<ProgressCardId[]>(() => normalizeProgressOrder(null));
+  const [orderReady, setOrderReady] = useState(false);
+  const [showCardOrder, setShowCardOrder] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void loadProgressOrder().then(order => { if (active) setCardOrder(order); }).catch(console.warn).finally(() => { if (active) setOrderReady(true); });
+    return () => { active = false; };
+  }, []);
   const [period, setPeriod] = useState<Period>('7');
   const [allFood, setAllFood] = useState<FoodEntry[]>([]);
   const [allActivities, setAllActivities] = useState<ActivityEntry[]>([]);
@@ -246,7 +257,6 @@ export default function ProgressScreen() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackText, setFeedbackText] = useState('');
   const [loadingFeedback, setLoadingFeedback] = useState(false);
-  const [proteinHistory, setProteinHistory] = useState<ProteinHistory>({});
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [exportLoading, setExportLoading] = useState(false);
   const [calYear, setCalYear] = useState(() => new Date().getFullYear());
@@ -326,7 +336,6 @@ export default function ProgressScreen() {
     setWeightEntries(weights.sort((a, b) => parseDateKey(b.date) - parseDateKey(a.date)));
     setGoal(calorieGoal);
     setUserProfile(profile ? profileWithLoggedWeight(profile, weights) : null);
-    setProteinHistory(await (profile ? snapshotProteinTarget(profileWithLoggedWeight(profile, weights)) : loadProteinHistory()));
     setDaySummaries(buildSummaries(food, activities, p));
 
     const photos = await fsMirrorPhotoFetchAll();
@@ -396,7 +405,7 @@ export default function ProgressScreen() {
     const entry: WeightEntry = { id: Date.now().toString(), weight: w, date };
     const updated = [entry, ...weightEntries].sort((a, b) => parseDateKey(b.date) - parseDateKey(a.date));
     setWeightEntries(updated);
-    void AsyncStorage.setItem(WEIGHT_KEY, JSON.stringify(updated)).then(() => syncProfileWeight(updated)).then(profile => { if (profile) { setUserProfile(profile); void snapshotProteinTarget(profile).then(setProteinHistory).catch(console.warn); } }).catch(console.warn);
+    void AsyncStorage.setItem(WEIGHT_KEY, JSON.stringify(updated)).then(() => syncProfileWeight(updated)).then(profile => { if (profile) setUserProfile(profile); }).catch(console.warn);
     fsUpsert('weightEntries', entry.id, entry);
     setNewWeight('70.0');
     setShowWeightModal(false);
@@ -409,7 +418,7 @@ export default function ProgressScreen() {
         text: t('delete'), style: 'destructive', onPress: () => {
           const updated = weightEntries.filter((e) => e.id !== id);
           setWeightEntries(updated);
-          void AsyncStorage.setItem(WEIGHT_KEY, JSON.stringify(updated)).then(() => syncProfileWeight(updated)).then(profile => { if (profile) { setUserProfile(profile); void snapshotProteinTarget(profile).then(setProteinHistory).catch(console.warn); } }).catch(console.warn);
+          void AsyncStorage.setItem(WEIGHT_KEY, JSON.stringify(updated)).then(() => syncProfileWeight(updated)).then(profile => { if (profile) setUserProfile(profile); }).catch(console.warn);
           fsDelete('weightEntries', id);
         },
       },
@@ -680,6 +689,8 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
     setSelectedDay(formatDateKey(date));
   };
 
+  const currentMacros = macroTargets(userProfile, goal);
+  const proteinGoal = currentMacros.protein;
   const calFoodDays = new Set(allFood.map(e => e.date));
   const calActDays = new Set(allActivities.map(e => e.date));
   const calWeightDays = new Set(weightEntries.map(e => e.date));
@@ -701,15 +712,12 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
   const hiddenWeightCount = bodyTimeline.filter((item) => item.kind === 'weight' && !item.image).length;
   const visibleBodyTimeline = bodyTimeline.filter((item) => showWeightTimeline || item.kind !== 'weight' || item.image).slice(0, 12);
 
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('progressTitle')}</Text>
-      </View>
+  const cards: Record<ProgressCardId, React.ReactNode> = {
+    protein: (<>
+        <ProteinDaySlider food={allFood} target={proteinGoal} openSettings={() => navigation.navigate('Log', { proteinSetup: Date.now() })} openDay={setSelectedDay} />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <ProteinCalendar food={allFood} profile={userProfile} openSettings={() => navigation.navigate('Log', { proteinSetup: Date.now() })} />
-
+    </>),
+    weight: (<>
         {/* Weight + Chart merged card */}
         <TouchableOpacity style={styles.weightCard} activeOpacity={0.85} onPress={() => setShowWeightListModal(true)}>
           <View style={styles.weightCardTop}>
@@ -735,6 +743,8 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
           <Text style={styles.chartTapHint}>{t('tapToSeeList')}</Text>
         </TouchableOpacity>
 
+    </>),
+    timeline: (<>
         <View style={styles.timelineCard}>
           <View style={styles.timelineHeader}>
             <View>
@@ -772,6 +782,8 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
           )) : <Text style={styles.timelineEmpty}>{hiddenWeightCount ? 'Weight check-ins are tucked away. Expand them whenever you need the full record.' : 'Finish a workout or add a mirror photo to begin your timeline.'}</Text>}
         </View>
 
+    </>),
+    brief: (<>
         {/* Progress brief */}
         {daySummaries.length > 0 && (
           <View style={styles.progressBrief}>
@@ -814,6 +826,8 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
           </View>
         )}
 
+    </>),
+    export: (<>
         {/* Export buttons */}
         {(allFood.length > 0 || allActivities.length > 0 || weightEntries.length > 0) && (
           <View style={styles.exportRow}>
@@ -834,6 +848,8 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
           </View>
         )}
 
+    </>),
+    calendar: (<>
         {/* Calendar */}
         {allFood.length === 0 && allActivities.length === 0 && weightEntries.length === 0 ? (
           <View style={styles.emptyContainer}>
@@ -922,11 +938,25 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
             </View>
           </View>
         )}
+    </>),
+  };
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+        <Text style={styles.headerTitle}>{t('progressTitle')}</Text>
+        <TouchableOpacity disabled={!orderReady} accessibilityRole="button" onPress={() => setShowCardOrder(true)} style={{ flexDirection: 'row', gap: 5, padding: 8 }}><Ionicons name="swap-vertical-outline" size={17} color={themed('#101A2B', 'color')} /><Text style={{ color: themed('#101A2B', 'color'), fontSize: 12, fontWeight: '700' }}>{lang === 'en' ? 'Arrange' : 'Susun kad'}</Text></TouchableOpacity>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {cardOrder.map(id => <React.Fragment key={id}>{cards[id]}</React.Fragment>)}
       </ScrollView>
+
+      <ProgressCardOrderModal visible={showCardOrder} order={cardOrder} onSave={setCardOrder} onClose={() => setShowCardOrder(false)} />
 
       {/* Day Detail Modal */}
       {selectedDay !== null && (() => {
-        const dayFood = allFood.filter((e) => e.date === selectedDay);
+        const dayFood = allFood.filter((e) => foodCalendarDate(e.date)?.toLocaleDateString('ms-MY') === selectedDay);
         const dayAct = allActivities.filter((e) => e.date === selectedDay);
         const dayGym = gymSessions.filter((s) => s.date === selectedDay);
         const eaten = dayFood.reduce((s, e) => s + e.calories, 0);
@@ -1057,9 +1087,9 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
                     <View style={styles.macroProgressBox}>
                       <Text style={styles.macroSummaryLabel}>{t('macroTotal')}</Text>
                       {[
-                        { label: lang === 'en' ? 'Protein' : 'Protein', value: totalP, target: proteinHistory[proteinDayKey(new Date(parseDateKey(selectedDay)))]?.target ?? 0, color: themed('#8D9BFF', 'color') },
-                        { label: lang === 'en' ? 'Carbs' : 'Karbo', value: totalK, target: Math.round(goal * 0.45 / 4), color: themed('#E8B84A', 'color') },
-                        { label: lang === 'en' ? 'Fat' : 'Lemak', value: totalL, target: Math.round(goal * 0.30 / 9), color: themed('#FF856B', 'color') },
+                        { label: lang === 'en' ? 'Protein' : 'Protein', value: totalP, target: proteinGoal, color: themed('#8D9BFF', 'color') },
+                        { label: lang === 'en' ? 'Carbs' : 'Karbo', value: totalK, target: currentMacros.carbs, color: themed('#E8B84A', 'color') },
+                        { label: lang === 'en' ? 'Fat' : 'Lemak', value: totalL, target: currentMacros.fat, color: themed('#FF856B', 'color') },
                       ].map((macro) => (
                         <View key={macro.label} style={styles.journalMacroRow}>
                           <View style={styles.journalMacroLabels}><Text style={styles.journalMacroName}>{macro.label}</Text><Text style={styles.journalMacroValue}>{macro.value}g{macro.target ? ` / ${macro.target}g` : ' · target sejarah tiada'}</Text></View>

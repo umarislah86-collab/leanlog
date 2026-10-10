@@ -2,6 +2,28 @@
 
 Updated: 10 October 2026 (Asia/Singapore).
 
+## Release in progress — v2.9.22 (10 October 2026)
+
+- User approved compact protein slider/card ordering in Expo Go, then explicitly authorized APK build and GitHub push/publication. Supersedes earlier QC-only/no-build notes below.
+- v2.9.22 replaces the additional protein calendar with a compact continuous horizontal protein graph in Progress; original calendar retained. Seven visible day bars, complete history to first food log, missing-day gaps, selected-day current-target status/meal totals/journal link. New Progress card ordering persists after Save, with boundary/normalization/error handling.
+- Use umiaq / @umiaqs-team/umarcoc93, existing original signing key and ARM64-only preview-arm64 profile. Remote autoIncrement expected 26 -> 27; verify before publication. Source QC harness remains separate under outputs and is not part of production APK.
+- 287 tests pass; TypeScript and production prebuild checks/native build/artifact validation are checked for this release. Native build pending. User accepted Expo Go design; device APK behavior still needs installation acceptance.
+
+## Latest QC refinement — compact protein + Progress card order
+
+- User accepted slider but requested ~3/5 original card height and customizable top/bottom card placement. ProteinDaySlider merges date labels into one row, reduces graph to 58 dp inside 92 dp canvas, tightens spacing and font sizes, and folds Today/Food links into one footer. Normal text size is approximately 60% previous card height; text scaling remains supported rather than clipping a fixed-height container. Full timeline, native motion, selected-day values, target line and meal breakdown remain.
+- Progress header now has Susun kad / Arrange. Modal offers up/down controls for all six sections: Protein, Weight/chart, Body Timeline, Progress Brief, Export and Calendar. Save persists normalized order in leanlog_progress_cards_v1 before applying; failure retains previous active order, Cancel discards draft, Reset default is a draft until Save. Existing full-state cloud backup includes this preference key.
+- Cards render via stable keyed fragments, preserving slider selected date while moving. Stored old/missing/duplicate/unknown IDs normalize safely; new cards append. Modal supports BM/English, themed contrast and disabled boundary controls.
+- QC folder updated with exact main source; reload same Expo Go tunnel preview. 287 tests and main/QC TypeScript pass; live Metro HTTP 200 confirms compact slider, ordering UI and persistence key, with production Firebase config absent. User phone QC pending. No APK build/version bump/commit/push for this revision.
+
+## Current QC — protein slider; calendar integration cancelled
+
+- User cancelled protein calendar integration after Expo Go QC. Removed the extra ProteinCalendar and restored the original monthly calendar layout/dots/navigation, without protein heat colors/labels. Supersedes the prior calendar correction.
+- New ProteinDaySlider is a separate card at the top of Progress. Horizontal graph shows up to seven day bars at a time, centers/snaps the selected date, and continues without a seven-day history cap through EVERY calendar day to the first valid food log. Newest-first order means finger swipe left -> older, right -> newer; bounds stop at today/first log. Arrows move one day; Today returns to latest; bar tap selects day.
+- Selected day updates large grams, current-target percentage, remaining/met/empty status, four meal totals and View food daily journal link during scrolling. Dashed current-target line, selected column, native-driver opacity/width motion and short detail reveal; reduced-motion support. Empty days differ from logged 0g. All dates use current goal per user's explicit preference. No future food values included. Pure proteinTimeline service aggregates padded local/ISO dates, skips malformed/future dates, ignores invalid protein and supports arbitrary-length virtualized history.
+- QC folder outputs/leanlog-expo-go uses the actual edited Progress/Log screens, 60 days of DEMO local data and Metro-only cloud/AI/widget stubs. SDK 57. Local LAN download failed on user's phone; tunnel fixed it, user confirmed preview opens. Tunnel server port 8084, exp://p2n3imy-umiaq-8084.exp.direct; outputs/leanlog-expo-go-tunnel-qr.png. Reload existing Expo Go preview for this change. Restart later with npm run start:tunnel and scan new terminal QR. node_modules junction points to repo; Expo ngrok installed and linked locally.
+- Validation: 283 tests, main/QC TypeScript, diff whitespace and live Android Metro bundle HTTP 200 pass. New slider present; production Firebase project config absent from QC bundle. Phone visual/swipe acceptance pending user's QC. No APK build, version bump, commit/push or release authorized for this revision.
+
 ## Latest published release — v2.9.21 (10 October 2026)
 
 - User authorized APK build and GitHub push/publication. Includes all accumulated protein/calendar/current-weight, bulk food photo review, receipt-folder, startup and RedCoins onboarding changes below. Earlier no-build/unreleased statements are historical and superseded by this release authorization.

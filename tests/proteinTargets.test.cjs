@@ -27,3 +27,9 @@ test('calendar distinguishes missing logs, zero protein, unknown targets and all
  for(const [grams,level] of [[0,'low'],[49.9,'low'],[50,'medium'],[79.9,'medium'],[80,'close'],[99.9,'close'],[100,'met'],[250,'met']])assert.equal(c.proteinLevel(true,grams,100),level);
  const result=c.proteinForDay([{id:'1',date:'09/10/2026',items:[{protein:12.5},{protein:NaN},{protein:-2}]},{id:'2',date:'9/10/2026',items:[{protein:7.5}]},{id:'3',date:'8/10/2026',items:[{protein:99}]}],'9/10/2026');assert.equal(result.rows.length,2);assert.equal(result.protein,20);
 });
+
+test('old food dates recolor against the current goal without requiring a target snapshot',()=>{
+ const {core:c}=runtime();const day=c.proteinForDay([{id:'old',date:'1/1/2020',items:[{protein:120}]}],'1/1/2020');
+ assert.equal(c.proteinLevel(day.rows.length>0,day.protein,c.proteinTarget({...profile,weight:118})),'close');
+ assert.equal(c.proteinLevel(day.rows.length>0,day.protein,c.proteinTarget({...profile,weight:100})),'met');
+});
