@@ -2,6 +2,13 @@
 
 Updated: 10 October 2026 (Asia/Singapore).
 
+## Latest published release — v2.9.23
+
+- User authorized build and GitHub publication of all accumulated changes below. Their Unreleased/no-build statements are historical and superseded. Includes immediate RedCoins actions, dark bright-card contrast, Onyx Gold, Appearance scrolling, full mirror viewing and accurate 0% widget bar.
+- Source 09ae4bff930ffbd3ecc065b5255849de380eb6c5 pushed to github-release-v221. EAS umiaq / umiaqs-team build 59603a9e-f1db-42f4-9367-2a20117494b0 finished; preview-arm64, com.calorietracker.app, version 2.9.23 / code 28 verified.
+- Published https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.23/leanlog-V2.9.23.apk ; 44,112,229 bytes. SHA-256 53623e3f27fa53acf97b7e6cfb821eaa7ba662ceb217847b04d2e78a82ceab9c matches GitHub asset digest; public download HTTP 200, release not a draft.
+- Original signer SHA-256 62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c retained. ARM64-only, APK v2 signature/content digest and ZIP CRC verified. 293 tests and TypeScript pass. Final installed-phone acceptance remains pending.
+
 ## Unreleased — accurate widget calorie bar
 
 - Removed daily widget's minimum 4% fill. Zero calories/rounded 0% renders no coloured segment; positive percentages use actual clamped 0–100 progress and 100% omits the empty segment. TypeScript and 11 daily-widget/theme tests pass. No APK build yet.
