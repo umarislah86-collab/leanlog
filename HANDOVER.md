@@ -2,12 +2,14 @@
 
 Updated: 10 October 2026 (Asia/Singapore).
 
-## Current corrective release — v2.9.20
+## Latest published release — v2.9.20 ARM64 (10 October)
 
 - Affected spouse phone reports `database or disk is full (code 13 SQLITE_FULL)` on v2.9.19; user's own phone opens normally. Actual free device storage is not yet supplied. Legacy migration duplicated complete ledger checkpoints into Android AsyncStorage, whose pinned native default is 6 MB. Reproduced checkpoint failure near that cap; successful upgraded phones may already be reading authoritative SQLite.
 - All three large recovery checkpoints now live in additive `rc_recovery` SQLite storage, verified before financial migration/save. Existing AsyncStorage checkpoints are copied without changing their original bytes and are never deleted/overwritten. The original legacy state also remains untouched. Real disk-full during checkpoint creation still rejects safely with no financial rows initialized.
 - Native config plugin sets AsyncStorage capacity to 32 MB for retained legacy data and small preferences. Expo introspection confirms the generated Gradle property. All 239 tests, TypeScript and Android prebuild config passed; includes near-6-MB regression, full service migration without large AsyncStorage writes, immutable prior checkpoints and real-disk-full failure/retry.
-- Hotfix v2.9.20 is corrective follow-through for the previously requested build/push and failing phone upgrade. Native build, publication and phone acceptance pending.
+- Hotfix v2.9.20 / versionCode 25 published as corrective follow-through for the previously requested build/push and failing phone upgrade. Source commit `9c14990505a4feee44dca7189e841bd7587ad334`; EAS `a9fd92c0-edd5-45c8-9027-db3ac7d044cf` FINISHED with preview-arm64 and existing remote keystore. Android Metro exported 1297 modules. Phone acceptance remains pending.
+- APK: https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.20/leanlog-V2.9.20.apk — 44,006,493 bytes / 41.97 MiB. SHA-256 `079d1d34d83e5abee7c9975e068ceff3371ffeb9f3bec407a59b5185a60a5620`. Verified package `com.calorietracker.app`, version/code, ARM64-only libraries, ZIP CRC, APK v2 signature and signed content digest. Signer unchanged `62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c`.
+- Tag matches exact EAS source commit. GitHub latest release is v2.9.20, uploaded asset size/digest match the verified APK and public download returns HTTP 200. All originals/prior checkpoints retained; do not clear phone data. Need affected-phone result and free-storage detail if still failing.
 
 ## Latest published release — v2.9.19 ARM64 (10 October)
 
