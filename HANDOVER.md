@@ -2,6 +2,11 @@
 
 Updated: 10 October 2026 (Asia/Singapore).
 
+## Unreleased — RedCoins swipe responder correction
+
+- User reports v2.9.24 swipes do not work on device. Changed move handler to capture phase, allowing the screen to claim horizontal motion before nested native ScrollView/FlatList responders. Captured gestures now refuse termination and block native responder takeover until release. Initial taps/vertical scrolling remain unclaimed.
+- TypeScript, direction/boundary gesture tests and diff checks pass. These checks do not confirm native event delivery; device swipe/vertical-scroll QA still required. No corrected APK built yet.
+
 ## Latest published release — v2.9.24 (12 October 2026, Asia/Singapore)
 
 - User authorized build/push/publication. Includes Coach keep-awake, deadline rest timer, per-exercise Auto/reps/timer mode, strength-row correction and RedCoins swipe navigation. Below unreleased statements for these changes are superseded. Dock Mode remains deferred.

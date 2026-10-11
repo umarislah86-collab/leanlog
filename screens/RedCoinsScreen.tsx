@@ -240,9 +240,9 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   }, [section]);
   const sectionSwipe = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => false,
-    // Only claim deliberate horizontal motion; lists retain vertical scrolling
-    // and taps/inputs are not intercepted when the touch begins.
-    onMoveShouldSetPanResponder: (_, gesture) => isFocused &&
+    // Capture horizontal movement before a child ScrollView/FlatList claims it.
+    // Vertical gestures and initial taps still belong to the child controls.
+    onMoveShouldSetPanResponderCapture: (_, gesture) => isFocused &&
       !entrySaveLock.current && !batchLock.current && !receiptBusy &&
       Math.abs(gesture.dx) > 24 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 2,
     onPanResponderRelease: (_, gesture) => {
@@ -252,7 +252,9 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       if ('route' in target) navigation.navigate(target.route);
       else navigateSection(target.section);
     },
-    onPanResponderTerminationRequest: () => true,
+    // Once captured, a native list must not steal the swipe before release.
+    onPanResponderTerminationRequest: () => false,
+    onShouldBlockNativeResponder: () => true,
   }), [section, isFocused, receiptBusy, navigation, navigateSection]);
   const goBackInsideRedCoins = useCallback(() => {
     if (section === 'accounts' && categoriesOpen) { setCategoriesOpen(false); return true; }
