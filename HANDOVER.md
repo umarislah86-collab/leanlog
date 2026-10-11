@@ -2,6 +2,19 @@
 
 Updated: 10 October 2026 (Asia/Singapore).
 
+## Unreleased — RedCoins horizontal section swipes
+
+- Swipe left advances Home -> Activity -> Accounts -> Plan -> Reports; right reverses. Right beyond Home navigates to main Coach, left beyond Reports navigates to main Settings. Parent main-tab swipe remains disabled for RedCoins so internal sections handle boundaries explicitly.
+- Pan responder only claims deliberate horizontal movement, preserving initial taps and vertical list scrolling. Short/diagonal gestures do not navigate. Internal navigation uses existing section history/reset behavior; gestures are blocked during pending entry/batch writes or receipt work. Native phone gesture QA pending APK.
+- Added direction/boundary and short/vertical/diagonal tests. No APK build/version bump requested yet.
+
+## Unreleased — Coach screen awake, rest deadline and exercise mode
+
+- Keep screen awake automatically while Coach session is visible/focused and app foreground; release on blur/background/pause/finish. Added SDK-compatible expo-keep-awake.
+- Rest display now derives from absolute deadline, updates on app resume/focus, and shares that deadline with the notification. Generation tokens cancel stale asynchronous scheduling on restart/skip/unmount; +30 uses actual remaining time. Strength row names no longer match cardio rowing accidentally.
+- Each session exercise offers Auto / Kg × reps / Timer (min). Override retained in workout draft and saved modified plan; changing mode stops its active duration timers and retains entered values for editing. Old exercises default Auto.
+- 296 tests and TypeScript pass; phone lifecycle/keep-awake testing pending. No APK build requested yet. Dock Mode was discussed as a possible manual fullscreen clock feature, not implemented.
+
 ## Latest published release — v2.9.23
 
 - User authorized build and GitHub publication of all accumulated changes below. Their Unreleased/no-build statements are historical and superseded. Includes immediate RedCoins actions, dark bright-card contrast, Onyx Gold, Appearance scrolling, full mirror viewing and accurate 0% widget bar.

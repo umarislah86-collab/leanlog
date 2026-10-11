@@ -2,8 +2,11 @@ import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/Th
 import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, LayoutAnimation, Modal, ScrollView, StyleSheet, TouchableOpacity, Vibration, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Linking, LayoutAnimation, Modal, ScrollView, StyleSheet, TouchableOpacity, Vibration, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useIsFocused } from '@react-navigation/native';
+import { useKeepAwake } from 'expo-keep-awake';
+import { remainingRestSeconds, isTimedExercise } from '../services/workoutTiming';
 import { Ionicons } from '@expo/vector-icons';
 import { fsUpsert } from '../firebase';
 import { runLeanLogAi } from '../services/ai';
@@ -41,8 +44,8 @@ const EQUIPMENT_LIST = [
   { id: 'full_gym',   bm: 'Full Gym Access',       en: 'Full Gym Access' },
 ];
 
-const DURATION_KEYWORDS = ['treadmill', 'cardio', 'plank', 'run', 'jog', 'walk', 'cycle', 'bike', 'elliptical', 'row', 'skip', 'jump rope', 'farmer', 'hold', 'carry', 'lari', 'berjalan', 'basikal'];
-const isDurationEx = (name: string) => DURATION_KEYWORDS.some(k => name.toLowerCase().includes(k));
+const isDurationEx = isTimedExercise;
+function WorkoutKeepAwake() { useKeepAwake('leanlog-coach-workout', { suppressDeactivateWarnings: true }); return null; }
 const formatTimer = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 const platesPerSide = (totalKg: number) => {
   let remaining = Math.max(0, (totalKg - 20) / 2);
@@ -77,13 +80,15 @@ const offlinePlan = (equipment: string[], split: WorkoutSplit, sessionsPerWeek: 
 };
 
 interface SessionSet { reps: string; weight: string; done: boolean; warmup?: boolean; rpe?: number; }
-interface SessionExercise { name: string; restSeconds: number; notes?: string; sets: SessionSet[]; }
+interface SessionExercise { mode?: 'auto' | 'reps' | 'timer'; name: string; restSeconds: number; notes?: string; sets: SessionSet[]; }
 
 export default function CoachScreen() {
   const styles = useThemeStyles(baseStyles);
   const { themed } = useTheme();
   const { lang, t } = useLanguage();
 
+  const focused = useIsFocused();
+  const [foreground, setForeground] = useState(AppState.currentState === 'active');
   const [view, setView] = useState<'setup' | 'plan' | 'session'>('setup');
 
   // Setup
@@ -120,6 +125,8 @@ export default function CoachScreen() {
   // Rest timer
   const [restRemaining, setRestRemaining] = useState(0);
   const restRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const restDeadline = useRef<number | null>(null);
+  const restGeneration = useRef(0);
   const restNotificationRef = useRef<string | null>(null);
 
   // Duration timers (for cardio/plank/treadmill sets)
@@ -129,6 +136,8 @@ export default function CoachScreen() {
   useEffect(() => {
     loadData();
     return () => {
+      restGeneration.current++;
+      restDeadline.current = null;
       if (restRef.current) clearInterval(restRef.current);
       Object.values(timerRefs.current).forEach(clearInterval);
       cancelRestNotification(restNotificationRef.current);
@@ -151,6 +160,15 @@ export default function CoachScreen() {
     }), 180);
     return () => clearTimeout(timer);
   }, [view, sessionDayLabel, sessionDayIndex, sessionModified, sessionExercises, sessionStart, sessionReadiness]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', status => {
+      setForeground(status === 'active');
+      if (status === 'active') updateRest();
+    });
+    return () => subscription.remove();
+  }, []);
+  useEffect(() => { if (focused) updateRest(); }, [focused]);
 
   const loadData = async () => {
     const [planStr, setupStr, savedHistory, savedDraft, healthRaw] = await Promise.all([
@@ -280,6 +298,7 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
       return {
         name: ex.name,
         restSeconds: ex.restSeconds ?? 90,
+        mode: ex.mode,
         notes: '',
         sets: ex.sets.map((s, index) => ({
           reps: String(previous?.sets[index]?.reps ?? s.reps),
@@ -291,8 +310,7 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
     }));
     setSessionStart(Date.now());
     setSessionReadiness({ energy, soreness, sleepMinutes });
-    if (restRef.current) clearInterval(restRef.current);
-    setRestRemaining(0);
+    skipRest();
     Object.values(timerRefs.current).forEach(clearInterval);
     timerRefs.current = {};
     setDurationTimers({});
@@ -339,32 +357,43 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
     if (!wasDone) startRest(sessionExercises[exIdx].restSeconds ?? 90);
   };
 
-  const startRest = async (seconds: number) => {
-    if (restRef.current) clearInterval(restRef.current);
-    await cancelRestNotification(restNotificationRef.current);
-    restNotificationRef.current = await scheduleRestFinished(seconds);
-    setRestRemaining(seconds);
-    restRef.current = setInterval(() => {
-      setRestRemaining(prev => {
-        if (prev <= 1) { clearInterval(restRef.current!); restRef.current = null; Vibration.vibrate([0, 300, 130, 300]); restNotificationRef.current = null; return 0; }
-        return prev - 1;
-      });
-    }, 1000);
+  const updateRest = () => {
+    const remaining = remainingRestSeconds(restDeadline.current);
+    setRestRemaining(remaining);
+    if (restDeadline.current !== null && remaining === 0) {
+      restDeadline.current = null;
+      restGeneration.current++;
+      if (restRef.current) clearInterval(restRef.current);
+      restRef.current = null;
+      void cancelRestNotification(restNotificationRef.current);
+      restNotificationRef.current = null;
+      if (AppState.currentState === 'active') Vibration.vibrate([0, 300, 130, 300]);
+    }
   };
-
+  const startRest = async (seconds: number) => {
+    const generation = ++restGeneration.current;
+    if (restRef.current) clearInterval(restRef.current);
+    const previousNotification = restNotificationRef.current;
+    restNotificationRef.current = null;
+    const deadline = Date.now() + seconds * 1000;
+    restDeadline.current = deadline;
+    updateRest();
+    restRef.current = setInterval(updateRest, 250);
+    await cancelRestNotification(previousNotification);
+    if (generation !== restGeneration.current) return;
+    const id = await scheduleRestFinished(seconds, deadline);
+    if (generation !== restGeneration.current) { void cancelRestNotification(id); return; }
+    restNotificationRef.current = id;
+  };
   const skipRest = () => {
+    restGeneration.current++;
+    restDeadline.current = null;
     if (restRef.current) { clearInterval(restRef.current); restRef.current = null; }
-    cancelRestNotification(restNotificationRef.current);
+    void cancelRestNotification(restNotificationRef.current);
     restNotificationRef.current = null;
     setRestRemaining(0);
   };
-
-  const extendRest = async () => {
-    const next = restRemaining + 30;
-    if (restRef.current) clearInterval(restRef.current);
-    await cancelRestNotification(restNotificationRef.current);
-    startRest(next);
-  };
+  const extendRest = () => { void startRest(remainingRestSeconds(restDeadline.current) + 30); };
 
   const tKey = (exIdx: number, si: number) => `${exIdx}_${si}`;
 
@@ -433,6 +462,12 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
     setSessionModified(true);
   };
 
+  const setExerciseMode = (exIdx: number, mode: 'auto' | 'reps' | 'timer') => {
+    // Stop any active timers before their controls disappear or change units.
+    sessionExercises[exIdx].sets.forEach((_, si) => pauseDurationTimer(exIdx, si));
+    setSessionExercises(prev => prev.map((ex, i) => i === exIdx ? { ...ex, mode } : ex));
+    setSessionModified(true);
+  };
   const updateExerciseNote = (exIdx: number, notes: string) => setSessionExercises(prev => prev.map((exercise, index) => index === exIdx ? { ...exercise, notes } : exercise));
   const updateExerciseName = (exIdx: number, name: string) => {
     setSessionExercises(prev => prev.map((exercise, index) => index === exIdx ? { ...exercise, name } : exercise));
@@ -477,6 +512,7 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
           name: ex.name,
           sets: ex.sets.map(s => ({ reps: parseInt(s.reps) || 10, weight: parseFloat(s.weight) || 0, done: false, warmup: s.warmup, rpe: s.rpe })),
           restSeconds: ex.restSeconds,
+          mode: ex.mode,
         })),
       }),
     };
@@ -721,6 +757,7 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
   // ── SESSION VIEW ────────────────────────────────────────────────────────────
   const renderSession = () => (
     <View style={{ flex: 1 }}>
+      {focused && foreground && <WorkoutKeepAwake />}
       {restRemaining > 0 && (
         <View style={styles.restBanner}>
           <Text style={styles.restTxt}>⏱  {t('gymRestTimer')}: {restRemaining}s</Text>
@@ -753,11 +790,14 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
               <TouchableOpacity onPress={() => moveExercise(exIdx, -1)}><Ionicons name="arrow-up" size={15} color={themed("#68758A", 'color')} /></TouchableOpacity>
               <TouchableOpacity onPress={() => moveExercise(exIdx, 1)}><Ionicons name="arrow-down" size={15} color={themed("#68758A", 'color')} /></TouchableOpacity>
             </View>
+            <View style={{ flexDirection: 'row', gap: 8, marginVertical: 8 }}>
+              {(['auto', 'reps', 'timer'] as const).map(mode => <TouchableOpacity key={mode} onPress={() => setExerciseMode(exIdx, mode)} accessibilityRole="radio" accessibilityState={{ checked: (ex.mode || 'auto') === mode }} style={{ padding: 9, borderRadius: 10, backgroundColor: (ex.mode || 'auto') === mode ? themed('#8FD6B4', 'backgroundColor') : themed('#E7DECE', 'backgroundColor') }}><Text style={{ color: (ex.mode || 'auto') === mode ? '#101A2B' : themed('#101A2B', 'color'), fontSize: 11, fontWeight: '700' }}>{mode === 'auto' ? 'Auto' : mode === 'reps' ? 'Kg × reps' : 'Timer (min)'}</Text></TouchableOpacity>)}
+            </View>
             {latestExercisePerformance(history, ex.name) && <Text style={styles.sessionLastLine}>LAST · {latestExercisePerformance(history, ex.name)!.sets.map((set) => `${set.weight}×${set.reps}`).join(' · ')} · e1RM {latestExercisePerformance(history, ex.name)!.estimated1RM}kg</Text>}
             {progressionSuggestion(history, ex.name) && <Text style={styles.sessionSuggestion}>TODAY · {progressionSuggestion(history, ex.name)!.label}</Text>}
             {/barbell|bench press|squat|deadlift/i.test(ex.name) && platesPerSide(Number(ex.sets[0]?.weight)) && <Text style={styles.plateHint}>PLATES / SIDE · {platesPerSide(Number(ex.sets[0]?.weight))} kg + 20kg bar</Text>}
             {ex.sets.map((s, si) => {
-              const isDur = isDurationEx(ex.name);
+              const isDur = ex.mode === 'timer' || (ex.mode !== 'reps' && isDurationEx(ex.name));
               const timer = durationTimers[tKey(exIdx, si)];
               return isDur ? (
                 <View key={si} style={[styles.setRow, s.warmup && styles.warmupRow, s.done && styles.setRowDone]}>

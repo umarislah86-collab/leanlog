@@ -8,7 +8,7 @@ export const WORKOUT_DRAFT_KEY = 'coach_active_workout_draft_v2';
 const REST_CHANNEL = 'workout-rest-v1';
 
 export interface CoachDraftSet { reps: string; weight: string; done: boolean; warmup?: boolean; rpe?: number; }
-export interface CoachDraftExercise { name: string; restSeconds: number; notes?: string; sets: CoachDraftSet[]; }
+export interface CoachDraftExercise { mode?: 'auto' | 'reps' | 'timer'; name: string; restSeconds: number; notes?: string; sets: CoachDraftSet[]; }
 export interface WorkoutDraft {
   dayLabel: string;
   dayIndex: number;
@@ -85,7 +85,7 @@ export async function offlineWorkoutCalories(durationMin: number, exercises: Coa
   return Math.max(1, Math.round((met * 3.5 * weight / 200) * durationMin));
 }
 
-export async function scheduleRestFinished(seconds: number) {
+export async function scheduleRestFinished(seconds: number, deadline = Date.now() + seconds * 1000) {
   if (!Notifications) return null;
   const permission = await Notifications.getPermissionsAsync().catch(() => null);
   if (!permission?.granted) return null;
@@ -93,9 +93,10 @@ export async function scheduleRestFinished(seconds: number) {
     name: 'Workout rest timer', importance: Notifications.AndroidImportance.HIGH,
     enableVibrate: true, vibrationPattern: [0, 300, 130, 300], sound: 'default',
   }).catch(() => {});
+  if (deadline <= Date.now()) return null;
   return Notifications.scheduleNotificationAsync({
     content: { title: 'Rest over. Back to work. 💪', body: 'Your next set is waiting.', sound: true, data: { kind: 'workout-rest' } },
-    trigger: { type: 'date', date: new Date(Date.now() + seconds * 1000), channelId: REST_CHANNEL },
+    trigger: { type: 'date', date: new Date(deadline), channelId: REST_CHANNEL },
   }).catch(() => null);
 }
 

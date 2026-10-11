@@ -70,6 +70,7 @@ export interface ExerciseSet {
 }
 
 export interface WorkoutExercise {
+  mode?: 'auto' | 'reps' | 'timer';
   name: string;
   sets: ExerciseSet[];
   restSeconds: number;

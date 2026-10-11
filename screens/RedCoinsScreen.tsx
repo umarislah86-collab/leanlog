@@ -2,9 +2,10 @@ import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/Th
 import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert, AppState, BackHandler, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, AppState, BackHandler, Keyboard, KeyboardAvoidingView, Linking, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { RedCoinsSetup } from '../components/RedCoinsSetup';
+import { redcoinsSwipeTarget } from '../services/redcoinsSwipe';
 import { needsRedCoinsSetup } from '../services/redcoinsOnboarding';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -237,6 +238,22 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     sectionHistory.current.push(section);
     setSection(next);
   }, [section]);
+  const sectionSwipe = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    // Only claim deliberate horizontal motion; lists retain vertical scrolling
+    // and taps/inputs are not intercepted when the touch begins.
+    onMoveShouldSetPanResponder: (_, gesture) => isFocused &&
+      !entrySaveLock.current && !batchLock.current && !receiptBusy &&
+      Math.abs(gesture.dx) > 24 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 2,
+    onPanResponderRelease: (_, gesture) => {
+      const target = redcoinsSwipeTarget(section, gesture.dx, gesture.dy);
+      if (!target) return;
+      Keyboard.dismiss();
+      if ('route' in target) navigation.navigate(target.route);
+      else navigateSection(target.section);
+    },
+    onPanResponderTerminationRequest: () => true,
+  }), [section, isFocused, receiptBusy, navigation, navigateSection]);
   const goBackInsideRedCoins = useCallback(() => {
     if (section === 'accounts' && categoriesOpen) { setCategoriesOpen(false); return true; }
     if (section === 'plan' && planPage !== 'overview') { setPlanPage('overview'); return true; }
@@ -2229,7 +2246,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   ) : null;
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} {...sectionSwipe.panHandlers}>
       <RedCoinsSetup defaults={state} visible={isFocused && needsRedCoinsSetup(state)} onBluecoins={() => navigation.navigate('Settings', { redcoinsImport: true })}
         onSaved={(current, firstEntry) => {
           setState(current);
