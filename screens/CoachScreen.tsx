@@ -8,6 +8,8 @@ import { useIsFocused } from '@react-navigation/native';
 import { useKeepAwake } from 'expo-keep-awake';
 import { remainingRestSeconds, isTimedExercise } from '../services/workoutTiming';
 import { Ionicons } from '@expo/vector-icons';
+import { CardioCompanion } from '../components/CardioCompanion';
+import { loadCardioSession } from '../services/cardioStore';
 import { fsUpsert } from '../firebase';
 import { runLeanLogAi } from '../services/ai';
 import { useLanguage } from '../context/LanguageContext';
@@ -82,7 +84,7 @@ const offlinePlan = (equipment: string[], split: WorkoutSplit, sessionsPerWeek: 
 interface SessionSet { reps: string; weight: string; done: boolean; warmup?: boolean; rpe?: number; }
 interface SessionExercise { mode?: 'auto' | 'reps' | 'timer'; name: string; restSeconds: number; notes?: string; sets: SessionSet[]; }
 
-export default function CoachScreen() {
+export default function CoachScreen({ route }: any) {
   const styles = useThemeStyles(baseStyles);
   const { themed } = useTheme();
   const { lang, t } = useLanguage();
@@ -284,8 +286,10 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
     setSoreness(2);
   };
 
-  const beginSession = () => {
+  const beginSession = async () => {
     if (!pendingDay) return;
+    const cardio = await loadCardioSession().catch(() => null);
+    if (cardio?.status === 'running' || cardio?.status === 'paused') { Alert.alert('Cardio in progress', 'Finish your cardio session before starting a strength workout.'); return; }
     const { day, index: dayIdx } = pendingDay;
     clearWorkoutDraft();
     setDraft(null);
@@ -318,7 +322,9 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
     setView('session');
   };
 
-  const resumeDraft = (saved: WorkoutDraft) => {
+  const resumeDraft = async (saved: WorkoutDraft) => {
+    const cardio = await loadCardioSession().catch(() => null);
+    if (cardio?.status === 'running' || cardio?.status === 'paused') { Alert.alert('Cardio in progress', 'Finish your cardio session before resuming a strength workout.'); return; }
     setSessionDayLabel(saved.dayLabel);
     setSessionDayIndex(saved.dayIndex);
     setSessionModified(saved.modified);
@@ -491,6 +497,11 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
       name: `💪 ${sessionDayLabel}`,
       duration: durationMin,
       caloriesBurned: kcal,
+      details:{kind:'strength',source:'LeanLog Coach',calorieBasis:'estimated',
+        startedAt:new Date(sessionStart).toISOString(),endedAt:now.toISOString(),
+        exercises:sessionExercises.map(ex=>({name:ex.name,sets:ex.sets.filter(set=>set.done).map(set=>(ex.mode==='timer'||(ex.mode!=='reps'&&isDurationEx(ex.name)))?{durationSec:(Number(set.reps)||0)*60,restSec:ex.restSeconds}:{reps:Number(set.reps)||0,weightKg:Number(set.weight)||0,restSec:ex.restSeconds})})),
+        volumeKg:sessionExercises.reduce((sum,ex)=>sum+((ex.mode==='timer'||(ex.mode!=='reps'&&isDurationEx(ex.name)))?0:ex.sets.filter(set=>set.done).reduce((n,set)=>n+(Number(set.reps)||0)*(Number(set.weight)||0),0)),0),
+      },
       time: now.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' }),
       date: now.toLocaleDateString('ms-MY'),
     };
@@ -890,6 +901,7 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <CardioCompanion gymActive={view === 'session'} openRequest={route?.params?.cardioOpen} />
       {view === 'setup' && renderSetup()}
       {view === 'plan' && renderPlan()}
       {view === 'session' && renderSession()}

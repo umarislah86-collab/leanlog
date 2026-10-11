@@ -22,6 +22,20 @@ export interface FoodEntry {
   category: MealCategory;
 }
 
+export interface ActivityDetails {
+  kind?: string; source?: string; startedAt?: string; endedAt?: string; notes?: string;
+  distanceKm?: number; totalDurationMin?: number; activeCalories?: number; totalCalories?: number;
+  calorieBasis?: 'active' | 'total' | 'unspecified' | 'estimated';
+  averagePaceSecKm?: number; bestPaceSecKm?: number; averageSpeedKmh?: number; maxSpeedKmh?: number;
+  averageHeartRate?: number; maxHeartRate?: number; steps?: number; cadenceSpm?: number;
+  ascentM?: number; descentM?: number; effort?: number; powerWatts?: number; cyclingCadenceRpm?: number;
+  poolLengthM?: number; laps?: number; volumeKg?: number;
+  splits?: { label: string; distanceKm?: number; durationSec?: number; paceSecKm?: number; heartRate?: number }[];
+  heartRateZones?: { label: string; durationMin: number }[];
+  intervals?: { label: string; durationSec: number; rounds?: number }[];
+  exercises?: { name: string; sets: { reps?: number; weightKg?: number; durationSec?: number; restSec?: number }[] }[];
+  samples?: { elapsedSec: number; heartRate?: number; speedKmh?: number; elevationM?: number }[];
+}
 export interface ActivityEntry {
   type: 'activity';
   id: string;
@@ -30,6 +44,9 @@ export interface ActivityEntry {
   caloriesBurned: number;
   time: string;
   date: string;
+  details?: ActivityDetails;
+  imageUri?: string;
+  cardio?: { distanceKm: number; source: 'gps' | 'timer' | 'manual'; sessionId: string };
 }
 
 export interface UserProfile {

@@ -4,6 +4,7 @@ import App from './App';
 import { widgetTaskHandler } from './widgets/widget-task-handler';
 import { WidgetConfigurationScreen } from './widgets/WidgetConfigurationScreen';
 import './services/notificationTasks';
+import './services/cardioRuntime';
 import { ensureBluecoinsBackgroundSync } from './services/bluecoinsBackground';
 import { processRedCoinsDue } from './services/redcoinsRuntime';
 

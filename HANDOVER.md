@@ -1,6 +1,21 @@
+# Release in progress — v3.0.0
+
+User requested APK version 3.0.0 and HANDOVER update on 12 October 2026. Building with EAS umiaq / umiaqs-team, profile preview-arm64, existing Android application ID and original signing credentials. Includes Cardio Companion, rich Activity screenshot review/detail storage, Coach/companion Activity detail integration, and RedCoins branded navigation mark. Main/QC TypeScript and 322 tests passed; APK signature/version verification pending build completion. All unreleased/no-build wording below is historical and superseded by this request. Native GPS/background notification and real Gemini OCR phone QC remain pending; automated tests do not establish phone acceptance.
+
+## Current unreleased work — rich Activity records (12 October 2026)
+Screenshot logger now sends the extended visible-only extraction prompt to the existing activity_image callable, validates optional metrics, offers an editable review, and copies the original screenshot into app documents before durable local Save. No Functions redeploy needed: deployed callable forwards the supplied prompt. Live Gemini OCR on a user screenshot and phone UI remain unverified. Main/QC TypeScript and 322 tests pass. No APK build/push requested for these changes.
+Activity details are optional for legacy compatibility: distance, pace/speed, HR/zones, steps/cadence, elevation, active/total calories, timestamps, effort/notes, splits/intervals, cycling/swimming, exercises/sets and real samples. Logger and Progress entries open the full detail viewer, screenshot uses contain/full-screen. Cardio Save and Coach strength Save populate the same schema. Manual known active/total calories bypass AI. Screenshots are local phone files; cloud stores the URI/metadata, not uploaded image bytes. Details: docs/activity-records.md.
+
 # LeanLog — Codex handover
 
 Updated: 12 October 2026 (Asia/Singapore).
+
+## Current unreleased — Cardio Companion + mock
+
+- User authorized the first cardio companion implementation and requested a mock image after coding. Added components/CardioCompanion.tsx integrated into Coach, cardioCore/Store/Runtime services, optional Activity cardio metadata, Expo Location/Speech SDK 57 dependencies/config and top-level GPS task registration. No version bump/build/push for this feature was requested.
+- Live Brisk walk/Jog/Run, GPS or timer-only, time/distance/free goals, walk/effort interval builder and presets, active-time clock, voice while foreground/chime and vibration while background, optional keep awake, pause/resume/finish, local saved history/splits, completed-session quick log and idempotent Save to Activity without AI. Fresh logger weight per start/manual session; session-start weight retained. Native GPS foreground service and notification actions/cold-start return to Coach configured. Simultaneous live strength/cardio sessions are prevented.
+- SQLite exclusive state updates and stable Activity ID guard GPS/control races and duplicate Save. Nine cardio tests cover clock, pause, interval math, GPS filtering/splits, invalid settings, latest weight, Save/disk failure/retry, cue rescheduling and stale actions. Full suite 314 tests passed; main/QC TypeScript, prebuild GPS permissions and Android preview bundle verified. Native Xiaomi GPS/background/notification acceptance still pending APK. See docs/cardio-companion.md for architecture, sources and QC checklist.
+- QC folder ../../outputs/leanlog-expo-go opens Coach/Cardio with cloud mocked, CARDIO QC header, tunnel exp://p2n3imy-umiaq-8084.exp.direct on port 8084; Metro exec session 76008. Expo Go supports timer/UI/foreground GPS preview; native screen-off service needs APK. Mock ../../outputs/leanlog-cardio-companion-mock.png generated via imagegen built-in tool, exact prompt ../../outputs/leanlog-cardio-mock-prompt.md. Preview only, not an actual screenshot.
 
 ## Latest published release — v2.9.26
 

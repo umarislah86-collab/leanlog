@@ -13,6 +13,10 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect, useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { saveActivityRecord } from '../services/activityStorage';
+import { ActivityRecordModal, ActivityDetailFields } from '../components/ActivityRecord';
+import { activityImageInput, parseActivityImage, activitySummary, cleanActivityDetails } from '../services/activityDetails';
+import type { ActivityDetails } from '../types';
 import { runLeanLogAi } from '../services/ai';
 import { fsUpsert, fsDelete, fsSetSettings, fsFetchAll, fsFetchSettings } from '../firebase';
 import { useLanguage } from '../context/LanguageContext';
@@ -137,6 +141,10 @@ export default function TodayScreen() {
   // Form state
   const [goalInput, setGoalInput] = useState('');
   const [textFoodInput, setTextFoodInput] = useState('');
+  const [activityReview, setActivityReview] = useState<ActivityEntry | null>(null);
+  const [activityDetailEntry, setActivityDetailEntry] = useState<ActivityEntry | null>(null);
+  const [manualActivityDetails, setManualActivityDetails] = useState<ActivityDetails>({});
+  const [activityDetailsOpen, setActivityDetailsOpen] = useState(false);
   const [activityName, setActivityName] = useState('');
   const [activityDuration, setActivityDuration] = useState('');
   const [profileWeight, setProfileWeight] = useState('70.0');
@@ -151,10 +159,6 @@ export default function TodayScreen() {
   // Activity via image
   const [showActivitySourcePicker, setShowActivitySourcePicker] = useState(false);
   const [pendingImageFor, setPendingImageFor] = useState<'food' | 'activity'>('food');
-  const [showActivityConfirmModal, setShowActivityConfirmModal] = useState(false);
-  const [pendingActivityKcal, setPendingActivityKcal] = useState('');
-  const [pendingActivityDate, setPendingActivityDate] = useState<string | undefined>(undefined);
-  const [pendingActivityTime, setPendingActivityTime] = useState<string | undefined>(undefined);
 
   // Log weight from FAB
   const [showWeightModal, setShowWeightModal] = useState(false);
@@ -390,6 +394,8 @@ export default function TodayScreen() {
   const handleActivitySourceSelect = (src: 'camera' | 'gallery' | 'text') => {
     setShowActivitySourcePicker(false);
     if (src === 'text') {
+      setManualActivityDetails({source:'manual',calorieBasis:'estimated'});
+      setActivityDetailsOpen(false);
       setActivityName('');
       setActivityDuration('');
       setBackdateEnabled(false);
@@ -435,9 +441,10 @@ export default function TodayScreen() {
     const photos: MealPhoto[] = [];
     for (const asset of assets) {
       const longest = Math.max(asset.width, asset.height);
-      const resize = longest > 800 ? [{ resize: asset.width >= asset.height ? { width: 800 } : { height: 800 } }] : [];
+      const maxSide = pendingImageFor === 'activity' ? 1800 : 800;
+      const resize = longest > maxSide ? [{ resize: asset.width >= asset.height ? { width: maxSide } : { height: maxSide } }] : [];
       const compressed = await ImageManipulator.manipulateAsync(asset.uri, resize,
-        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true });
+        { compress: pendingImageFor === 'activity' ? 0.85 : 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true });
       if (!compressed.base64) throw new Error('Gambar tidak dapat disediakan. Pilih semula.');
       photos.push({ uri: asset.uri, base64: compressed.base64 });
     }
@@ -455,7 +462,7 @@ export default function TodayScreen() {
     setShowImageDetailModal(false);
     try {
       if (pendingImageFor === 'activity') {
-        await analyzeImageActivity(pendingPhotos[0].base64, imageDetailNote.trim(), entryDate, entryTime);
+        await analyzeImageActivity(pendingPhotos[0], imageDetailNote.trim(), entryDate, entryTime);
       } else {
         await analyzeImageFood(pendingPhotos, pendingCategory, imageDetailNote.trim(), entryDate, entryTime);
       }
@@ -474,52 +481,23 @@ export default function TodayScreen() {
     } finally { setLoading(false); }
   };
 
-  const analyzeImageActivity = async (base64: string, extraNote?: string, entryDate?: string, entryTime?: string) => {
-    setLoadingMsg(t('aiAnalysing'));
-    setLoading(true);
+  const analyzeImageActivity = async (photo: MealPhoto, extraNote = '', entryDate?: string, entryTime?: string) => {
+    setLoadingMsg(t('aiAnalysing')); setLoading(true);
     try {
-      const weight = userProfile?.weight ?? 70;
-      const noteText = extraNote ? `\nMaklumat tambahan: "${extraNote}"` : '';
-      const prompt =
-        `Gambar ini adalah screenshot rekod aktiviti/senaman dari aplikasi kesihatan. ` +
-        `Keluarkan maklumat aktiviti dari gambar ini.${noteText} ` +
-        `Berat pengguna: ${weight} kg. ` +
-        `Balas JSON: {"nama": "nama aktiviti", "tempoh": 30, "kalori_dibakar": 250}`;
-      const output = await runLeanLogAi('activity_image', [
-          { type: 'image', mime_type: 'image/jpeg', data: base64 },
-          { type: 'text', text: prompt },
-        ]);
-      const data = parseJSON(output);
-      setActivityName(data.nama ?? '');
-      setActivityDuration(String(data.tempoh ?? ''));
-      setPendingActivityKcal(String(data.kalori_dibakar ?? ''));
-      setPendingActivityDate(entryDate);
-      setPendingActivityTime(entryTime);
-      setShowActivityConfirmModal(true);
-    } catch (err) {
-      Alert.alert(t('error'), err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
+      const output = await runLeanLogAi('activity_image', activityImageInput(photo.base64,extraNote));
+      const data = parseActivityImage(output);
+      const now = new Date();
+      setActivityReview({type:'activity',id:`activity_${Date.now()}`,name:data.name,
+        duration:data.duration ?? NaN,caloriesBurned:data.calories ?? NaN,details:data.details,imageUri:photo.uri,
+        date:entryDate ?? data.date ?? today,
+        time:entryTime ?? data.time ?? `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`});
+    } catch (err) { Alert.alert(t('error'), (err as Error).message); setShowImageDetailModal(true); }
+    finally {setLoading(false);}
   };
-
-  const saveActivityFromImage = () => {
-    const name = activityName.trim();
-    const duration = parseInt(activityDuration);
-    const kcal = parseInt(pendingActivityKcal);
-    if (!name || isNaN(duration) || duration <= 0) { Alert.alert(t('error'), t('invalidActivity')); return; }
-    setShowActivityConfirmModal(false);
-    const entry: ActivityEntry = {
-      type: 'activity',
-      id: Date.now().toString(),
-      name,
-      duration,
-      caloriesBurned: isNaN(kcal) ? 0 : kcal,
-      time: pendingActivityTime ?? new Date().toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' }),
-      date: pendingActivityDate ?? today,
-    };
-    setActivityEntries((prev) => [entry, ...prev]);
-    fsUpsert('activityEntries', entry.id, entry);
+  const saveReviewedActivity = async (draft:ActivityEntry) => {
+    const {entry,rows} = await saveActivityRecord(draft);
+    setActivityEntries(rows);
+    void fsUpsert('activityEntries',entry.id,entry).catch(console.warn);
   };
 
   const analyzeTextFood = async () => {
@@ -578,8 +556,10 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
 
   const logActivity = async () => {
     const name = activityName.trim();
-    const duration = parseInt(activityDuration);
-    if (!name || isNaN(duration) || duration <= 0) { Alert.alert(t('error'), t('invalidActivity')); return; }
+    const duration = Number(activityDuration);
+    if (!name || !Number.isFinite(duration) || duration <= 0) { Alert.alert(t('error'), t('invalidActivity')); return; }
+    let details:ActivityDetails;
+    try { details=cleanActivityDetails(manualActivityDetails); } catch(e) {Alert.alert('Activity',(e as Error).message);return;}
     const entryDate = backdateEnabled ? formatEntryDate(backdateDate) : undefined;
     const entryTime = backdateEnabled ? formatEntryTime(backdateDate) : undefined;
     setShowActivityModal(false);
@@ -587,11 +567,19 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
     setLoading(true);
     try {
       const weight = userProfile?.weight ?? 70;
-      const output = await runLeanLogAi('activity_estimate', [{ type: 'text', text: `Anggarkan kalori dibakar untuk aktiviti: ${name}, tempoh: ${duration} minit, berat: ${weight} kg.\nBalas JSON: {"kalori_dibakar": 200}` }]);
-      const data = parseJSON(output);
+      const measured = details.activeCalories ?? details.totalCalories;
+      let calories:number;
+      if(measured !== undefined) {
+        calories=measured; details.calorieBasis=details.activeCalories!==undefined?'active':'total';
+      } else {
+        const output = await runLeanLogAi('activity_estimate', [{ type:'text',text:`Anggarkan kalori dibakar untuk aktiviti: ${name}, tempoh: ${duration} minit, berat: ${weight} kg.\nBalas JSON: {"kalori_dibakar": 200}` }]);
+        calories=parseJSON(output).kalori_dibakar;
+        if(!Number.isFinite(calories)||calories<0) throw Error('Invalid calorie estimate. Try again.');
+        details.calorieBasis='estimated';
+      }
       const entry: ActivityEntry = {
         type: 'activity', id: Date.now().toString(), name, duration,
-        caloriesBurned: data.kalori_dibakar ?? 0,
+        caloriesBurned: calories, details,
         time: entryTime ?? new Date().toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' }),
         date: entryDate ?? today,
       };
@@ -968,11 +956,11 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
                 </View>
                 {todayActivities.map((a) => (
                   <TouchableOpacity key={a.id} style={styles.activityCard} activeOpacity={0.8}
-                    onLongPress={() => handleLongPress(a.id, 'activity')}>
+                    onPress={() => setActivityDetailEntry(a)} onLongPress={() => handleLongPress(a.id, 'activity')}>
                     <View style={styles.activityIconBox}><Text style={{ fontSize: 26 }}>💪</Text></View>
                     <View style={styles.entryInfo}>
                       <Text style={styles.foodName}>{a.name}</Text>
-                      <Text style={styles.foodTime}>{a.time} · {a.duration} {t('min')}</Text>
+                      <Text style={styles.foodTime}>{a.time} · {a.duration} {t('min')}{activitySummary(a)}</Text>
                     </View>
                     <View style={styles.calorieBadge}>
                       <Text style={[styles.foodCalories, { color: themed('#8D9BFF', 'color') }]}>-{a.caloriesBurned}</Text>
@@ -1227,12 +1215,14 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
       {/* ── Activity Modal ── */}
       <Modal visible={showActivityModal} transparent animationType="fade">
         <View style={styles.centeredOverlay}>
-          <View style={styles.modalBox}>
+          <ScrollView style={[styles.modalBox,{maxHeight:'90%'}]} keyboardShouldPersistTaps="handled">
             <Text style={styles.modalTitle}>{t('logActivity')}</Text>
             <Text style={styles.modalLabel}>{t('activityName')}</Text>
             <TextInput style={styles.modalInput} value={activityName} onChangeText={setActivityName} placeholder={t('activityNamePh')} placeholderTextColor={themed("#7D8799", 'color')} autoFocus />
             <Text style={styles.modalLabel}>{t('duration')}</Text>
             <TextInput style={styles.modalInput} value={activityDuration} onChangeText={setActivityDuration} keyboardType="numeric" placeholder="30" placeholderTextColor={themed("#7D8799", 'color')} />
+            <TouchableOpacity onPress={()=>setActivityDetailsOpen(v=>!v)}><Text style={[styles.modalLabel,{marginVertical:12}]}>Extra activity details {activityDetailsOpen?'⌃':'⌄'}</Text></TouchableOpacity>
+            {activityDetailsOpen&&<ActivityDetailFields value={manualActivityDetails} onChange={setManualActivityDetails}/>}
             <Text style={styles.modalHint}>{userProfile ? t('activityWeightHint').replace('%d', String(userProfile.weight)) : t('activityProfileTip')}</Text>
             <View style={styles.backdateRow}>
               <Text style={styles.backdateLabel}>{t('backdate')}</Text>
@@ -1255,54 +1245,14 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
             )}
             <View style={styles.modalBtns}>
               <TouchableOpacity style={styles.modalCancel} onPress={() => setShowActivityModal(false)}><Text style={styles.modalCancelText}>{t('cancel')}</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.modalSave} onPress={logActivity}><Text style={styles.modalSaveText}>{t('aiAnalyze')}</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.modalSave} onPress={logActivity}><Text style={styles.modalSaveText}>{manualActivityDetails.activeCalories!==undefined||manualActivityDetails.totalCalories!==undefined?t('save'):t('aiAnalyze')}</Text></TouchableOpacity>
             </View>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
 
-      {/* ── Activity Confirm Modal (after image analysis) ── */}
-      <Modal visible={showActivityConfirmModal} transparent animationType="fade">
-        <View style={styles.centeredOverlay}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>{t('logActivity')}</Text>
-            <Text style={styles.modalLabel}>{t('activityName')}</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={activityName}
-              onChangeText={setActivityName}
-              placeholder={t('activityNamePh')}
-              placeholderTextColor={themed("#7D8799", 'color')}
-            />
-            <Text style={styles.modalLabel}>{t('duration')}</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={activityDuration}
-              onChangeText={setActivityDuration}
-              keyboardType="numeric"
-              placeholder="30"
-              placeholderTextColor={themed("#7D8799", 'color')}
-            />
-            <Text style={styles.modalLabel}>Kcal dibakar</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={pendingActivityKcal}
-              onChangeText={setPendingActivityKcal}
-              keyboardType="numeric"
-              placeholder="250"
-              placeholderTextColor={themed("#7D8799", 'color')}
-            />
-            <View style={styles.modalBtns}>
-              <TouchableOpacity style={styles.modalCancel} onPress={() => setShowActivityConfirmModal(false)}>
-                <Text style={styles.modalCancelText}>{t('cancel')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalSave} onPress={saveActivityFromImage}>
-                <Text style={styles.modalSaveText}>{t('save')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {activityReview && <ActivityRecordModal key={activityReview.id} entry={activityReview} review onClose={()=>setActivityReview(null)} onSave={saveReviewedActivity} />}
+      {activityDetailEntry && <ActivityRecordModal key={activityDetailEntry.id} entry={activityDetailEntry} onClose={()=>setActivityDetailEntry(null)} />}
       {showWeightDatePicker && (
         <DateTimePicker
           value={newWeightDate}

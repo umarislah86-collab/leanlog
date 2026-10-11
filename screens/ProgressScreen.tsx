@@ -1,3 +1,5 @@
+import { ActivityRecordModal } from '../components/ActivityRecord';
+import { activitySummary } from '../services/activityDetails';
 import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
 import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -244,6 +246,7 @@ export default function ProgressScreen() {
   }, []);
   const [period, setPeriod] = useState<Period>('7');
   const [allFood, setAllFood] = useState<FoodEntry[]>([]);
+  const [activityDetailEntry,setActivityDetailEntry] = useState<ActivityEntry|null>(null);
   const [allActivities, setAllActivities] = useState<ActivityEntry[]>([]);
   const [daySummaries, setDaySummaries] = useState<DaySummary[]>([]);
   const [weightEntries, setWeightEntries] = useState<WeightEntry[]>([]);
@@ -956,6 +959,7 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
 
       <ProgressCardOrderModal visible={showCardOrder} order={cardOrder} onSave={setCardOrder} onClose={() => setShowCardOrder(false)} />
 
+      {activityDetailEntry&&<ActivityRecordModal key={activityDetailEntry.id} entry={activityDetailEntry} onClose={()=>setActivityDetailEntry(null)}/>}
       {/* Day Detail Modal */}
       {selectedDay !== null && (() => {
         const dayFood = allFood.filter((e) => foodCalendarDate(e.date)?.toLocaleDateString('ms-MY') === selectedDay);
@@ -1041,8 +1045,8 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
                       {dayAct.map((a) => (
                         <View key={a.id} style={styles.detailFoodRow}>
                           <View style={{ flex: 1 }}>
-                            <Text style={styles.detailFoodName}>{a.name}</Text>
-                            <Text style={styles.detailFoodTime}>{a.time} · {a.duration} min</Text>
+                            <Text onPress={()=>setActivityDetailEntry(a)} style={styles.detailFoodName}>{a.name} ↗</Text>
+                            <Text style={styles.detailFoodTime}>{a.time} · {a.duration} min{activitySummary(a)}</Text>
                           </View>
                           <Text style={[styles.detailFoodKcal, { color: themed('#8D9BFF', 'color') }]}>-{a.caloriesBurned} kcal</Text>
                           <TouchableOpacity

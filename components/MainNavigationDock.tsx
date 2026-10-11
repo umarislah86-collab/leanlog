@@ -7,6 +7,7 @@ import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import { useMoneyNavigation } from '../context/NavigationDockContext';
 import { redcoinsSections } from '../services/redcoinsSwipe';
 import { colors } from '../theme';
+import { RedCoinsMark } from './RedCoinsMark';
 
 const TAB_ICONS: Record<string, string> = {
   Home: 'home',
@@ -19,7 +20,7 @@ const TAB_ICONS: Record<string, string> = {
 
 export function MainNavigationDock({ state, descriptors, navigation }: any) {
   const quickDock = useThemeStyles(baseQuickDock);
-  const { themed } = useTheme();
+  const { themed, palette } = useTheme();
   const insets = useSafeAreaInsets();
   const [quickDockOpen, setQuickDockOpen] = useState(false);
   const money = useMoneyNavigation();
@@ -69,19 +70,22 @@ export function MainNavigationDock({ state, descriptors, navigation }: any) {
         .map((route: any, index: number) => ({ route, index }))
         .map(({ route, index }: any) => {
           const focused = state.index === index;
-          const color = themed(focused ? colors.coral : '#5F6670');
+          const branded = route.name === 'RedCoins';
+          const color = branded ? (palette.dark ? '#F2C879' : '#A62B32') : themed(focused ? colors.coral : '#5F6670');
           const iconBase = TAB_ICONS[route.name] ?? 'ellipse';
           const iconName = focused ? iconBase : `${iconBase}-outline`;
           const label = descriptors[route.key].options.title ?? route.name;
           return (
-            <TouchableOpacity key={route.key} style={{ flex: 1, alignItems: 'center', paddingVertical: 5 }} onPress={() => navigation.navigate(route.name)}>
-              <Ionicons name={iconName as any} size={24} color={color} />
+            <TouchableOpacity key={route.key} accessibilityRole="tab" accessibilityState={{ selected: focused }} accessibilityLabel={label} style={{ flex: 1, alignItems: 'center', paddingVertical: 5 }} onPress={() => navigation.navigate(route.name)}>
+              <View style={{ height: 24, justifyContent: 'center', alignItems: 'center' }}>
+                {branded ? <RedCoinsMark size={24} /> : <Ionicons name={iconName as any} size={24} color={color} />}
+              </View>
               <Text
                 style={{
                   color,
                   fontSize: 10,
                   marginTop: 2,
-                  fontWeight: focused ? '800' : '500',
+                  fontWeight: branded || focused ? '800' : '500',
                 }}
               >
                 {label}

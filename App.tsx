@@ -1,8 +1,8 @@
 import { ThemeText as Text } from './components/ThemePrimitives';
 import { ThemeProvider, useTheme, useThemeStyles } from './context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, TouchableOpacity, View, StyleSheet, Modal } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, TouchableOpacity, View, StyleSheet, Modal } from 'react-native';
 import { DarkTheme, DefaultTheme, NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
@@ -25,13 +25,16 @@ import { colors } from './theme';
 import { themeFont } from './services/appTheme';
 import { ensureNagSchedule, markFastingDay, markLazyDay, snoozeNagging } from './services/nagging';
 import { startRedCoinsAutoBackup } from './services/redcoinsBackupFiles';
+import { handleCardioNotification } from './services/cardioRuntime';
 
 let Notifications: any = null;
 try {
   Notifications = require('expo-notifications');
   Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
+    handleNotification: async (notification: any) => ({
+      shouldShowAlert: notification.request?.content?.data?.kind !== 'cardio-cue',
+      shouldShowBanner: notification.request?.content?.data?.kind !== 'cardio-cue',
+      shouldShowList: notification.request?.content?.data?.kind !== 'cardio-cue',
       shouldPlaySound: false,
       shouldSetBadge: false,
     }),
@@ -70,6 +73,14 @@ function AppContent() {
   const snooze = useThemeStyles(baseSnooze);
   useEffect(() => startRedCoinsAutoBackup(), []);
   const navigationRef = useNavigationContainerRef<any>();
+  const pendingCardioOpen = useRef<number | null>(null);
+  const openPendingCardio = () => {
+    if (pendingCardioOpen.current && navigationRef.isReady() && navigationRef.getRootState()?.routeNames?.includes('Coach')) {
+      const cardioOpen = pendingCardioOpen.current;
+      pendingCardioOpen.current = null;
+      navigationRef.navigate('Coach', { cardioOpen });
+    }
+  };
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [authReady, setAuthReady] = useState(false);
   const [hasProfile, setHasProfile] = useState(false);
@@ -79,15 +90,27 @@ function AppContent() {
   useEffect(() => {
     ensureNagSchedule().catch(() => {});
     if (!Notifications?.addNotificationResponseReceivedListener) return;
-    const subscription = Notifications.addNotificationResponseReceivedListener(async (response: any) => {
+    const receive = async (response: any) => {
       const action = response.actionIdentifier;
       const data = response.notification?.request?.content?.data;
+      if (data?.kind === 'cardio' || data?.kind === 'cardio-cue') {
+        try { await handleCardioNotification(response); } catch (error) { Alert.alert('Cardio Companion', String(error)); }
+        pendingCardioOpen.current = Date.now();
+        openPendingCardio();
+        await Notifications.clearLastNotificationResponseAsync?.();
+        return;
+      }
       if (action === 'NAG_SNOOZE') setShowSnoozePicker(true);
       if (action === 'NAG_LAZY') await markLazyDay();
       if (action === 'NAG_LOG' || (action === Notifications.DEFAULT_ACTION_IDENTIFIER && data?.kind?.startsWith('nag'))) {
         setTimeout(() => navigationRef.navigate('Log', { fabTrigger: Date.now() }), 350);
       }
-    });
+    };
+    const subscription = Notifications.addNotificationResponseReceivedListener(receive);
+    void Notifications.getLastNotificationResponseAsync?.().then((response: any) => {
+      const kind = response?.notification?.request?.content?.data?.kind;
+      if (kind === 'cardio' || kind === 'cardio-cue') return receive(response);
+    }).catch(console.warn);
     return () => subscription.remove();
   }, [navigationRef]);
 
@@ -166,12 +189,15 @@ function AppContent() {
       <LanguageProvider>
         <NavigationContainer
           ref={navigationRef}
+          onReady={openPendingCardio}
+          onStateChange={openPendingCardio}
           theme={{ ...navigationBase, fonts: { regular: navigationFont('regular', 400), medium: navigationFont('medium', 500), bold: navigationFont('bold', 700), heavy: navigationFont('heavy', 800) }, colors: { ...navigationBase.colors, primary: palette.accent, background: palette.canvas, card: palette.surface, text: palette.text, border: palette.border } }}
           linking={{
             prefixes: ['leanlog://'],
             config: {
               screens: {
                 Home: 'home',
+                Coach: 'coach',
                 Log: { path: 'quick/:quickAction' },
                 RedCoins: { path: 'redcoins/:mode?' },
               },
