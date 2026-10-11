@@ -2,6 +2,13 @@
 
 Updated: 10 October 2026 (Asia/Singapore).
 
+## Latest published release — v2.9.24 (12 October 2026, Asia/Singapore)
+
+- User authorized build/push/publication. Includes Coach keep-awake, deadline rest timer, per-exercise Auto/reps/timer mode, strength-row correction and RedCoins swipe navigation. Below unreleased statements for these changes are superseded. Dock Mode remains deferred.
+- Source b1109d71d7bac23008efa364d1d86797b8adbffa pushed to github-release-v221. EAS umiaq / umiaqs-team build 64073490-9408-40b9-977b-13177f0e40ed finished: preview-arm64, com.calorietracker.app, 2.9.24 / code 29.
+- Public APK https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.24/leanlog-V2.9.24.apk (44,121,229 bytes). SHA-256 487d25d488690a79d86be98900a0c8641fc510483da1442e533fd8bb0a15f7fe matches GitHub asset digest; release not draft and HTTP 200 verified.
+- ARM64-only and original signer 62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c verified, along with APK v2 signature/content digest and ZIP CRC. 298 tests and TypeScript pass. Final phone gesture/lifecycle acceptance pending.
+
 ## Unreleased — RedCoins horizontal section swipes
 
 - Swipe left advances Home -> Activity -> Accounts -> Plan -> Reports; right reverses. Right beyond Home navigates to main Coach, left beyond Reports navigates to main Settings. Parent main-tab swipe remains disabled for RedCoins so internal sections handle boundaries explicitly.
