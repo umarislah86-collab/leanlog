@@ -6,8 +6,7 @@ import { ActivityIndicator, TouchableOpacity, View, StyleSheet, Modal } from 're
 import { DarkTheme, DefaultTheme, NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
-import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { onAuthChange, fsFetchAll, fsFetchSettings, fsFetchAppState, type User } from './firebase';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { useTrial } from './hooks/useTrial';
@@ -17,6 +16,8 @@ import ProgressScreen from './screens/ProgressScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import CoachScreen from './screens/CoachScreen';
 import RedCoinsScreen from './screens/RedCoinsScreen';
+import { MainNavigationDock } from './components/MainNavigationDock';
+import { NavigationDockProvider } from './context/NavigationDockContext';
 import AuthScreen from './screens/AuthScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import PaywallScreen from './screens/PaywallScreen';
@@ -39,146 +40,17 @@ try {
 
 const Tab = createMaterialTopTabNavigator();
 
-const TAB_ICONS: Record<string, string> = {
-  Home: 'home',
-  Log: 'restaurant',
-  Progress: 'bar-chart',
-  Coach: 'leaf',
-  RedCoins: 'wallet',
-  Settings: 'settings',
-};
-
-function CustomTabBar({ state, descriptors, navigation }: any) {
-  const quickDock = useThemeStyles(baseQuickDock);
-  const { themed } = useTheme();
-  const insets = useSafeAreaInsets();
-  const [quickDockOpen, setQuickDockOpen] = useState(false);
-  const launch = (route: 'Log' | 'RedCoins', params: Record<string, unknown>) => {
-    setQuickDockOpen(false);
-    setTimeout(() => navigation.navigate(route, params), 120);
-  };
-  return (
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: themed(colors.oat, 'backgroundColor'),
-        borderTopColor: themed('rgba(16, 26, 43, 0.10)', 'borderColor'),
-        borderTopWidth: 1,
-        paddingBottom: insets.bottom || 6,
-        paddingTop: 6,
-      }}
-    >
-      {state.routes
-        .map((route: any, index: number) => ({ route, index }))
-        .map(({ route, index }: any) => {
-          const focused = state.index === index;
-          const color = themed(focused ? colors.coral : '#5F6670');
-          const iconBase = TAB_ICONS[route.name] ?? 'ellipse';
-          const iconName = focused ? iconBase : `${iconBase}-outline`;
-          const label = descriptors[route.key].options.title ?? route.name;
-          return (
-            <TouchableOpacity key={route.key} style={{ flex: 1, alignItems: 'center', paddingVertical: 5 }} onPress={() => navigation.navigate(route.name)}>
-              <Ionicons name={iconName as any} size={24} color={color} />
-              <Text
-                style={{
-                  color,
-                  fontSize: 10,
-                  marginTop: 2,
-                  fontWeight: focused ? '800' : '500',
-                }}
-              >
-                {label}
-              </Text>
-              <View
-                style={{
-                  width: focused ? 28 : 0,
-                  height: 3,
-                  borderRadius: 2,
-                  backgroundColor: themed(colors.coral, 'backgroundColor'),
-                  marginTop: 5,
-                }}
-              />
-            </TouchableOpacity>
-          );
-        })}
-      <View
-        style={{
-          width: 70,
-          alignItems: 'center',
-          marginTop: -35,
-          marginRight: 7,
-        }}
-      >
-        <TouchableOpacity
-          onPress={() => setQuickDockOpen(true)}
-          onLongPress={() => launch('RedCoins', { mode: 'expense', fabTrigger: Date.now() })}
-          delayLongPress={350}
-          activeOpacity={0.86}
-          accessibilityLabel="Open quick logger"
-        >
-          <View
-            style={{
-              width: 62,
-              height: 62,
-              borderRadius: 22,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: themed(colors.mint, 'backgroundColor'),
-              borderWidth: 5,
-              borderColor: themed(colors.oat, 'borderColor'),
-              shadowColor: themed(colors.ink, 'shadowColor'),
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.24,
-              shadowRadius: 9,
-              elevation: 8,
-            }}
-          >
-            <Ionicons name="add" size={34} color={themed(colors.ink, 'onAccent')} />
-          </View>
-        </TouchableOpacity>
-      </View>
-      <Modal visible={quickDockOpen} transparent animationType="fade" onRequestClose={() => setQuickDockOpen(false)}>
-        <TouchableOpacity style={quickDock.overlay} activeOpacity={1} onPress={() => setQuickDockOpen(false)}>
-          <View style={[quickDock.sheet, { paddingBottom: Math.max(insets.bottom, 12) + 16 }]} onStartShouldSetResponder={() => true}>
-            <View style={quickDock.handle} />
-            <View style={quickDock.header}>
-              <View><Text style={quickDock.eyebrow}>LEANLOG / QUICK ENTRY</Text><Text style={quickDock.title}>What moved?</Text></View>
-              <TouchableOpacity style={quickDock.close} onPress={() => setQuickDockOpen(false)}><Ionicons name="close" size={20} color={themed(colors.oat, 'color')} /></TouchableOpacity>
-            </View>
-            <Text style={quickDock.sectionLabel}>MONEY</Text>
-            <View style={quickDock.moneyRow}>
-              <TouchableOpacity style={[quickDock.moneyAction, quickDock.expense]} onPress={() => launch('RedCoins', { mode: 'expense', fabTrigger: Date.now() })}><Ionicons name="arrow-up" size={20} color={themed("#FFFDF7", 'color')} /><Text style={quickDock.moneyText}>EXPENSE</Text></TouchableOpacity>
-              <TouchableOpacity style={[quickDock.moneyAction, quickDock.income]} onPress={() => launch('RedCoins', { mode: 'income', fabTrigger: Date.now() })}><Ionicons name="arrow-down" size={20} color={themed("#101A2B", 'onAccent')} /><Text style={[quickDock.moneyText, quickDock.moneyTextDark]}>INCOME</Text></TouchableOpacity>
-              <TouchableOpacity style={[quickDock.moneyAction, quickDock.transfer]} onPress={() => launch('RedCoins', { mode: 'transfer', fabTrigger: Date.now() })}><Ionicons name="swap-horizontal" size={20} color={themed("#FFFDF7", 'color')} /><Text style={quickDock.moneyText}>TRANSFER</Text></TouchableOpacity>
-            </View>
-            <Text style={quickDock.sectionLabel}>BODY</Text>
-            <View style={quickDock.bodyCard}>
-              <TouchableOpacity style={quickDock.bodyAction} onPress={() => launch('Log', { quickAction: 'food', fabTrigger: Date.now() })}><View style={quickDock.bodyIcon}><Ionicons name="restaurant-outline" size={20} color={themed("#101A2B", 'onAccent')} /></View><View style={{ flex: 1 }}><Text style={quickDock.bodyTitle}>Food</Text><Text style={quickDock.bodySub}>Meal, snack or drink</Text></View><Ionicons name="chevron-forward" size={17} color={themed("#7F8BA0", 'color')} /></TouchableOpacity>
-              <View style={quickDock.rule} />
-              <TouchableOpacity style={quickDock.bodyAction} onPress={() => launch('Log', { quickAction: 'activity', fabTrigger: Date.now() })}><View style={quickDock.bodyIcon}><Ionicons name="walk-outline" size={20} color={themed("#101A2B", 'onAccent')} /></View><View style={{ flex: 1 }}><Text style={quickDock.bodyTitle}>Activity</Text><Text style={quickDock.bodySub}>Exercise or movement</Text></View><Ionicons name="chevron-forward" size={17} color={themed("#7F8BA0", 'color')} /></TouchableOpacity>
-              <View style={quickDock.rule} />
-              <TouchableOpacity style={quickDock.bodyAction} onPress={() => launch('Log', { quickAction: 'weight', fabTrigger: Date.now() })}><View style={quickDock.bodyIcon}><Ionicons name="scale-outline" size={20} color={themed("#101A2B", 'onAccent')} /></View><View style={{ flex: 1 }}><Text style={quickDock.bodyTitle}>Weight</Text><Text style={quickDock.bodySub}>Record a check-in</Text></View><Ionicons name="chevron-forward" size={17} color={themed("#7F8BA0", 'color')} /></TouchableOpacity>
-            </View>
-            <Text style={quickDock.hint}>Long-press the + button anytime for a new expense.</Text>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-    </View>
-  );
-}
-
 function MainTabs() {
   const { t } = useLanguage();
   return (
-    <Tab.Navigator tabBarPosition="bottom" tabBar={(props) => <CustomTabBar {...props} />} screenOptions={{ swipeEnabled: true }}>
+    <NavigationDockProvider><Tab.Navigator tabBarPosition="bottom" tabBar={(props) => <MainNavigationDock {...props} />} screenOptions={{ swipeEnabled: true }}>
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Home' }} />
       <Tab.Screen name="Log" component={TodayScreen} options={{ title: 'Log' }} />
       <Tab.Screen name="Progress" component={ProgressScreen} options={{ title: t('tabProgress') }} />
       <Tab.Screen name="Coach" component={CoachScreen} options={{ title: t('tabCoach') }} />
       <Tab.Screen name="RedCoins" component={RedCoinsScreen} options={{ title: 'RedCoins', swipeEnabled: false }} />
       <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
-    </Tab.Navigator>
+    </Tab.Navigator></NavigationDockProvider>
   );
 }
 
@@ -397,29 +269,4 @@ const baseSnooze = StyleSheet.create({
   fastingHint: { color: '#66659A', fontSize: 9, marginTop: 3 },
   cancel: { alignItems: 'center', padding: 13, marginTop: 3 },
   cancelText: { color: '#68758A', fontSize: 11, fontWeight: '800' },
-});
-
-const baseQuickDock = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(8,14,24,0.70)' },
-  sheet: { backgroundColor: colors.oat, borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 18, paddingTop: 10 },
-  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#CFC4B3', alignSelf: 'center', marginBottom: 15 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 },
-  eyebrow: { color: colors.coral, fontSize: 9, fontWeight: '900', letterSpacing: 1.7 },
-  title: { color: colors.ink, fontFamily: 'serif', fontSize: 28, fontWeight: '800', marginTop: 3 },
-  close: { width: 38, height: 38, borderRadius: 14, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
-  sectionLabel: { color: '#59616D', fontSize: 8, fontWeight: '900', letterSpacing: 1.6, marginBottom: 8 },
-  moneyRow: { flexDirection: 'row', gap: 8, marginBottom: 17 },
-  moneyAction: { flex: 1, minHeight: 71, borderRadius: 17, alignItems: 'center', justifyContent: 'center', gap: 7 },
-  expense: { backgroundColor: colors.coral },
-  income: { backgroundColor: colors.mint },
-  transfer: { backgroundColor: '#528FF2' },
-  moneyText: { color: '#FFFDF7', fontSize: 8, fontWeight: '900', letterSpacing: 0.7 },
-  moneyTextDark: { color: colors.ink },
-  bodyCard: { backgroundColor: colors.ink, borderRadius: 22, paddingHorizontal: 12, overflow: 'hidden' },
-  bodyAction: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 11 },
-  bodyIcon: { width: 36, height: 36, borderRadius: 13, backgroundColor: colors.mint, alignItems: 'center', justifyContent: 'center' },
-  bodyTitle: { color: '#FFF4DB', fontSize: 12, fontWeight: '900' },
-  bodySub: { color: '#7F8BA0', fontSize: 9, marginTop: 3 },
-  rule: { height: 1, backgroundColor: '#33415C', marginLeft: 47 },
-  hint: { color: '#737A84', fontSize: 9, textAlign: 'center', marginTop: 12 },
 });

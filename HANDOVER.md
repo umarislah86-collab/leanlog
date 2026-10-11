@@ -1,6 +1,34 @@
 # LeanLog — Codex handover
 
-Updated: 10 October 2026 (Asia/Singapore).
+Updated: 12 October 2026 (Asia/Singapore).
+
+## Release in progress — v2.9.26
+
+- User accepted latest Expo Go responsiveness QC ("haaa baru padu") and explicitly requested APK build and GitHub push/publication. This supersedes pending phone acceptance/no-build statements below. Native swipe, shared dock motion, preserved +, direct LeanLog exit and tab response all accepted in Expo Go; installed APK still needs final acceptance after build.
+- Version bumped to 2.9.26 with factual Chronicle chapter. Build uses umiaq / umiaqs-team project 086aadb6-658c-47ee-a472-e9d76ac3c7be, preview-arm64, existing signing key and package com.calorietracker.app. Complete artifact verification and GitHub release publication before reporting completion.
+
+## Current QC — immediate RedCoins tab response
+
+- User likes the shared dock motion but reports delayed RedCoins tap navigation/highlight and swipe highlight. Previous implementation waited for the full screen render, then effects to command the pager and republish dock state.
+- Replaced effect-based context mirroring with stable navigationDock store; only the small dock subscribes through useSyncExternalStore. Screen publishes selection immediately and commits heavier content via startTransition. All section setters (tap, Back, deep links, audit navigation) command the native pager through its imperative handle before content render. Stable sectionRef tracks history across rapid taps.
+- Pager no longer moves in response to delayed React commits. Native command acknowledgements ignore older rapid-tap events. Swipe onPageScroll previews the nearest valid section; cancellation restores highlight without modifying section history, and selected events commit content. Existing native boundaries, shared + and direct LeanLog exit preserved.
+- Main/QC TypeScript, 305 tests and diff check pass. Regression tests cover native command before render, stale rapid-tap callbacks/commits, swipe cancellation/edge previews, synchronous dock publication/deduplication and plus behavior. Public tunnel serves updated bundle. Phone responsiveness acceptance is pending user reload; no APK built or publication.
+
+## Current QC — shared animated bottom navigation
+
+- User confirmed native RedCoins swipes WORK in Expo Go on phone. That acceptance supersedes the pending swipe QC statement below. No new APK has been requested since this acceptance.
+- User requested LeanLog tabs slide down and RedCoins tabs replace them in the same bottom position. Added MainNavigationDock and NavigationDockProvider, shared by production and QC. Screen registers section/navigation callback; native pager, tabs and Back remain controlled by the same section state. Removed the old floating RedCoins nav and its extra list bottom space.
+- Native-driver 460 ms slide/fade exchange in one fixed slot; supports reduced motion and hides inactive controls from touch/accessibility. The big + remains OUTSIDE animated layers, always visible, with existing quick logger and expense long-press. User explicitly required that it stay.
+- User also requested a direct way back without edge swiping. Added persistent LeanLog exit button in RedCoins header -> main Home, with reverse dock animation. Existing edge swipes remain.
+- QC now uses the actual production MainNavigationDock, showing NAV MOTION QC. Same running tunnel/QR below. Main/QC TypeScript pass, existing 300 tests plus 2 dock callback/FAB tests pass, updated public Android bundle verified. Phone animation/exit/+ acceptance is pending; ask user to reload their current Expo Go preview. No build/version bump/publication.
+
+## Current unreleased work — native RedCoins pager, Expo Go QC
+
+- User reports both v2.9.24 and v2.9.25 swipe attempts still fail. Prior published gesture fixes are NOT device-verified successes. User cannot connect USB and explicitly requested Expo Go QC before another build.
+- Installed react-native-pager-view Android NestedScrollableHost calls NativeGestureUtil.notifyNativeGestureStarted on movement beyond touch slop, including with outer pager scrolling disabled. This can cancel the JS PanResponder that the earlier fixes depended on. Replaced screen PanResponder with native components/RedCoinsPager.tsx; parent main pager remains disabled on RedCoins.
+- Native pages: Coach exit sentinel, Home, Activity, Accounts, Plan, Reports, Settings exit sentinel. Exit resets inner pager before navigation; controlled tab/Back/deep-link state drives setPageWithoutAnimation. Ledger remains virtualized. Removed obsolete delta-based swipe helper/tests; added real component callback/ref-command tests. Reports still calculates only while its section is selected.
+- QC folder: ../../outputs/leanlog-expo-go. Uses actual native main-tab architecture and current RedCoins source, 80 local SQLite demo transactions, actual Coach screen, minimal Home/Settings. Cloud/AI/widget replacements are QC-only. Start with npm run start:tunnel (8084); fresh terminal QR required after restarting. Current tunnel exp://p2n3imy-umiaq-8084.exp.direct, QR ../../outputs/leanlog-redcoins-swipe-qc-qr.png. Metro running in exec session 77786 at handoff.
+- Validation: main and QC TypeScript pass; all 300 tests pass; public tunnel Android bundle download succeeds, includes new pager/demo markers, excludes production Firebase project. Device touch delivery is NOT tested (no ADB/emulator; user Expo Go acceptance pending). QC README lists both boundary exits, return position, ledger horizontal/vertical gestures, tap/long press, tab/Back and Plan/Accounts subpages. No version bump, APK build or GitHub publication for this revision.
 
 ## Latest published release — v2.9.25 (12 October 2026, Asia/Singapore)
 

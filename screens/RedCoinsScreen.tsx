@@ -1,11 +1,12 @@
 import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
 import { useTheme, useThemeStyles } from '../context/ThemeContext';
-import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert, AppState, BackHandler, Keyboard, KeyboardAvoidingView, Linking, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, AppState, BackHandler, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { RedCoinsSetup } from '../components/RedCoinsSetup';
-import { redcoinsSwipeTarget } from '../services/redcoinsSwipe';
+import { RedCoinsPager, type RedCoinsPagerHandle } from '../components/RedCoinsPager';
+import { useNavigationDock } from '../context/NavigationDockContext';
 import { needsRedCoinsSetup } from '../services/redcoinsOnboarding';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -125,7 +126,16 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [bluecoins, setBluecoins] = useState<BluecoinsSummary | null>(null);
   const summaryRequest = useRef(0);
-  const [section, setSection] = useState<Section>('home');
+  const [section, commitSection] = useState<Section>('home');
+  const sectionRef = useRef<Section>('home');
+  const pagerControl = useRef<RedCoinsPagerHandle>(null);
+  const navigationDock = useNavigationDock();
+  const setSection = useCallback((next: Section) => {
+    sectionRef.current = next;
+    pagerControl.current?.showSection(next);
+    navigationDock.showSection(next);
+    startTransition(() => commitSection(next));
+  }, [navigationDock]);
   const sectionHistory = useRef<Section[]>([]);
   const [entryOpen, setEntryOpen] = useState(false);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
@@ -232,30 +242,14 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const reminderCards = useMemo(() => state && reminderManagerOpen ? projectRedCoinsReminders(state) : [], [state, reminderManagerOpen]);
 
   const navigateSection = useCallback((next: Section) => {
-    if (next === 'accounts') setCategoriesOpen(false);
-    if (next === 'plan') setPlanPage('overview');
-    if (section === next) return;
-    sectionHistory.current.push(section);
+    if (sectionRef.current !== next) sectionHistory.current.push(sectionRef.current);
     setSection(next);
-  }, [section]);
-  const sectionSwipe = useMemo(() => PanResponder.create({
-    onStartShouldSetPanResponder: () => false,
-    // Capture horizontal movement before a child ScrollView/FlatList claims it.
-    // Vertical gestures and initial taps still belong to the child controls.
-    onMoveShouldSetPanResponderCapture: (_, gesture) => isFocused &&
-      !entrySaveLock.current && !batchLock.current && !receiptBusy &&
-      Math.abs(gesture.dx) > 24 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 2,
-    onPanResponderRelease: (_, gesture) => {
-      const target = redcoinsSwipeTarget(section, gesture.dx, gesture.dy);
-      if (!target) return;
-      Keyboard.dismiss();
-      if ('route' in target) navigation.navigate(target.route);
-      else navigateSection(target.section);
-    },
-    // Once captured, a native list must not steal the swipe before release.
-    onPanResponderTerminationRequest: () => false,
-    onShouldBlockNativeResponder: () => true,
-  }), [section, isFocused, receiptBusy, navigation, navigateSection]);
+    startTransition(() => {
+      if (next === 'accounts') setCategoriesOpen(false);
+      if (next === 'plan') setPlanPage('overview');
+    });
+  }, [setSection]);
+  useLayoutEffect(() => navigationDock.connect(sectionRef.current, navigateSection), [navigationDock, navigateSection]);
   const goBackInsideRedCoins = useCallback(() => {
     if (section === 'accounts' && categoriesOpen) { setCategoriesOpen(false); return true; }
     if (section === 'plan' && planPage !== 'overview') { setPlanPage('overview'); return true; }
@@ -2248,7 +2242,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   ) : null;
 
   return (
-    <SafeAreaView style={s.safe} {...sectionSwipe.panHandlers}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
       <RedCoinsSetup defaults={state} visible={isFocused && needsRedCoinsSetup(state)} onBluecoins={() => navigation.navigate('Settings', { redcoinsImport: true })}
         onSaved={(current, firstEntry) => {
           setState(current);
@@ -2265,8 +2259,16 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           <Text style={s.brand}>REDCOINS</Text>
           <Text style={s.source}>{state.importedSource ? `Structure seeded from ${state.importedSource}` : 'LeanLog money room'}</Text>
         </View>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Return to LeanLog Home" onPress={() => { Keyboard.dismiss(); navigation.navigate('Home'); }}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 12, paddingHorizontal: 10, borderRadius: 14, borderWidth: 1, borderColor: themed('#D9D0C0', 'borderColor') }}>
+          <Ionicons name="exit-outline" size={17} color={themed(C.ink, 'color')} />
+          <Text style={{ fontSize: 11, fontWeight: '800', color: themed(C.ink, 'color') }}>LeanLog</Text>
+        </TouchableOpacity>
       </View>
-      {section === 'activity' ? (
+      <RedCoinsPager section={section} pagerControlRef={pagerControl} onPreview={navigationDock.showSection} enabled={isFocused && !entrySaving && !batchBusy && !receiptBusy}
+        onSection={navigateSection}
+        onExit={target => { Keyboard.dismiss(); navigation.navigate(target); }}
+        renderSection={page => (page === 'activity' ? (
         <View style={s.activityBody}>
           {activityHeader}
           <View style={s.ledgerCard}>
@@ -2291,10 +2293,10 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           </View>
         </View>
       ) : (
-        <ScrollView key={`${section}-${section === 'plan' ? planPage : section === 'accounts' ? categoriesOpen : ''}`} contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
-          {section === 'home' ? Home() : section === 'accounts' ? Accounts() : section === 'plan' ? Plan() : Reports()}
+        <ScrollView key={`${page}-${page === 'plan' ? planPage : page === 'accounts' ? categoriesOpen : ''}`} style={{ flex: 1 }} contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
+          {page === 'home' ? Home() : page === 'accounts' ? Accounts() : page === 'plan' ? Plan() : Reports()}
         </ScrollView>
-      )}
+      ))} />
       {filterModal}
       <RedCoinsBankReviewModal account={state.accounts.find(account => account.id === bankReviewAccountId) || null} state={state} close={() => setBankReviewAccountId(null)} save={async (accountId, review) => {
         const current = await loadRedCoins();
@@ -2362,28 +2364,6 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           </ScrollView>
         </SafeAreaView>
       </Modal>
-      <View style={s.nav}>
-        {(['home', 'activity', 'accounts', 'plan', 'reports'] as Section[]).map((name) => (
-          <TouchableOpacity key={name} style={[s.navButton, section === name && s.navActive]} onPress={() => navigateSection(name)}>
-            <Ionicons
-              name={
-                (
-                  {
-                    home: 'grid',
-                    activity: 'list',
-                    accounts: 'wallet',
-                    plan: 'shield-checkmark',
-                    reports: 'bar-chart',
-                  } as any
-                )[name]
-              }
-              size={18}
-              color={section === name ? themed(C.white, 'color') : themed('#8993A6', 'color')}
-            />
-            <Text style={[s.navText, section === name && { color: themed(C.white, 'color') }]}>{name[0].toUpperCase() + name.slice(1)}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
       <EntryModal
         visible={entryOpen}
         editing={!!editingEntryId}
@@ -3590,7 +3570,7 @@ const baseS = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  body: { padding: 16, paddingBottom: 105 },
+  body: { padding: 16, paddingBottom: 24 },
   hero: { backgroundColor: C.ink, borderRadius: 27, padding: 22 },
   kicker: {
     color: C.mint,
@@ -3895,24 +3875,6 @@ const baseS = StyleSheet.create({
   periodDatesRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
   periodDateButton: { flex: 1, backgroundColor: C.white, borderWidth: 1, borderColor: '#E3DACB', borderRadius: 13, padding: 11 },
   periodDateValue: { color: C.ink, fontSize: 10, fontWeight: '900' },
-  nav: {
-    position: 'absolute',
-    left: 10,
-    right: 10,
-    bottom: 8,
-    flexDirection: 'row',
-    backgroundColor: C.ink,
-    borderRadius: 20,
-    padding: 7,
-  },
-  navButton: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 7,
-    borderRadius: 13,
-  },
-  navActive: { backgroundColor: '#303650' },
-  navText: { color: '#8993A6', fontSize: 7, fontWeight: '800', marginTop: 3 },
   modal: { flex: 1, backgroundColor: C.paper },
   modalHead: {
     flexDirection: 'row',
@@ -4304,7 +4266,7 @@ const baseS = StyleSheet.create({
     borderRadius: 15,
     backgroundColor: C.white,
   },
-  ledgerContent: { paddingBottom: 86 },
+  ledgerContent: { paddingBottom: 24 },
   emptyLedger: { flexGrow: 1, justifyContent: 'center' },
   ledgerDate: {
     height: '100%',

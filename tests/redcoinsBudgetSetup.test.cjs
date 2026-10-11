@@ -38,5 +38,5 @@ test('settings grouped without losing backup/import/widget/reminder/update actio
 });
 test('accounts doorway, plan subpages and editor stable across ordinary state renders',()=>{
  const source=fs.readFileSync('screens/RedCoinsScreen.tsx','utf8');assert.ok(source.includes('Manage categories'));assert.ok(source.includes('if (categoriesOpen) return Categories()'));assert.ok(source.includes("if (section === 'plan' && planPage !== 'overview')"));assert.ok(source.includes('<RedCoinsBudgetEditor'));assert.equal(source.includes('<RedCoinsTermBudgets'),false);
- assert.ok(source.includes("section === 'plan' ? planPage"));const editor=fs.readFileSync('components/RedCoinsBudgetEditor.tsx','utf8');assert.ok(editor.includes('Replace existing setup?'));assert.ok(editor.includes('onRequestClose'));assert.ok(editor.includes("setAmount(String(b.amount))"));
+ assert.ok(source.includes("page === 'plan' ? planPage"));const editor=fs.readFileSync('components/RedCoinsBudgetEditor.tsx','utf8');assert.ok(editor.includes('Replace existing setup?'));assert.ok(editor.includes('onRequestClose'));assert.ok(editor.includes("setAmount(String(b.amount))"));
 });
