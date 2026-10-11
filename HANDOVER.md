@@ -2,6 +2,13 @@
 
 Updated: 12 October 2026 (Asia/Singapore).
 
+## Latest published release — v2.9.26
+
+- User accepted native swipes, dock exchange and responsiveness in Expo Go, then authorized build/push/publication. Completed from release source 22e42da7ec91b1b35ddb17f04d723c92a627aac7 on github-release-v221. Below in-progress/no-build/QC-pending statements are historical and superseded for those accepted changes.
+- EAS umiaq / umiaqs-team build a603acbe-3dab-42d4-a8f1-0f2236daee8a FINISHED. ARM64-only, com.calorietracker.app, 2.9.26 / versionCode 31. Original signer 62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c verified, with APK v2 signature/content digest and ZIP CRC.
+- Published https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.26/leanlog-V2.9.26.apk (44,128,193 bytes). SHA-256 1fc030007bbd671fac93d1bd51a5b5b0214b7687e31819df0438d706d2029760 matches GitHub asset digest. Release public, latest, download HTTP 200 verified. Local artifact ../../outputs/leanlog-V2.9.26.apk.
+- Main/QC TypeScript, 305 regression tests, Expo prebuild config and diff checks pass. Expo Go phone acceptance is complete; final installed APK acceptance remains with user. Release includes native internal swipes and boundary exits, shared animated dock, preserved large +, direct LeanLog Home exit and responsive native tap/highlight path.
+
 ## Release in progress — v2.9.26
 
 - User accepted latest Expo Go responsiveness QC ("haaa baru padu") and explicitly requested APK build and GitHub push/publication. This supersedes pending phone acceptance/no-build statements below. Native swipe, shared dock motion, preserved +, direct LeanLog exit and tab response all accepted in Expo Go; installed APK still needs final acceptance after build.
