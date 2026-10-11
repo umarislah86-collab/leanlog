@@ -2,6 +2,12 @@
 
 Updated: 10 October 2026 (Asia/Singapore).
 
+## Latest published release — v2.9.25 (12 October 2026, Asia/Singapore)
+
+- User authorized build/push/publication of swipe capture correction below; its unreleased statement is superseded. Source d31b547657f89efda342c8943e63a3d0475c855f pushed to github-release-v221.
+- EAS umiaq build 668594d1-fad6-44e6-a955-17956b4f525e finished; ARM64-only, com.calorietracker.app, version 2.9.25 / code 30 verified. Original signer 62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c, APK v2 signature/content digest and ZIP CRC verified.
+- Published https://github.com/umarislah86-collab/leanlog/releases/download/v2.9.25/leanlog-V2.9.25.apk (44,121,293 bytes). SHA-256 24a289074d2955c61b71cc5644f1ae157f620b5ad75cd34a4265bc77ac6bdebf matches GitHub asset digest; release not draft and HTTP 200 verified. 298 tests and TypeScript pass; native phone swipe acceptance still pending.
+
 ## Unreleased — RedCoins swipe responder correction
 
 - User reports v2.9.24 swipes do not work on device. Changed move handler to capture phase, allowing the screen to claim horizontal motion before nested native ScrollView/FlatList responders. Captured gestures now refuse termination and block native responder takeover until release. Initial taps/vertical scrolling remain unclaimed.
