@@ -1,10 +1,13 @@
 import { themeArtwork, type ArtworkPlace } from '../services/themeArtwork';
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { View, Image } from 'react-native';
+import { nativeArtwork } from '../services/nativeArtwork';
 import { SvgXml } from 'react-native-svg';
 import type { AppThemeId } from '../services/appTheme';
 import { themeMotif } from '../services/themeMotifs';
 export function ThemeMotif({ id, onHero = false, size = 24, artwork }: { artwork?: ArtworkPlace; id: AppThemeId; onHero?: boolean; size?: number }) {
+  const bitmap = nativeArtwork(id, artwork ?? 'home');
+  if (bitmap) return <Image source={{uri:bitmap.uri}} resizeMode="contain" style={{width:size,height:size}} accessible={false}/>;
   const characterTheme=id==='grandline'||id==='saiyan'||id==='cutie';
   const motif = artwork || characterTheme ? themeArtwork(id, artwork ?? 'home', onHero) : themeMotif(id, onHero);
   return <SvgXml xml={motif.svg} width={size} height={size} accessible={false} />;

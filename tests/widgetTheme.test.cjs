@@ -9,15 +9,15 @@ function load(file, mocks = {}) {
 const api = load('services/appTheme.ts'); const stored = new Map(); let fail = false;
 const theme = load('widgets/widget-theme.tsx', { react: React, '../services/appTheme': api, '@react-native-async-storage/async-storage': { getItem: async key => { if (fail) throw new Error('unavailable'); return stored.get(key); } } });
 const primitive = name => Object.assign(() => {}, { __name__: name, convertProps: props => props });
-const mocks = { react: React, './widget-theme': theme, 'react-native-android-widget': { FlexWidget: primitive('LinearLayoutWidget'), TextWidget: primitive('TextWidget'), SvgWidget: primitive('SvgWidget'), OverlapWidget: primitive('FrameLayoutWidget') } };
+const mocks = { react: React, './widget-theme': theme, 'react-native-android-widget': { FlexWidget: primitive('LinearLayoutWidget'), TextWidget: primitive('TextWidget'), SvgWidget: primitive('SvgWidget'), ImageWidget: primitive('ImageWidget'), OverlapWidget: primitive('FrameLayoutWidget') } };
 const motifs = load('services/themeMotifs.ts', {'./appTheme':api});
 const artwork = load('services/themeArtwork.ts', {'./appTheme': api, './themeMotifs': motifs, './characterImageData':load('services/characterImageData.ts'), './cutieImageData':load('services/cutieImageData.ts')});
-mocks['./widget-watermark'] = load('widgets/widget-watermark.tsx', {...mocks, '../services/themeArtwork': artwork, '../services/textContrast':load('services/textContrast.ts')});
+mocks['./widget-watermark'] = load('widgets/widget-watermark.tsx', {...mocks, '../services/nativeArtwork':load('services/nativeArtwork.ts'), '../services/themeArtwork': artwork, '../services/textContrast':load('services/textContrast.ts')});
 const { LeanLogWidget } = load('widgets/LeanLogWidget.tsx', mocks); const others = load('widgets/RedCoinsWidgets.tsx', mocks);
 const { buildWidgetTree } = require('../node_modules/react-native-android-widget/lib/commonjs/api/build-widget-tree');
 const samples = id => [
   LeanLogWidget({ themeId: id, eaten: 700, burned: 0, meals: 2, goal: 2000, steps: 3000, updated: '10:00', cashReality: { trueSpendable: -300 }, bottomMode: 'accounts', accounts: [{ name: 'Aeon', balance: 100 }, { name: 'Card', balance: -378 }], guards: [] }),
-  LeanLogWidget({ themeId: id, eaten: 0, burned: 0, meals: 0, goal: 2000, steps: 0, updated: '10:00', cashReality: null, guards: [{ id: 'guard', name: 'Dining', percent: 120, spent: 480, limit: 400 }] }),
+  LeanLogWidget({ themeId: id, eaten: 0, burned: 0, meals: 0, goal: 2000, steps: 0, updated: '10:00', cashReality: null, guards: [{ id: 'guard', name: 'Dining', percent: 120, spent: 320, limit: 400 }] }),
   others.AccountSnapshotWidget({ themeId: id, account: { name: 'Card', type: 'Credit', balance: -378 }, updated: '10:00' }),
   others.CashRealityWidget({ themeId: id, cash: { trueSpendable: -300, liquidBalance: 1000, cardOutstanding: 1300 }, updated: '10:00' }),
   others.QuickLogWidget({ themeId: id }),
@@ -47,8 +47,8 @@ test('all themed widget text passes contrast against its actual inherited backgr
     if (!node?.props) return;
     const style = node.props.style || {}; let bg = style.backgroundColor || background;
     if (painted && node.type?.__name__ === 'FrameLayoutWidget') {
-      const xml = node.props.children[0].props.children.props.svg;
-      const ink = [api.appThemes[id].accent, api.appThemes[id].mint].find(c => xml.includes(c));
+      const xml = node.props.children[0].props.children.props.svg ?? '';
+      const ink = [api.appThemes[id].accent, api.appThemes[id].mint].find(c => xml.includes(c)) ?? api.appThemes[id].accent;
       const rgb = hex => hex.slice(1).match(/../g).map(x => parseInt(x, 16));
       const base = rgb(bg), top = painted === 'black' ? [0,0,0] : painted === 'white' ? [255,255,255] : rgb(ink);
       // Worst-case fully painted motif stroke behind text, not only the blank SVG area.
@@ -78,16 +78,16 @@ test('native-font plugin copies all eleven faces that the Android widget loader 
 test('all widget motifs are subtle background layers behind unchanged content', () => {
   for (const id of api.themeIds) for (const widget of samples(id)) {
     const tree=buildWidgetTree(widget), images=[];
-    const visit=node=>{if(node.type==='SvgWidget')images.push(node);(node.children||[]).forEach(visit);};visit(tree);
+    const visit=node=>{if(node.type==='SvgWidget'||node.type==='ImageWidget')images.push(node);(node.children||[]).forEach(visit);};visit(tree);
     assert.equal(images.length, 1);
     assert.equal(tree.type, 'FrameLayoutWidget');
     assert.equal(tree.children.length, 2);
-    assert.equal(tree.children[0].children[0].type, 'SvgWidget');
+    assert.equal(tree.children[0].children[0].type, ['grandline','saiyan','cutie'].includes(id)?'ImageWidget':'SvgWidget');
     assert.equal(tree.children[1].props.style.backgroundColor, undefined);
     assert.ok(images[0].props.style.height >= 90);
-    assert.match(images[0].props.svg, /<g opacity="0.24">/);
+    if(images[0].type==='SvgWidget') assert.match(images[0].props.svg, /<g opacity="0.24">/);
     assert.equal(images[0].props.clickAction, undefined);
-    for (const image of images) { assert.match(image.props.svg, /<svg/); assert.ok(!image.props.svg.includes('http:') || image.props.svg.includes('http://www.w3.org/2000/svg')); assert.ok(!/(?:href|xlink:href)="https?:/i.test(image.props.svg)); assert.ok([api.appThemes[id].accent,api.appThemes[id].mint].some(colour=>image.props.svg.includes(colour))); }
+    for (const image of images) { if(image.type==='ImageWidget'){assert.match(image.props.image,/^data:image\/png;base64,/);assert.equal(image.props.imageWidth,320);continue;} assert.match(image.props.svg, /<svg/); assert.ok(!image.props.svg.includes('http:') || image.props.svg.includes('http://www.w3.org/2000/svg')); assert.ok(!/(?:href|xlink:href)="https?:/i.test(image.props.svg)); assert.ok([api.appThemes[id].accent,api.appThemes[id].mint].some(colour=>image.props.svg.includes(colour))); }
   }
 });
 

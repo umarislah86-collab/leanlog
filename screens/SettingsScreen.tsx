@@ -1,4 +1,4 @@
-import { ThemeWatermark } from '../components/ThemeMotif';
+import { ThemeMotif } from '../components/ThemeMotif';
 import { ThemeScrollView as ScrollView, ThemeTouchableOpacity as TouchableOpacity, ThemeView as View, ThemeSafeAreaView as SafeAreaView } from '../components/ThemeSurfaces';
 import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
 import { useTheme, useThemeStyles } from '../context/ThemeContext';
@@ -453,8 +453,8 @@ export default function SettingsScreen({menuParams={},onClose,drawer=false}:{men
   return (
     <SafeAreaView style={styles.container} edges={drawer ? ['top', 'bottom'] : ['top']}>
       <View artworkAlpha={drawer && palette.id === 'cutie' ? .30 : undefined} style={[styles.header, drawer && { padding: 16, overflow: 'hidden' }]}>
-        {drawer && <ThemeWatermark id={palette.id} artwork="drawer"/>}
-        {drawer ? <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8}}><Text style={styles.headerTitle}>{t('settingsTitle')}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Close Settings" onPress={onClose} style={{padding:10}}><Ionicons name="close" size={24} color={themed('#101A2B','color')}/></TouchableOpacity></View> : <>
+        
+        {drawer ? <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8}}><View style={{flexDirection:'row',alignItems:'center',gap:10,flex:1}}><ThemeMotif id={palette.id} artwork="drawer" size={64}/><Text style={[styles.headerTitle,{flexShrink:1}]}>{t('settingsTitle')}</Text></View><TouchableOpacity accessibilityRole="button" accessibilityLabel="Close Settings" onPress={onClose} style={{padding:10}}><Ionicons name="close" size={24} color={themed('#101A2B','color')}/></TouchableOpacity></View> : <>
         <View style={{flexDirection:'row',alignItems:'center',gap:12,marginBottom:10}}>{onClose&&<TouchableOpacity accessibilityLabel="Back to app" onPress={onClose} style={{padding:8}}><Ionicons name="arrow-back" size={24} color={themed('#101A2B','color')}/></TouchableOpacity>}<Text style={styles.headerEyebrow}>LEANLOG / CONTROL ROOM</Text></View>
         <Text style={styles.headerTitle}>{t('settingsTitle')}</Text>
         <Text style={styles.headerSub}>Make the system yours, then let it stay out of the way.</Text>

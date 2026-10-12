@@ -1,12 +1,14 @@
+import { nativeArtwork } from '../services/nativeArtwork';
 'use no memo';
 import React from 'react';
-import { FlexWidget, OverlapWidget, SvgWidget } from 'react-native-android-widget';
+import { FlexWidget, OverlapWidget, SvgWidget, ImageWidget } from 'react-native-android-widget';
 import type { AppThemeId } from '../services/appTheme';
 import { contrastText, textContrast } from '../services/textContrast';
 import { themeArtwork, type ArtworkPlace } from '../services/themeArtwork';
 
 /** FrameLayout draws the motif behind content without consuming a row or intercepting actions. */
 export function widgetWatermark(content: React.JSX.Element, id: AppThemeId, onHero = false, compact = false, artwork: ArtworkPlace = 'widget') {
+  const bitmap = nativeArtwork(id, artwork);
   const motif = themeArtwork(id, artwork, onHero);
   const height = compact ? 90 : 150;
   // SVG alpha works in headless Android rendering; native widget styles have no opacity prop.
@@ -33,7 +35,7 @@ export function widgetWatermark(content: React.JSX.Element, id: AppThemeId, onHe
   const { backgroundColor, ...foreground } = style;
   return <OverlapWidget style={{ width: 'match_parent', height: 'match_parent', backgroundColor, borderRadius: style.borderRadius, overflow: 'hidden' }}>
     <FlexWidget style={{ width: 'match_parent', height: 'match_parent', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'flex-start', paddingRight: 8 }}>
-      <SvgWidget svg={svg} style={{ width: Math.round(height * motif.ratio), height, marginTop: compact ? -16 : id === 'arsenal' ? -44 : -20 }}/>
+      {bitmap ? <ImageWidget image={bitmap.widget} imageWidth={320} imageHeight={320} resizeMode="contain" style={{width:height,height,marginTop:compact?-16:-20}}/> : <SvgWidget svg={svg} style={{ width: Math.round(height * motif.ratio), height, marginTop: compact ? -16 : id === 'arsenal' ? -44 : -20 }}/>}
     </FlexWidget>
     {readable(React.cloneElement(content, { style: foreground }), painted, backgroundColor)}
   </OverlapWidget>;
