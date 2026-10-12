@@ -1,5 +1,6 @@
+import { ThemeTouchableOpacity as TouchableOpacity, ThemeView as View } from './ThemeSurfaces';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { AccessibilityInfo, Animated, FlatList, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeText as Text } from './ThemePrimitives';
 import { useTheme } from '../context/ThemeContext';

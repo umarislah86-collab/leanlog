@@ -1,5 +1,6 @@
+import { ThemeTouchableOpacity as TouchableOpacity, ThemeView as View } from './ThemeSurfaces';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import * as Sharing from 'expo-sharing';

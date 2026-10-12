@@ -1,5 +1,6 @@
+import { ThemeTouchableOpacity as TouchableOpacity, ThemeView as View } from './ThemeSurfaces';
 import React, { useEffect, useState } from 'react';
-import { TouchableOpacity, View } from 'react-native';
+
 import { ThemeText as Text, ThemeTextInput as TextInput } from './ThemePrimitives';
 import { useTheme } from '../context/ThemeContext';
 import type { UserProfile } from '../types';

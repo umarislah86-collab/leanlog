@@ -1,3 +1,4 @@
+import { ThemeScrollView as ScrollView, ThemeTouchableOpacity as TouchableOpacity, ThemeView as View, ThemeSafeAreaView as SafeAreaView } from '../components/ThemeSurfaces';
 import { AppMenuButton, useAppMenu } from '../context/AppMenuContext';
 import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
 import { useTheme, useThemeStyles } from '../context/ThemeContext';
@@ -9,10 +10,10 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Picker } from '@react-native-picker/picker';
-import { ActivityIndicator, Alert, Animated, AppState, Image, LayoutAnimation, Modal, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, AppState, Image, LayoutAnimation, Modal, StyleSheet, Switch } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect, useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { Ionicons } from '@expo/vector-icons';
 import { saveActivityRecord } from '../services/activityStorage';
 import { ActivityRecordModal, ActivityDetailFields } from '../components/ActivityRecord';

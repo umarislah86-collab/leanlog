@@ -28,20 +28,14 @@ const { evaluateRedCoinsGuards } = load('redcoinsGuards');
 const e = (id, amount, type = 'expense', date = '2026-10-03T09:00:00+08:00') => ({ id, item: 'Coffee', category: 'Food', subcategory: 'Drinks', account: 'Card', amount, type, date });
 const now = new Date('2026-10-05T09:00:00+08:00');
 
-test('same category and subcategory name can correctly belong to both types', () => {
-  const cats = [{ id: 'bank', name: 'Bank', icon: 'wallet', subcategories: ['Taxes', 'Rebates', 'Shared'], subcategoryTypes: { Taxes: ['expense'], Rebates: ['income'], Shared: ['income', 'expense'] } }];
-  assert.equal(JSON.stringify(loggerCategories(cats, [], 'expense')[0].subcategories), JSON.stringify(['Taxes', 'Shared']));
-  assert.equal(JSON.stringify(loggerCategories(cats, [], 'income')[0].subcategories), JSON.stringify(['Rebates', 'Shared']));
+test('income and expense expose all categories/subcategories irrespective of metadata and ledger history', () => {
+  const cats = [{ name: 'Bank', subcategories: ['Taxes', 'Rebates', 'Shared', 'Unused'], subcategoryTypes: { Taxes: ['expense'], Rebates: ['income'], Shared: ['income', 'expense'] } }, {name:'Empty',subcategories:[]}];
+  const before = JSON.stringify(cats);
+  for (const type of ['income', 'expense']) assert.equal(loggerCategories(cats, [e('1', 5)], type), cats);
   assert.equal(loggerCategories(cats, [], 'transfer').length, 0);
+  assert.equal(JSON.stringify(cats), before);
 });
-test('metadata wins over incorrect old ledger classification', () => {
-  const cats = [{ name: 'Food', subcategories: ['Drinks'], subcategoryTypes: { Drinks: ['expense'] } }];
-  assert.equal(loggerCategories(cats, [e('1', 5, 'income')], 'income').length, 0);
-});
-test('legacy categories fall back to live ledger evidence, unknown stays hidden', () => {
-  const cats = [{ name: 'Food', subcategories: ['Drinks', 'Unknown'] }];
-  assert.equal(JSON.stringify(loggerCategories(cats, [e('1', 5)], 'expense')[0].subcategories), '["Drinks"]');
-});
+
 test('suggestions show latest amount, irrespective of input order', () => {
   const suggestions = loggerSuggestions([e('old', 3, 'expense', '2026-10-01T09:00:00+08:00'), e('new', 7)], 'cof', 'expense', now.getTime());
   assert.equal(suggestions[0].amount, 7);

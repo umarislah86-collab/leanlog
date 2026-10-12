@@ -47,7 +47,7 @@ export function applyRedCoinsBatch(state: RedCoinsState, ids: string[], action: 
     const types = new Set(rows.map(entry => entry.type));
     if (types.size !== 1 || types.has('transfer')) throw new Error('For category changes, select only expenses or only incomes. Transfers do not use categories.');
     const choices = loggerCategories(state.categories, state.entries, rows[0].type);
-    if (!choices.some(category => category.name === action.category && category.subcategories.includes(action.subcategory))) throw new Error('Choose a category valid for this transaction type.');
+    if (!choices.some(category => category.name === action.category && category.subcategories.includes(action.subcategory))) throw new Error('Choose a valid saved category and subcategory.');
   }
   const replacements = new Map<string, RedCoinsEntry>();
   if (action.kind !== 'delete') for (const row of rows) {

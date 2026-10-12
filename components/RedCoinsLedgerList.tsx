@@ -1,5 +1,6 @@
+import { ThemeView as View } from './ThemeSurfaces';
 import React, { useLayoutEffect, useMemo, useRef } from 'react';
-import { FlatList, View, useWindowDimensions } from 'react-native';
+import { FlatList, useWindowDimensions } from 'react-native';
 import type { RedCoinsEntry } from '../services/redcoins';
 import { buildLedgerLayout, captureLedgerAnchor, restoreLedgerAnchor, type LedgerCell } from '../services/redcoinsLedgerLayout';
 

@@ -65,10 +65,12 @@ test('future amount change does not affect current balance', () => {
   const next = batch.applyRedCoinsBatch(state([row('1', { date: new Date(2026, 9, 7).toISOString(), balanceEffectApplied: false })]), ['1'], { kind: 'amount', value: 20 }, now);
   assert.equal(next.accounts[0].balance, 100); assert.equal(next.entries[0].balanceEffectApplied, false);
 });
-test('categories enforce transaction type and reject mixed or transfer selections', () => {
+test('categories allow cross-type choices and reject missing, mixed or transfer selections', () => {
   const original = state([row('1'), row('2', { type: 'income' }), row('3', { type: 'transfer', toAccount: 'Cimb' })]);
   assert.equal(batch.applyRedCoinsBatch(original, ['1'], { kind: 'category', category: 'Food', subcategory: 'Groceries' }, now).entries[0].subcategory, 'Groceries');
-  assert.throws(() => batch.applyRedCoinsBatch(original, ['2'], { kind: 'category', category: 'Food', subcategory: 'Drinks' }, now), /valid/);
+  assert.equal(batch.applyRedCoinsBatch(original, ['2'], { kind: 'category', category: 'Food', subcategory: 'Drinks' }, now).entries[1].category, 'Food');
+  assert.equal(batch.applyRedCoinsBatch(original, ['1'], { kind: 'category', category: 'Employer', subcategory: 'Salary' }, now).entries[0].subcategory, 'Salary');
+  assert.throws(() => batch.applyRedCoinsBatch(original, ['2'], { kind: 'category', category: 'Missing', subcategory: 'Gone' }, now), /valid/);
   for (const ids of [['1', '2'], ['3']]) assert.throws(() => batch.applyRedCoinsBatch(original, ids, { kind: 'category', category: 'Food', subcategory: 'Drinks' }, now), /only/);
 });
 test('label add/replace/remove/clear applies consistently without modifying originals', () => {

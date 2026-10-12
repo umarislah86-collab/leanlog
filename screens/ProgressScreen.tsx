@@ -1,3 +1,4 @@
+import { ThemeScrollView as ScrollView, ThemeTouchableOpacity as TouchableOpacity, ThemeView as View, ThemeSafeAreaView as SafeAreaView } from '../components/ThemeSurfaces';
 import { AppMenuButton, useAppMenu } from '../context/AppMenuContext';
 import { ActivityRecordModal } from '../components/ActivityRecord';
 import { activitySummary } from '../services/activityDetails';
@@ -8,8 +9,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { fsUpsert, fsDelete, fsFetchAll, fsMirrorPhotoFetchAll, fsMirrorPhotoUpsert, fsMirrorPhotoDelete } from '../firebase';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Alert, Image, Modal, StyleSheet } from 'react-native';
+
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { profileWithLoggedWeight, syncProfileWeight } from '../services/currentWeight';
 import { runLeanLogAi } from '../services/ai';

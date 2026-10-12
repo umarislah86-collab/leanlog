@@ -330,7 +330,8 @@ test('fresh standalone setup commits opening money and marker to real SQLite wit
   assert.equal(onboarding.needsRedCoinsSetup(reopened), false);
   const logger = load('redcoinsLogger');
   assert.equal(logger.loggerCategories(reopened.categories, [], 'expense')[0].name, 'Food');
-  assert.equal(logger.loggerCategories(reopened.categories, [], 'income')[0].name, 'Income');
+  assert.ok(logger.loggerCategories(reopened.categories, [], 'income').some(category => category.name === 'Income'));
+  assert.equal(logger.loggerCategories(reopened.categories, [], 'income'), reopened.categories);
   const parsed = load('redcoinsBackupFormat').parseRedCoinsBackup(JSON.stringify({ format: 'redcoins-backup', version: 1, exportedAt: new Date().toISOString(), state: reopened }));
   assert.equal(parsed.state.onboarding.status, 'completed');
 });

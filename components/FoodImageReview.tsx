@@ -1,6 +1,7 @@
+import { ThemeScrollView as ScrollView, ThemeTouchableOpacity as TouchableOpacity, ThemeView as View, ThemeSafeAreaView as SafeAreaView } from './ThemeSurfaces';
 import React, { useRef, useState } from 'react';
-import { Image, KeyboardAvoidingView, Modal, Platform, ScrollView, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Image, KeyboardAvoidingView, Modal, Platform } from 'react-native';
+
 import { ThemeText as Text, ThemeTextInput as TextInput } from './ThemePrimitives';
 import { useTheme } from '../context/ThemeContext';
 import { sumReviewedMeal, type MealImageReview, type MealPhoto } from '../services/foodImageAnalysis';

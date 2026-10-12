@@ -1,9 +1,10 @@
+import { ThemeScrollView as ScrollView, ThemeTouchableOpacity as TouchableOpacity, ThemeView as View, ThemeSafeAreaView as SafeAreaView } from './ThemeSurfaces';
 import { ThemeText as Text } from '../components/ThemePrimitives';
 import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import React from 'react';
-import { Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+
 
 const chapters = [
   { version: 'Prolog', date: '13–16 Ogos 2026', title: 'Tatkala jurnal kecil mula bernyawa', story: 'Alkisah, sebelum nama versi dipahat pada batu bersurat, lahirlah sebuah pencatat kalori yang mengenal makanan melalui mata Gemini. Ia belajar menyimpan rekod, menghitung makro, menerima sasaran kalori, menjejak aktiviti dan berat, lalu menyimpan segala amanah ke awan Firebase. Dari bengkel kecil inilah LeanLog menemui bentuk pertamanya.' },
@@ -53,6 +54,7 @@ const chapters = [
   { version: 'v3.0.0', date: '12 Oktober 2026', title: 'Langkah bergerak, catatan menjadi lengkap', story: 'Coach membuka Cardio Companion untuk brisk walk, jog dan run: jam aktif, jarak GPS, pace, sasaran dan interval, dengan pause serta Save terus ke Activity tanpa AI. Screenshot aktiviti kini boleh menyimpan ukuran yang kelihatan selepas semakan, bersama gambar asal dan detail penuh. Sesi Coach turut membawa set, reps dan beban ke rekod Activity. RedCoins memakai cop merah dan emasnya sendiri pada kemudi LeanLog.' },
 
   { version: 'v3.0.1', date: '12 Oktober 2026', title: 'Warna baharu dan pintu sisi', story: 'Settings berpindah ke menu di penjuru kiri. Pratonton tema kekal terlihat ketika senarai ditatal, dan tulisan Cardio diperjelas. Cyberpunk, Arabia, Arsenal dan Liverpool menyertai pilihan warna; cannon dan Liver bird menjadi tanda kecil di menu dan pratonton. Butang tambah terus setia di tempatnya.' },
+  { version: 'v3.0.2', date: '12 Oktober 2026', title: 'Pintu pantas dan tulisan yang terang', story: 'Hamburger kini terus membuka isi Settings di sisi, tanpa senarai tab berulang. Tulisan belajar mengenali warna permukaannya agar lebih jelas, termasuk tema Arsenal, Liverpool dan Arabia. Langkah hari ini memilih Mi Fitness jika ada, lalu kembali kepada Health Connect jika belum disegerakkan. Income dan Expense pula berkongsi seluruh pilihan kategori dan subkategori.' },
 ];
 
 export default function LeanLogChronicle({ visible, onClose }: { visible: boolean; onClose: () => void }) {

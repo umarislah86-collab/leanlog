@@ -1,7 +1,8 @@
+import { ThemeView as View } from './ThemeSurfaces';
 import { ThemeText as Text } from '../components/ThemePrimitives';
 import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 
 interface Props {

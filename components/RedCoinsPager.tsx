@@ -1,5 +1,6 @@
-import React, { useImperativeHandle, useRef } from 'react';
 import { View } from 'react-native';
+import React, { useImperativeHandle, useRef } from 'react';
+
 import PagerView from 'react-native-pager-view';
 import { redcoinsSections, redcoinsPageTarget } from '../services/redcoinsSwipe';
 

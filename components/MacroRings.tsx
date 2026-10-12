@@ -1,7 +1,8 @@
+import { ThemeView as View } from './ThemeSurfaces';
 import { ThemeText as Text } from '../components/ThemePrimitives';
 import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, View, StyleSheet } from 'react-native';
+import { Animated, StyleSheet } from 'react-native';
 import Svg, { Circle, G } from 'react-native-svg';
 import { useLanguage } from '../context/LanguageContext';
 

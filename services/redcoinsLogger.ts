@@ -1,18 +1,10 @@
 import type { RedCoinsCategory, RedCoinsEntry, RedCoinsType } from './redcoins';
 
-export function loggerCategories(categories: RedCoinsCategory[], entries: RedCoinsEntry[], type: RedCoinsType) {
-  if (type === 'transfer') return [];
-  return categories.map((category) => ({
-    ...category,
-    subcategories: category.subcategories.filter((sub) => {
-      const declared = category.subcategoryTypes?.[sub];
-      if (declared?.length) return declared.includes(type);
-      const observed = new Set(entries.filter((entry) => entry.category === category.name && entry.subcategory === sub && entry.type !== 'transfer').map((entry) => entry.type));
-      // Legacy/custom categories without a declared type use ledger evidence.
-      // Unclassified pairs stay hidden rather than leaking into both pickers.
-      return observed.has(type);
-    }),
-  })).filter((category) => category.subcategories.length);
+/** Income and expense share the entire saved category tree.
+ * Metadata stays intact for imports/reports; it no longer restricts manual choice.
+ */
+export function loggerCategories(categories: RedCoinsCategory[], _entries: RedCoinsEntry[], type: RedCoinsType) {
+  return type === 'transfer' ? [] : categories;
 }
 
 export function loggerSuggestions(entries: RedCoinsEntry[], text: string, type: RedCoinsType, now = Date.now()) {

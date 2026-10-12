@@ -31,6 +31,8 @@ function runtime(values = new Map(), failure = {}) {
   const storage = { getItem: async key => { if (failure.read) throw new Error('read failed'); return values.get(key) ?? null; }, setItem: async (key, value) => { if (failure.write) throw new Error('write failed'); if (failure.wait) await failure.wait; values.set(key, value); } };
   const mocks = { react, 'react/jsx-runtime': { jsx, jsxs: jsx }, 'react-native': native, '@react-native-async-storage/async-storage': storage, '../services/appTheme': api, '../services/themeFonts': { loadThemeFonts: async () => { if (failure.fontWait) await failure.fontWait; if (failure.fonts) throw new Error('font load failed'); } } };
   mocks['../services/widget'] = { refreshLeanLogWidget: async () => { widgetRefreshes.push(values.get(api.APP_THEME_KEY)); } };
+  mocks['../context/SurfaceContext'] = load('context/SurfaceContext.ts', mocks);
+  mocks['../services/textContrast'] = load('services/textContrast.ts');
   const context = load('context/ThemeContext.tsx', mocks);
   const render = () => { cursor = 0; const tree = context.ThemeProvider({ children: 'mounted-app' }); tree.type.ctx.value = tree.props.value; effects.splice(0).forEach(fn => fn()); return tree; };
   return { context, render, values, failure, widgetRefreshes, primitives: () => load('components/ThemePrimitives.tsx', { ...mocks, '../context/ThemeContext': context }) };

@@ -1,3 +1,4 @@
+import { ThemeScrollView as ScrollView, ThemeTouchableOpacity as TouchableOpacity, ThemeView as View, ThemeSafeAreaView as SafeAreaView } from '../components/ThemeSurfaces';
 import { AppMenuButton, useAppMenu } from '../context/AppMenuContext';
 import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
 import { useTheme, useThemeStyles } from '../context/ThemeContext';
@@ -7,8 +8,8 @@ import { Picker } from '@react-native-picker/picker';
 import { useFocusEffect } from '@react-navigation/native';
 import { subscribeRedCoinsChanges } from '../services/redcoinsEvents';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, RefreshControl, StyleSheet } from 'react-native';
+
 import { auth, fsFetchAll, fsFetchSettings } from '../firebase';
 import { ActivityEntry, FoodEntry, UserProfile } from '../types';
 import { colors, radii, shadow } from '../theme';
@@ -615,6 +616,7 @@ export default function HomeScreen({ navigation }: any) {
         <TouchableOpacity style={styles.connectHealth} onPress={healthConnected ? manualHealthSync : handleConnectHealth} disabled={healthLoading}>
           {healthLoading ? <ActivityIndicator size="small" color={themed(colors.mint, 'color')} /> : <Ionicons name={healthConnected ? 'refresh-circle-outline' : 'add-circle-outline'} size={17} color={themed(colors.mint, 'color')} />}
           <Text style={styles.connectHealthText}>{healthConnected ? 'Refresh health signals' : 'Connect steps, sleep & heart rate'}</Text>
+          {health && <Text style={{color:themed('#737A85','color'),fontSize:10,marginTop:4}}>Steps · {health.sourceLabel}</Text>}
         </TouchableOpacity>
 
         <View style={styles.sectionRow}>

@@ -67,7 +67,7 @@ function componentRuntime() {
     useMemo: (factory, deps) => { const index = cursor++, old = hooks[index]; if (!old || deps.some((dep, i) => dep !== old.deps[i])) hooks[index] = { deps, value: factory() }; return hooks[index].value; },
     useLayoutEffect: (effect, deps) => { const index = cursor++, old = hooks[index]; if (!old || deps.some((dep, i) => dep !== old[i])) effects.push(effect); hooks[index] = deps; },
   };
-  const { RedCoinsLedgerList } = load('components/RedCoinsLedgerList.tsx', { react, 'react-native': { FlatList: 'FlatList', View: 'View', useWindowDimensions: () => ({ fontScale: 1 }) }, '../services/redcoinsLedgerLayout': model });
+  const { RedCoinsLedgerList } = load('components/RedCoinsLedgerList.tsx', { react, './ThemeSurfaces': {ThemeView:'View'}, 'react-native': { FlatList: 'FlatList', View: 'View', useWindowDimensions: () => ({ fontScale: 1 }) }, '../services/redcoinsLedgerLayout': model });
   return { calls, render: props => { cursor = 0; const result = RedCoinsLedgerList({ filterKey: 'all', renderEntry: () => null, renderDay: () => null, contentStyle: {}, emptyStyle: {}, ...props }); effects.splice(0).forEach(effect => effect()); return result.props; } };
 }
 

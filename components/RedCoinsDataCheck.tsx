@@ -1,8 +1,9 @@
+import { ThemeScrollView as ScrollView, ThemeTouchableOpacity as TouchableOpacity, ThemeView as View, ThemeSafeAreaView as SafeAreaView } from './ThemeSurfaces';
 import { ThemeText as Text } from '../components/ThemePrimitives';
 import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Modal, StyleSheet } from 'react-native';
+
 import { useNavigation } from '@react-navigation/native';
 import { flushRedCoinsWrites, readSavedRedCoinsRaw } from '../services/redcoins';
 import { subscribeRedCoinsChanges } from '../services/redcoinsEvents';

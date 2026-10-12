@@ -1,5 +1,6 @@
+import { ThemeScrollView as ScrollView, ThemeTouchableOpacity as TouchableOpacity, ThemeView as View } from './ThemeSurfaces';
 import React, { useEffect, useState } from 'react';
-import { Alert, Modal, ScrollView, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeText as Text } from './ThemePrimitives';
 import { useTheme } from '../context/ThemeContext';

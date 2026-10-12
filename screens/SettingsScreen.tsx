@@ -1,9 +1,10 @@
+import { ThemeScrollView as ScrollView, ThemeTouchableOpacity as TouchableOpacity, ThemeView as View, ThemeSafeAreaView as SafeAreaView } from '../components/ThemeSurfaces';
 import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
 import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Platform, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Alert, Modal, Platform, StyleSheet, Switch } from 'react-native';
+
 import { Ionicons } from '@expo/vector-icons';
 import { auth, signOut, fsUpsert, fsSetSettings, fsFetchAll, fsFetchSettings, fsUploadAppState, fsFetchAppState } from '../firebase';
 
@@ -22,6 +23,8 @@ import { getNagDays, getNagTimes, isNagModeEnabled, setNagDays, setNagModeEnable
 import LeanLogChronicle from '../components/LeanLogChronicle';
 import { RedCoinsBackupSettings } from '../components/RedCoinsBackupSettings';
 import { RedCoinsDataCheck } from '../components/RedCoinsDataCheck';
+import { ArsenalWatermark } from '../components/ArsenalWatermark';
+import { LiverpoolWatermark } from '../components/LiverpoolWatermark';
 import { AppearanceSettings } from '../components/AppearanceSettings';
 import { chooseBluecoinsFolder, getBluecoinsSourceMetadata } from '../services/bluecoins';
 import { stageRedCoinsImport, commitRedCoinsImport } from '../services/redcoinsImport';
@@ -130,10 +133,10 @@ function SettingsGroup({ title, summary, initiallyOpen = false, children }: { ti
   return <View style={{marginBottom:16}}><TouchableOpacity accessibilityRole="button" accessibilityState={{expanded:open}} onPress={()=>setOpen(value=>!value)} style={{backgroundColor:themed('#FFFDF7', 'backgroundColor'),borderWidth:1,borderColor:themed('#E4DFD3', 'borderColor'),borderRadius:20,padding:18,flexDirection:'row',alignItems:'center',gap:12}}><View style={{flex:1}}><Text style={{color:themed('#101A2B', 'color'),fontSize:17,fontWeight:'700'}}>{title}</Text><Text style={{color:themed('#737A85', 'color'),fontSize:11,lineHeight:17,marginTop:5}}>{summary}</Text></View><Ionicons name={open?'chevron-up':'chevron-down'} size={18} color={themed("#737A85", 'color')} /></TouchableOpacity>{open && <View style={{paddingTop:12}}>{children}</View>}</View>;
 }
 
-export default function SettingsScreen({menuParams={},onClose}:{menuParams?:{redcoinsImport?:boolean};onClose?:()=>void}={}) {
+export default function SettingsScreen({menuParams={},onClose,drawer=false}:{menuParams?:{redcoinsImport?:boolean};onClose?:()=>void;drawer?:boolean}={}) {
   const route={params:menuParams};
   const styles = useThemeStyles(baseStyles);
-  const { themed } = useTheme();
+  const { themed, palette } = useTheme();
   const { lang, setLang, t } = useLanguage();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [showAddReminder, setShowAddReminder] = useState(false);
@@ -449,14 +452,18 @@ export default function SettingsScreen({menuParams={},onClose}:{menuParams?:{red
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
+    <SafeAreaView style={styles.container} edges={drawer ? ['top', 'bottom'] : ['top']}>
+      <View style={[styles.header, drawer && { padding: 16, overflow: 'hidden' }]}>
+        {drawer && palette.id === 'arsenal' && <ArsenalWatermark colour={palette.accent} width={160}/>}
+        {drawer && palette.id === 'liverpool' && <LiverpoolWatermark colour={palette.accent} height={70}/>}
+        {drawer ? <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8}}><Text style={styles.headerTitle}>{t('settingsTitle')}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Close Settings" onPress={onClose} style={{padding:10}}><Ionicons name="close" size={24} color={themed('#101A2B','color')}/></TouchableOpacity></View> : <>
         <View style={{flexDirection:'row',alignItems:'center',gap:12,marginBottom:10}}>{onClose&&<TouchableOpacity accessibilityLabel="Back to app" onPress={onClose} style={{padding:8}}><Ionicons name="arrow-back" size={24} color={themed('#101A2B','color')}/></TouchableOpacity>}<Text style={styles.headerEyebrow}>LEANLOG / CONTROL ROOM</Text></View>
         <Text style={styles.headerTitle}>{t('settingsTitle')}</Text>
         <Text style={styles.headerSub}>Make the system yours, then let it stay out of the way.</Text>
+        </>}
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView style={{flex:1}} contentContainerStyle={[styles.scrollContent, drawer && {padding:14,paddingBottom:24}]} keyboardShouldPersistTaps="handled">
 
         <SettingsGroup title="Personal preferences" summary="Appearance, language and nutrition framework" initiallyOpen>
         <AppearanceSettings />

@@ -1,6 +1,7 @@
+import { ThemePressable as Pressable, ThemeScrollView as ScrollView, ThemeView as View, ThemeSafeAreaView as SafeAreaView } from './ThemeSurfaces';
 import React, { useEffect, useState, useRef } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Modal } from 'react-native';
+
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeText as Text } from './ThemePrimitives';
 import { useTheme } from '../context/ThemeContext';

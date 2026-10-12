@@ -1,6 +1,7 @@
+import { ThemeScrollView as ScrollView, ThemeTouchableOpacity as TouchableOpacity, ThemeView as View, ThemeSafeAreaView as SafeAreaView } from './ThemeSurfaces';
 import React, { useState, useRef } from 'react';
-import { Alert, Image, Modal, ScrollView, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Alert, Image, Modal } from 'react-native';
+
 import Svg, { Polyline } from 'react-native-svg';
 import { ThemeText as Text, ThemeTextInput as TextInput } from './ThemePrimitives';
 import { useTheme } from '../context/ThemeContext';

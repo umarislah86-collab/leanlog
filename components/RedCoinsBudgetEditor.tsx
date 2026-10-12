@@ -1,7 +1,8 @@
+import { ThemePressable as Pressable, ThemeScrollView as ScrollView, ThemeTouchableOpacity as TouchableOpacity, ThemeView as View } from './ThemeSurfaces';
 import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
 import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import React, { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Platform, StyleSheet, Switch } from 'react-native';
 import type { RedCoinsState } from '../services/redcoins';
 import { budgetDay, parseBudgetDay, validTermBudget, type TermBudget } from '../services/redcoinsTermBudget';
 import { targetBudgetChoices } from '../services/redcoinsBudgetSetup';

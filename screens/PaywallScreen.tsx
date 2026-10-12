@@ -1,8 +1,9 @@
+import { ThemeTouchableOpacity as TouchableOpacity, ThemeView as View, ThemeSafeAreaView as SafeAreaView } from '../components/ThemeSurfaces';
 import { ThemeText as Text } from '../components/ThemePrimitives';
 import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import React, { useState } from 'react';
-import { ActivityIndicator, Image, Linking, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Image, Linking, StyleSheet } from 'react-native';
+
 
 interface Props {
   onRecheck: () => Promise<void>;

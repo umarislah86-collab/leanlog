@@ -1,7 +1,8 @@
+import { ThemeTouchableOpacity as TouchableOpacity, ThemeView as View } from './ThemeSurfaces';
 import { ThemeText as Text } from '../components/ThemePrimitives';
 import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import React, { useCallback, useState } from 'react';
-import { Alert, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, Switch } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';

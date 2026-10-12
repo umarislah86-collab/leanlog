@@ -1,6 +1,7 @@
+import { ThemeView as View } from './ThemeSurfaces';
 import { useTheme } from '../context/ThemeContext';
 import React, { useState } from 'react';
-import { View } from 'react-native';
+
 import Svg, { Path, Defs, LinearGradient, Stop, Circle } from 'react-native-svg';
 import type { WeightEntry } from '../types';
 

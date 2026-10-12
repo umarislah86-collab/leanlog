@@ -1,3 +1,27 @@
+# LeanLog 3.0.2 — release in progress (12 October 2026)
+
+User authorized APK build and GitHub publication. Includes direct Settings drawer/opening improvements, today's Mi Fitness steps preference with Health Connect fallback, surface-aware text/input contrast and shared all-category Income/Expense logger picker. Building preview-arm64 on umiaq / umiaqs-team with original signer. Version 3.0.2; Android versionCode auto-increments remotely. Historical unreleased sections below are included in this release; final build and APK verification details follow upon completion.
+
+## Current unreleased — shared income/expense category picker (12 October 2026)
+
+User requested all saved categories/subcategories available for both income and expense. loggerCategories now returns the complete saved tree for both types, including unused/unclassified categories; transfer keeps its existing category-free behaviour. Existing manual logger, edit/schedule, bulk category choices and copy validation all consume this helper. Type metadata is preserved for import/report data; transaction amount/balance direction remains based on entry type. Regression tests updated for complete tree/no mutation and authoritative restore. No APK build/publication requested for this patch; public APK still 3.0.1.
+
+## Current unreleased — surface-aware text contrast (12 October 2026)
+
+User confirmed unreadable fonts in Arsenal/Liverpool/Arabia. Existing palette-only colour aliases cannot know whether an inherited white/gold label sits on a light card or a filled button. Added lightweight ThemeSurfaces adapters (same native View/TouchableOpacity/Pressable/ScrollView/SafeAreaView and dock Animated.View) to provide the actual solid/alpha-composited background to ThemeText/TextInput. No geometry/event/ref changes. Readable colours retain their exact value; failing foregrounds adjust lightness toward black/white to 4.5:1, preserving hue. Input placeholders use the same actual input fill. Nested text retains inheritance, candidate preview keeps explicit sample colours, Original remains literal. Widgets keep their existing independently tested mappings. All app screen/shared surface imports updated, structural RedCoins pager cells remain native.
+
+New component-runtime tests cover every non-original palette on eleven surface colours with ten foreground colours each, alpha/nested surfaces, input editing/ref/selection/placeholder and Pressable pressed callbacks. Existing drawer/dock/pager/ledger checks preserved. Physical Android visual acceptance still pending; disabled/animated opacity and image backgrounds are not guaranteed by solid-colour contrast checks. Public APK remains 3.0.1; no release requested for this patch. Drawer/steps fixes below also unreleased.
+
+## Current unreleased — today's steps source fallback (12 October 2026)
+
+Steps now discovers positive Mi Fitness step records inside today's local-midnight-to-now interval, reads subsequent pages and does not select generic wearable package names. No current Mi records -> unfiltered Health Connect Steps aggregate. Missing/zero/failed Mi aggregate -> same fallback. No manual summation of sources. Each snapshot checks afresh so later watch sync is selected on next refresh. Sleep/heart retain prior independent source choice; sourceLabel describes steps and Home displays it. All 332 tests pass, including yesterday-only source, pagination, zero/stale/unrelated records, aggregate/discovery errors, later sync and sleep independence. Production/QC TypeScript checked. Native device Health Connect acceptance pending; public APK remains 3.0.1. Direct Settings drawer fix also remains unreleased below.
+
+## Current unreleased — direct Settings drawer and opening latency (12 October 2026)
+
+User reported slow hamburger opening and requested Settings content only, no duplicate app tab routes. AppMenuContext now opens the same 92%-width/max480 side panel directly for hamburger and openSettings/import links. Removed intermediary menu/routes and native modal fade; 160ms native-driver slide starts on Modal onShow. First Settings mount defers until slide completion; close cancels animation/late mount. Memoized menu API remains identical during open/content-ready, preventing menu-context consumers across all tabs from invalidating. Closing still increments revision once for data refresh; Android Back and backdrop close drawer. No runtime stopwatch/native phone performance measured yet.
+
+Settings uses compact drawer header with Close, bottom safe-area and scrollable existing sections; club watermark retained in header. Large +/main navigation unchanged. All 327 tests pass including stable context identity, direct content, import intent, early-close race and no duplicate refresh. Production/QC TypeScript and Android QC bundle checked. Public APK remains 3.0.1; this patch not yet built/published.
+
 # LeanLog — latest published release v3.0.1
 
 Published 12 October 2026 (Asia/Singapore). User authorized build and GitHub push; release complete. Historical unreleased sections below are included in 3.0.1 and superseded by this record.

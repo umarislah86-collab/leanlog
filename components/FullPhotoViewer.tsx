@@ -1,6 +1,7 @@
+import { ThemeView as View, ThemeTouchableOpacity as TouchableOpacity, ThemeSafeAreaView as SafeAreaView } from './ThemeSurfaces';
 import React, { useState } from 'react';
-import { Image, Modal, View, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Image, Modal } from 'react-native';
+
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeText as Text } from './ThemePrimitives';
 

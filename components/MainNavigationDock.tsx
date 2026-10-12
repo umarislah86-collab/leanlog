@@ -1,5 +1,7 @@
+import { ThemeAnimatedView } from './ThemeSurfaces';
+import { ThemeTouchableOpacity as TouchableOpacity, ThemeView as View } from './ThemeSurfaces';
 import React, { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { AccessibilityInfo, Animated, Easing, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemeText as Text } from './ThemePrimitives';
@@ -64,7 +66,7 @@ export function MainNavigationDock({ state, descriptors, navigation }: any) {
       }}
     >
       <View style={{ flex: 1, height: 64, overflow: 'hidden' }}>
-      <Animated.View pointerEvents={isMoney ? 'none' : 'auto'} accessibilityElementsHidden={isMoney} importantForAccessibility={isMoney ? 'no-hide-descendants' : 'auto'}
+      <ThemeAnimatedView pointerEvents={isMoney ? 'none' : 'auto'} accessibilityElementsHidden={isMoney} importantForAccessibility={isMoney ? 'no-hide-descendants' : 'auto'}
         style={[StyleSheet.absoluteFill, { flexDirection: 'row', alignItems: 'center' }, leanlogMotion]}>
       {state.routes
         .map((route: any, index: number) => ({ route, index }))
@@ -102,8 +104,8 @@ export function MainNavigationDock({ state, descriptors, navigation }: any) {
             </TouchableOpacity>
           );
         })}
-      </Animated.View>
-      <Animated.View pointerEvents={isMoney ? 'auto' : 'none'} accessibilityElementsHidden={!isMoney} importantForAccessibility={isMoney ? 'auto' : 'no-hide-descendants'}
+      </ThemeAnimatedView>
+      <ThemeAnimatedView pointerEvents={isMoney ? 'auto' : 'none'} accessibilityElementsHidden={!isMoney} importantForAccessibility={isMoney ? 'auto' : 'no-hide-descendants'}
         style={[StyleSheet.absoluteFill, { flexDirection: 'row', alignItems: 'center', backgroundColor: themed(colors.ink, 'backgroundColor'), borderRadius: 20, padding: 4, marginLeft: 8, marginVertical: 2 }, moneyMotion]}>
         {redcoinsSections.map(section => {
           const active = section === (money?.section || 'home');
@@ -115,7 +117,7 @@ export function MainNavigationDock({ state, descriptors, navigation }: any) {
             <Text numberOfLines={1} style={{ fontSize: 9, fontWeight: active ? '800' : '500', color: ink, marginTop: 4 }}>{section[0].toUpperCase() + section.slice(1)}</Text>
           </TouchableOpacity>;
         })}
-      </Animated.View>
+      </ThemeAnimatedView>
       </View>
       <View
         style={{

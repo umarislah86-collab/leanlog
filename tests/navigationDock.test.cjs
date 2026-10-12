@@ -13,6 +13,7 @@ function renderDock(route) {
   vm.runInNewContext(ts.transpileModule(fs.readFileSync('components/MainNavigationDock.tsx', 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React, esModuleInterop: true },
   }).outputText, { exports, setTimeout: callback => callback(), require: name => {
+    if (name === './ThemeSurfaces') return {ThemeAnimatedView:'AnimatedView',ThemeView:'View',ThemeTouchableOpacity:'TouchableOpacity'};
     if (name === 'react') return react;
     if (name === 'react-native') return { View: 'View', TouchableOpacity: 'TouchableOpacity', Modal: 'Modal',
       Animated: { View: 'AnimatedView', Value: class { interpolate(config) { return config; } } },
