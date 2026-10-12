@@ -1,6 +1,6 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
 function load(file,requireStub){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText,{exports,require:requireStub,console});return exports;}
-const core=load('services/activityDetails.ts');
+const core=load('services/activityDetails.ts');const stamp=load('services/activityDateTime.ts');
 const screenshot=()=>({name:'Brisk walk',durationMin:40.5,caloriesBurned:280,date:'02/10/2026',time:'07:15',details:{source:'Mi Fitness',kind:'walk',distanceKm:3.8,calorieBasis:'active',activeCalories:280,totalCalories:340,averagePaceSecKm:639.5,averageHeartRate:128,maxHeartRate:150,steps:5200,ascentM:35,splits:[{label:'1 km',distanceKm:1,durationSec:630,paceSecKm:630,heartRate:125}],heartRateZones:[{label:'Zone 2',durationMin:25}],samples:[]}});
 test('screenshot preserves measured decimals, distinct calories and detailed splits without generating samples',()=>{
  const result=core.parseActivityImage('```json\n'+JSON.stringify(screenshot())+'\n```');
@@ -27,11 +27,18 @@ test('screenshot request fits existing callable and explicitly prohibits inferre
 test('strength/timed sets and real sample values survive details validation',()=>{
  const result=core.cleanActivityDetails({exercises:[{name:'Row',sets:[{reps:10,weightKg:30,restSec:90}]},{name:'Plank',sets:[{durationSec:60}]}],samples:[{elapsedSec:0,heartRate:120},{elapsedSec:60,heartRate:130}]});assert.equal(result.exercises[0].sets[0].weightKg,30);assert.equal(result.exercises[1].sets[0].durationSec,60);assert.equal(result.samples.length,2);assert.throws(()=>core.cleanActivityDetails({exercises:[{name:'Row',sets:[{reps:-10}]}]}));
 });
-function storageHarness(){let saved=JSON.stringify([{id:'old',type:'activity',name:'Old walk',duration:10,caloriesBurned:40,date:'1/10/2026',time:'07:00'}]);const files=[],state={copyFail:false,writeFail:false};const storage=load('services/activityStorage.ts',name=>name.includes('async-storage')?{getItem:async()=>saved,setItem:async(_,value)=>{if(state.writeFail)throw Error('disk full');saved=value;}}:name.includes('file-system')?{documentDirectory:'file:///docs/',makeDirectoryAsync:async()=>{},copyAsync:async args=>{if(state.copyFail)throw Error('copy failed');files.push(args);}}:core);return {storage,state,files,rows:()=>JSON.parse(saved)};}
+function storageHarness(){let saved=JSON.stringify([{id:'old',type:'activity',name:'Old walk',duration:10,caloriesBurned:40,date:'1/10/2026',time:'07:00'}]);const files=[],state={copyFail:false,writeFail:false};const storage=load('services/activityStorage.ts',name=>name.includes('async-storage')?{getItem:async()=>saved,setItem:async(_,value)=>{if(state.writeFail)throw Error('disk full');saved=value;}}:name.includes('file-system')?{documentDirectory:'file:///docs/',makeDirectoryAsync:async()=>{},copyAsync:async args=>{if(state.copyFail)throw Error('copy failed');files.push(args);}}:name==='./activityDateTime'?stamp:core);return {storage,state,files,rows:()=>JSON.parse(saved)};}
 const draft=()=>({id:'new',type:'activity',name:'Walk',duration:40.5,caloriesBurned:280,date:'02/10/2026',time:'07:15',imageUri:'file:///cache/screenshot.png',details:screenshot().details});
 test('review save persists screenshot outside cache, retains rich data and legacy rows, retry does not duplicate',async()=>{
  const h=storageHarness();await h.storage.saveActivityRecord(draft());await h.storage.saveActivityRecord(draft());const rows=h.rows();assert.equal(rows.length,2);assert.equal(rows[0].imageUri,'file:///docs/activity-screenshots/new.jpg');assert.equal(rows[0].details.averageHeartRate,128);assert.equal(rows[1].name,'Old walk');assert.equal(h.files[0].from,draft().imageUri);
 });
 test('failed screenshot copy or local save does not create a partial activity; missing duration/calories requires review',async()=>{
  const h=storageHarness();h.state.copyFail=true;await assert.rejects(h.storage.saveActivityRecord(draft()),/copy failed/);assert.equal(h.rows().length,1);h.state.copyFail=false;h.state.writeFail=true;await assert.rejects(h.storage.saveActivityRecord(draft()),/disk full/);assert.equal(h.rows().length,1);h.state.writeFail=false;await assert.rejects(h.storage.saveActivityRecord({...draft(),duration:NaN}));await assert.rejects(h.storage.saveActivityRecord({...draft(),caloriesBurned:NaN}));await h.storage.saveActivityRecord({...draft(),caloriesBurned:0});assert.equal(h.rows().length,2);
+});
+test('12-hour today/backdate screenshots persist canonical time; concurrent saves retain both records',async()=>{
+ const h=storageHarness();await Promise.all([
+ h.storage.saveActivityRecord({...draft(),id:'today',date:'12/10/2026',time:'7:15 PM'}),
+ h.storage.saveActivityRecord({...draft(),id:'yesterday',date:'11/10/2026',time:'7:15 PTG'})]);
+ for(const id of ['today','yesterday'])assert.equal(h.rows().find(x=>x.id===id).time,'19:15');
+ assert.equal(h.rows().length,3);
 });

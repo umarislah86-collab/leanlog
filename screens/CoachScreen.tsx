@@ -906,7 +906,7 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView artworkAlpha={palette.id === 'cutie' ? .30 : undefined} style={styles.container} edges={['top']}>
       <ThemeWatermark id={palette.id} placement="page" artwork="coach"/>
       <View style={{flexDirection:'row',alignItems:'center',gap:12,paddingHorizontal:18,paddingTop:8}}><AppMenuButton/><Text style={{fontWeight:'700'}}>Coach</Text></View>
       <CardioCompanion gymActive={view === 'session'} openRequest={route?.params?.cardioOpen} />

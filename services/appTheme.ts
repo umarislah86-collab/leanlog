@@ -1,6 +1,6 @@
 /** App appearance only. Finance meaning, chart series, PDFs and widgets stay independent. */
 export const APP_THEME_KEY = 'leanlog_appearance_v1';
-export type AppThemeId = 'cream' | 'midnight' | 'neutral' | 'grove' | 'dusk' | 'folio' | 'onyx' | 'cyberpunk' | 'arabia' | 'arsenal' | 'liverpool' | 'grandline' | 'saiyan';
+export type AppThemeId = 'cream' | 'midnight' | 'neutral' | 'grove' | 'dusk' | 'folio' | 'onyx' | 'cyberpunk' | 'arabia' | 'arsenal' | 'liverpool' | 'grandline' | 'saiyan' | 'cutie';
 export const appThemes = {
   cream: { id: 'cream', name: 'Original / Cream', description: 'Warm paper, navy and the original LeanLog accents.', dark: false, canvas: '#FFF9ED', surface: '#FFFDF7', surfaceAlt: '#F3EAD7', hero: '#101A2B', heroRaised: '#26334A', text: '#101722', muted: '#697180', onHero: '#FFFDF7', heroMuted: '#AAB5C7', border: '#DED5C5', accent: '#FF6542', mint: '#8FD6B4', mintTint: '#DDF1E7', coralTint: '#FFE6DC', blueTint: '#E8E8FF', warningTint: '#F2E7CB', expense: '#EF3F43', income: '#168A65', transfer: '#528FF2' },
   midnight: { id: 'midnight', name: 'Midnight', description: 'Layered navy, soft mint and coral. Made for low light.', dark: true, canvas: '#0B1220', surface: '#142033', surfaceAlt: '#1C2B41', hero: '#101A2B', heroRaised: '#23334C', text: '#F3F1EB', muted: '#A9B5C7', onHero: '#FFFDF7', heroMuted: '#B3BFD0', border: '#34455E', accent: '#FF856B', mint: '#8FD6B4', mintTint: '#183A35', coralTint: '#452B2B', blueTint: '#282F52', warningTint: '#3A3223', expense: '#FF8383', income: '#6CD5AF', transfer: '#8BB6FF' },
@@ -15,9 +15,10 @@ export const appThemes = {
   liverpool: { id: 'liverpool', name: 'Liverpool', description: 'Anfield red, clean white and warm gold. The Liver bird in the details.', dark: false, canvas: '#FAF7F2', surface: '#FFFFFF', surfaceAlt: '#EEE7DA', hero: '#981326', heroRaised: '#851A2A', text: '#232725', muted: '#64584A', onHero: '#FFFFFF', heroMuted: '#F5DEDB', border: '#D9CBB7', accent: '#A71930', mint: '#E1C685', mintTint: '#E0EDE7', coralTint: '#F6E0E1', blueTint: '#E2E9EE', warningTint: '#F0E4CA', expense: '#AD2436', income: '#146B50', transfer: '#245FBD' },
   grandline: { id: 'grandline', name: 'Grand Line / One Piece', description: 'Parchment, ocean navy, straw gold and pirate red. Set sail with the crew.', dark: false, canvas: '#F6EDD9', surface: '#FFFAEF', surfaceAlt: '#E9DDC3', hero: '#123249', heroRaised: '#254A61', text: '#173047', muted: '#605C50', onHero: '#FFF8E8', heroMuted: '#C3D2D8', border: '#CEBE9C', accent: '#96372D', mint: '#EBC775', mintTint: '#E5EAD7', coralTint: '#F3DCD2', blueTint: '#DDE7EC', warningTint: '#EFE0B9', expense: '#AD2436', income: '#146B50', transfer: '#245FBD' },
   saiyan: { id: 'saiyan', name: 'Saiyan / Dragon Ball', description: 'Deep blue, fiery orange and Super Saiyan gold. Find your next power level.', dark: true, canvas: '#0B1628', surface: '#162640', surfaceAlt: '#223754', hero: '#102C51', heroRaised: '#24466C', text: '#FFF5E5', muted: '#B3C4D9', onHero: '#FFF7EA', heroMuted: '#B6CCE6', border: '#3E5673', accent: '#FFAA52', mint: '#FFD16A', mintTint: '#333A2A', coralTint: '#49332F', blueTint: '#243C61', warningTint: '#403821', expense: '#FF9397', income: '#86DFB5', transfer: '#99C8FF' },
+  cutie: { id: 'cutie', name: 'Cutie', description: 'Bubblegum pink, sunny yellow and sky blue. Little smiles, every day.', dark: false, canvas: '#FFF2F6', surface: '#FFFCFD', surfaceAlt: '#F6DFE8', hero: '#4D2442', heroRaised: '#693653', text: '#402338', muted: '#75556A', onHero: '#FFF8FB', heroMuted: '#E5C7DA', border: '#DDB5C9', accent: '#A52B65', mint: '#F1CA62', mintTint: '#E3F1E8', coralTint: '#F9DFE9', blueTint: '#DFEDF9', warningTint: '#F8EBC7', expense: '#B62E49', income: '#176F51', transfer: '#2866B1' },
 } as const;
 export type AppPalette = typeof appThemes[AppThemeId];
-export const themeIds: AppThemeId[] = ['cream', 'midnight', 'neutral', 'grove', 'dusk', 'folio', 'onyx', 'cyberpunk', 'arabia', 'arsenal', 'liverpool', 'grandline', 'saiyan'];
+export const themeIds: AppThemeId[] = ['cream', 'midnight', 'neutral', 'grove', 'dusk', 'folio', 'onyx', 'cyberpunk', 'arabia', 'arsenal', 'liverpool', 'grandline', 'saiyan', 'cutie'];
 export const validThemeId = (value: unknown): AppThemeId => typeof value === 'string' && themeIds.includes(value as AppThemeId) ? value as AppThemeId : 'cream';
 
 export const themeTypography = {
@@ -33,6 +34,7 @@ export const themeTypography = {
   arsenal: { heading: 'SpaceGrotesk', body: 'Manrope', label: 'SpaceGrotesk', number: 'SpaceGrotesk' },
   grandline: { heading: 'PirataOne', body: 'Manrope', label: 'SpaceGrotesk', number: 'SpaceGrotesk' },
   saiyan: { heading: 'Bangers', body: 'Manrope', label: 'SpaceGrotesk', number: 'SpaceGrotesk' },
+  cutie: { heading: 'Manrope', body: 'Manrope', label: 'Manrope', number: 'Manrope' },
   liverpool: { heading: 'SpaceGrotesk', body: 'Manrope', label: 'SpaceGrotesk', number: 'SpaceGrotesk' },
 } as const;
 export type TypographyRole = keyof typeof themeTypography.cream;
@@ -72,7 +74,7 @@ export function themeColour(value: string, palette: AppPalette, role: ColourRole
     if (paper.has(key) || borders.has(key) || raised.has(key) || /^RGBA\(16,\s*(26|23),/.test(key)) return palette.border;
   }
   if (role === 'backgroundColor') {
-    if (key === '#8FD6B4' && (palette.id === 'cyberpunk' || palette.id === 'arabia' || palette.id === 'arsenal' || palette.id === 'liverpool' || palette.id === 'grandline' || palette.id === 'saiyan')) return palette.mint;
+    if (key === '#8FD6B4' && (palette.id === 'cyberpunk' || palette.id === 'arabia' || palette.id === 'arsenal' || palette.id === 'liverpool' || palette.id === 'grandline' || palette.id === 'saiyan' || palette.id === 'cutie')) return palette.mint;
     if (canvas.has(key)) return palette.canvas;
     if (paper.has(key)) return palette.surface;
     if (hero.has(key)) return palette.hero;

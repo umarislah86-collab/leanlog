@@ -2,17 +2,8 @@ import { appThemes, type AppThemeId } from './appTheme';
 import { themeMotif } from './themeMotifs';
 
 export type ArtworkPlace = 'home' | 'log' | 'progress' | 'coach' | 'drawer' | 'widget' | 'account' | 'cash' | 'quick' | 'upcoming';
-// Original line-art interpretations, bundled offline. No raster downloads or SVG fonts.
-const portraits = {
-  luffy: '<path d="M9 26Q32 18 55 26L57 30Q32 38 7 30ZM17 24Q17 5 32 7Q47 5 47 24M18 19Q32 15 46 19M16 33l2 12 8 9h12l8-9 2-12M17 33l5 8-1-10 7 8 4-8 8 8 3-9 5 5M22 42h5m10 0h5M25 47q7 8 14 0ZM38 44l5 2m-2-4v6M11 61l10-9 11 8 11-8 10 9"/>',
-  zoro: '<path d="M16 27 13 19l8 1-1-9 9 5 4-10 5 11 9-5-1 10 7 1-7 9M17 27q15-8 30 0l-2 18-9 10h-9L18 45ZM20 35l8-2m8 0 7 2M39 29l-2 14M24 45h17M42 43l13-4m-11 7 12-3M18 38l-4 2m1 0v5m-2-4v5m4-5v5M7 61l17-10 8 9 9-9 16 10M6 5l9 12m-8-2 8-6M3 12l10 10"/>',
-  sanji: '<path d="M17 39Q7 11 29 9Q52 3 49 29L32 40l1-17q-5 13-17 16ZM17 38l3 10 12 8 12-9 2-15M21 36q7-6 8 0q-4 4-5 0M22 41h6m8 6 7-2 10 2m-2-3 6 2M30 50l3 2M8 62l14-11 10 9 10-10 14 12M25 55l-3 7m17-7 3 7M31 59v4M54 41q-4-4 0-8"/>',
-  goku: '<path d="m15 31-9-7 11-2-7-10 15 4 1-13 9 12L45 4l-2 14 14-4-8 12 9 3-10 8M17 28l7 8 7-12 8 11 8-8M17 35l3 12 12 9 12-9 3-12M22 39l7 1m7 0 6-1M29 48l6 1M8 63l14-11 10 9 10-9 14 11M18 56l5 7m18-7-5 7"/>',
-  vegeta: '<path d="M16 33 10 8l11 9L27 2l6 18 8-16 1 17 12-10-7 25M17 29l8-8 7 14 8-14 8 8-3 18-13 9-12-9ZM21 39l7 3m8 0 7-3M28 48h9M7 63l15-10 10 7 10-7 15 10M19 55v8m26-8v8M24 59h16"/>',
-  piccolo: '<path d="M17 25Q18 10 32 10Q46 10 47 25L44 47 32 56 20 47ZM26 16l-3-9-5-4m20 13 3-9 5-4M17 29 5 21l11 21m31-13 12-8-11 21M21 32l8 5m6 0 8-5M22 39h6m9 0h6M27 48h11M7 63l8-15 17 12 17-12 8 15M18 52l-1 11m30-11 1 11"/>',
-  chopper: '<path d="M16 27V17Q32 7 48 17v10M10 27h44v8H10ZM27 17l10 7m0-7-10 7M15 18 7 14 5 6m2 8 5-5m37 9 8-4 2-8m-2 8-5-5M17 35l2 14 13 8 13-8 2-14M22 42h4m12 0h4M29 47h6l-3 3ZM24 53l-3 9m19-9 3 9"/>',
-  shenron: '<path d="M14 53q-12-16 5-22t27-8q11-15-4-15Q26 6 32 17q4 5 9 0M14 53q12 10 28 0t-5-14q-17 2-16 11M32 17l-9 2 3 8 13 2 9-9-7-3M24 19l-9-8m10 11-12 1m29-10 7-9m-4 13 13-4M28 19l4 2m7 0 4-2M19 32l-5-7m28 11 9 5M31 44l-6-8M23 52l-8 7m28-8 8 6"/>',
-};
+import { cutieImages } from './cutieImageData';
+import { characterImages } from './characterImageData';
 const ornaments: Record<ArtworkPlace, string> = {
   account: '<path d="M6 14h52v39H6ZM6 22h52M45 36h13v9H45Z"/>',
   cash: '<path d="M6 12h52v40H6ZM11 17h5m32 0h5M11 47h5m32 0h5"/>',
@@ -29,14 +20,33 @@ const ornaments: Record<ArtworkPlace, string> = {
 export function themeArtwork(id: AppThemeId, place: ArtworkPlace, onHero = false) {
   const motif = themeMotif(id, onHero);
   const colour = onHero ? appThemes[id].mint : appThemes[id].accent;
-  const crew: Partial<Record<ArtworkPlace, keyof typeof portraits>> = id === 'grandline'
-    ? { log: 'luffy', progress: 'zoro', coach: 'sanji', drawer: 'chopper' }
-    : id === 'saiyan' ? { log: 'goku', progress: 'vegeta', coach: 'piccolo', drawer: 'shenron' } : {};
-  const character = crew[place];
-  if (character) return {
-    name: character, ratio: 1,
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><g fill="none" stroke="${colour}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${portraits[character]}</g></svg>`,
-  };
+  if (id === 'cutie') {
+    const places = {home:'pinkSky',log:'yummy',progress:'cheer',coach:'cool',drawer:'thumbsUp',widget:'wow',account:'sunshine',cash:'thumbsUp',quick:'yummy',upcoming:'cool'} as const;
+    const name=places[place], image=cutieImages[name];
+    const portrait=name==='sunshine'||name==='pinkSky';
+    // Preserve sticker faces and their original outline; no redraw or stretching.
+    const width=portrait?320:300, height=width*image.height/image.width;
+    const y=portrait?0:(320-height)/2;
+    return {name:`Cutie / ${name}`,ratio:1,raster:true,
+      svg:`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="320" height="320" viewBox="0 0 320 320" color="${colour}" data-place="${place}"><defs><radialGradient id="cutieFade"><stop offset="0.76" stop-color="white"/><stop offset="1" stop-color="black"/></radialGradient><mask id="cutiePortrait"><rect width="320" height="320" fill="url(#cutieFade)"/></mask></defs><g${portrait?' mask="url(#cutiePortrait)"':''}><svg x="${(320-width)/2}" y="${y}" width="${width}" height="${height}" viewBox="0 0 ${image.width} ${image.height}"><defs><clipPath id="cutieOutline"><path d="${image.clip}"/></clipPath></defs><image width="${image.width}" height="${image.height}" xlink:href="${image.uri}"${portrait?'':' clip-path="url(#cutieOutline)"'}/></svg></g></svg>`};
+  }
+  const crew = id === 'grandline'
+    ? {home:'luffy',log:'luffy',progress:'zoro',coach:'sanji',drawer:'chopper',widget:'zoro',account:'sanji',cash:'chopper',quick:'luffy',upcoming:'zoro'} as const
+    : id === 'saiyan' ? {home:'goku',log:'goku',progress:'vegeta',coach:'piccolo',drawer:'gohan',widget:'vegeta',account:'piccolo',cash:'gohan',quick:'goku',upcoming:'vegeta'} as const : null;
+  const character = crew?.[place];
+  if (character) {
+    const image=characterImages[character];
+    // Frame the original upper body in SVG. Feather the portrait edge into the
+    // page instead of putting a hard rectangular photograph behind the text.
+    const crops:Record<keyof typeof characterImages,[number,number,number]>={
+      luffy:[185,0,230],zoro:[190,0,250],sanji:[230,0,200],chopper:[130,0,390],
+      goku:[140,0,340],vegeta:[85,0,330],piccolo:[100,0,390],gohan:[100,0,380],
+    };
+    const [x,y,w]=crops[character];
+    const shift=place==='widget'||place==='quick'?14:place==='drawer'?6:0;
+    return {name:character,ratio:1,raster:true,
+      svg:`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="320" height="320" viewBox="0 0 320 320" color="${colour}" data-place="${place}"><defs><radialGradient id="fade"><stop offset="0.68" stop-color="white"/><stop offset="1" stop-color="black"/></radialGradient><mask id="portrait"><rect width="320" height="320" fill="url(#fade)"/></mask></defs><g mask="url(#portrait)"><svg x="0" y="0" width="320" height="320" viewBox="${x+shift} ${y} ${w} ${w}"><image width="${image.width}" height="${image.height}" xlink:href="${image.uri}"/></svg></g></svg>`};
+  }
   // Each surface gets a different composition while retaining the theme's central identity.
   const inner = motif.svg.replace(/^[\s\S]*?<svg\b[^>]*>/, '').replace(/<\/svg>[\s\S]*$/, '');
   const width = id === 'arsenal' ? 315 : id === 'liverpool' ? 34 : 64;

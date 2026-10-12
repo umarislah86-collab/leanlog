@@ -512,7 +512,7 @@ export default function HomeScreen({ navigation }: any) {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView style={styles.screen} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.coral} />}>
-        <View>
+        <View artworkAlpha={palette.id === 'cutie' ? .30 : undefined}>
           <ThemeWatermark id={palette.id} onHero placement="home"/>
         <View style={styles.headerRow}>
           <View style={{flexDirection:'row',alignItems:'center',gap:12}}><AppMenuButton/><View>
@@ -552,7 +552,7 @@ export default function HomeScreen({ navigation }: any) {
           </Text>
         </TouchableOpacity>
 
-        <View style={styles.briefCard}>
+        <View artworkAlpha={palette.id === 'cutie' ? .30 : undefined} style={styles.briefCard}>
           <ThemeWatermark id={palette.id} onHero/>
           <View style={styles.cardHeadingRow}>
             <Text style={styles.briefEyebrow}>DAILY BRIEFING</Text>

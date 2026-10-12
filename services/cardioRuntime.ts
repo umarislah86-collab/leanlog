@@ -7,7 +7,7 @@ import * as Notifications from 'expo-notifications';
 import * as Speech from 'expo-speech';
 import { fsUpsert } from '../firebase';
 import { latestLoggedWeight } from './currentWeight';
-import { cardioCalories, cardioGoalProgress, cardioNames, createCardioSession, elapsedCardioMs, recordCardioFix, transitionCardio, type CardioConfig, type CardioSession } from './cardioCore';
+import { cardioCalorieNote, cardioCalories, cardioGoalProgress, cardioNames, createCardioSession, elapsedCardioMs, recordCardioFix, transitionCardio, type CardioConfig, type CardioSession } from './cardioCore';
 import { loadCardioSession, updateCardioSession } from './cardioStore';
 import type { ActivityEntry } from '../types';
 
@@ -176,13 +176,15 @@ export function saveCardioActivity(sessionId: string) {
     const s = await loadCardioSession();
     if (!s || s.id !== sessionId || !['finished','saved'].includes(s.status)) throw Error('Finish this session before saving.');
     if (elapsedCardioMs(s) < 1000) throw Error('This session has no active time to save. You can discard it and start again.');
+    if (s.calorieVersion === 2 && (s.distanceM <= 0 || (s.config.gps && !s.manual && !(s.gpsEnergy?.seconds)))) throw Error('No usable distance recorded. Enter the distance in Quick log, or add your treadmill distance before saving.');
     const id = s.activityEntryId || s.id;
     const date = new Date(s.startedAt);
-    const entry: ActivityEntry = { id, type: 'activity', name: `${cardioNames[s.config.mode]}${s.config.intervals ? ' · Intervals' : ''}`,
+    const entry: ActivityEntry = { id, type: 'activity', name: `${s.calorieVersion === 2 ? 'Cardio · Walk / Jog / Run' : cardioNames[s.config.mode]}${s.config.intervals ? ' · Intervals' : ''}`,
       duration: Math.round(elapsedCardioMs(s) / 60000 * 100) / 100, caloriesBurned: cardioCalories(s),
-      date: date.toLocaleDateString('ms-MY'), time: date.toLocaleTimeString('ms-MY', { hour:'2-digit', minute:'2-digit' }),
+      date: `${date.getDate()}/${date.getMonth()+1}/${date.getFullYear()}`, time: `${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`,
       details: {
-        kind:s.config.mode, source:s.manual?'manual':'LeanLog Cardio', calorieBasis:'estimated',
+        kind:s.calorieVersion === 2 ? 'cardio' : s.config.mode, source:s.manual?'manual':'LeanLog Cardio', calorieBasis:s.calorieVersion === 2 ? 'active' : 'estimated',
+        ...(s.calorieVersion === 2 ? {activeCalories:cardioCalories(s),notes:cardioCalorieNote(s)} : {}),
         startedAt:new Date(s.startedAt).toISOString(), endedAt:new Date(s.endedAt || s.startedAt+elapsedCardioMs(s)).toISOString(),
         totalDurationMin:Math.round(((s.endedAt || s.startedAt+elapsedCardioMs(s))-s.startedAt)/60000*100)/100,
         ...(s.config.gps || s.distanceM>0 ? {distanceKm:s.distanceM/1000} : {}),
@@ -201,11 +203,20 @@ export function saveCardioActivity(sessionId: string) {
 }
 export function manualCardio(config: CardioConfig, durationMin: number, distanceKm: number) {
   return serial(async () => {
-    if (!Number.isFinite(durationMin) || durationMin < 1 || durationMin > 600 || !Number.isFinite(distanceKm) || distanceKm < 0 || distanceKm > 100) throw Error('Enter 1–600 minutes and a valid optional distance (up to 100 km).');
+    if (!Number.isFinite(durationMin) || durationMin < 1 || durationMin > 600 || !Number.isFinite(distanceKm) || distanceKm <= 0 || distanceKm > 100) throw Error('Enter 1–600 minutes and a distance above 0 (up to 100 km).');
     const now = Date.now(), session = createCardioSession({ ...config, gps: false, goal: 'free', intervals: null }, await currentCardioWeight(), now - durationMin * 60000);
     return updateCardioSession(current => {
       if (current && current.status !== 'saved') throw Error('Finish/save or discard the current session first.');
       return { ...session, status: 'finished', endedAt: now, runningSince: null, elapsedMs: durationMin * 60000, distanceM: distanceKm * 1000, manual: true };
+    });
+  });
+}
+export function setCardioDistance(sessionId: string, distanceKm: number) {
+  return serial(async () => {
+    if (!Number.isFinite(distanceKm) || distanceKm <= 0 || distanceKm > 100) throw Error('Enter a distance above 0, up to 100 km.');
+    return updateCardioSession(s => {
+      if (!s || s.id !== sessionId || s.status !== 'finished' || s.config.gps) throw Error('Only a finished timer-only session can receive a distance.');
+      return {...s,distanceM:distanceKm*1000};
     });
   });
 }

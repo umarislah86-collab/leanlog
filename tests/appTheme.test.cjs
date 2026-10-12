@@ -40,8 +40,8 @@ function runtime(values = new Map(), failure = {}) {
 const luminance = hex => { const rgb = hex.replace('#', '').match(/../g).map(x => parseInt(x, 16) / 255).map(x => x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4); return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722; };
 const contrast = (a, b) => { const x = luminance(a), y = luminance(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
 
-test('thirteen explicit themes, unknown/missing preference safely defaults to Original', () => {
-  assert.equal(Object.keys(appThemes).length, 13);
+test('fourteen explicit themes, unknown/missing preference safely defaults to Original', () => {
+  assert.equal(Object.keys(appThemes).length, 14);
   for (const value of [null, undefined, 'auto', 'invalid', '{}']) assert.equal(validThemeId(value), 'cream');
   assert.equal(validThemeId('midnight'), 'midnight'); assert.equal(validThemeId('neutral'), 'neutral');
   for (const id of api.themeIds) assert.equal(validThemeId(id), id);
@@ -195,4 +195,8 @@ test('Apply triggers widget refresh after durable save, never for a failed prefe
   assert.deepEqual(r.widgetRefreshes, ['dusk']);
   r.failure.write = true; await assert.rejects(r.context.useTheme().setTheme('grove')); await tick();
   assert.deepEqual(r.widgetRefreshes, ['dusk']);
+});
+test('weight graph ink contrasts with each theme hero card including red club themes',()=>{
+ const contrast=load('services/textContrast.ts');const chart=load('services/progressChartColours.ts',{'./textContrast':contrast});
+ for(const id of api.themeIds){const p=api.appThemes[id];assert.ok(contrast.textContrast(chart.progressChartInk(p,p.hero),p.hero)>=3,id);}
 });

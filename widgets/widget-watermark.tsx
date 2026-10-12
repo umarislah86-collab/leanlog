@@ -15,6 +15,9 @@ export function widgetWatermark(content: React.JSX.Element, id: AppThemeId, onHe
   const ink = motif.svg.match(/#[0-9a-fA-F]{6}/)![0];
   const rgb = (hex: string) => hex.slice(1).match(/../g)!.map(x => parseInt(x, 16));
   const base = rgb(style.backgroundColor), top = rgb(ink);
+  const raster = 'raster' in motif;
+  const composite = (top:number) => '#' + base.map(x=>Math.round(x*.76+top*.24).toString(16).padStart(2,'0')).join('');
+  const rasterBackgrounds = [style.backgroundColor,composite(0),composite(255)];
   const painted = '#' + base.map((x, i) => Math.round(x * .76 + top[i] * .24).toString(16).padStart(2, '0')).join('');
   function readable(node: React.ReactNode, background: string, plain: string): React.ReactNode {
     if (Array.isArray(node)) return node.map(child => readable(child, background, plain));
@@ -23,8 +26,9 @@ export function widgetWatermark(content: React.JSX.Element, id: AppThemeId, onHe
     const bg = nodeStyle.backgroundColor ?? background;
     const baseBg = nodeStyle.backgroundColor ?? plain;
     const colour = nodeStyle.color;
+    const rasterInk = raster && colour && !nodeStyle.backgroundColor && baseBg===style.backgroundColor ? [colour,'#FFFFFF','#000000'].sort((a,b)=>Math.min(...rasterBackgrounds.map(bg=>textContrast(b,bg)))-Math.min(...rasterBackgrounds.map(bg=>textContrast(a,bg))))[0] : null;
     const worst = colour && textContrast(colour, baseBg) < textContrast(colour, bg) ? baseBg : bg;
-    return React.cloneElement(node, { style: node.props.text && nodeStyle.color ? { ...nodeStyle, color: contrastText(nodeStyle.color, worst) } : nodeStyle, children: readable(node.props.children, bg, baseBg) });
+    return React.cloneElement(node, { style: node.props.text && nodeStyle.color ? { ...nodeStyle, color: rasterInk || contrastText(nodeStyle.color, worst) } : nodeStyle, children: readable(node.props.children, bg, baseBg) });
   }
   const { backgroundColor, ...foreground } = style;
   return <OverlapWidget style={{ width: 'match_parent', height: 'match_parent', backgroundColor, borderRadius: style.borderRadius, overflow: 'hidden' }}>

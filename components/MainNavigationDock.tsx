@@ -55,7 +55,7 @@ export function MainNavigationDock({ state, descriptors, navigation }: any) {
     setTimeout(() => navigation.navigate(route, params), 120);
   };
   return (
-    <View
+    <View artworkAlpha={palette.id === 'cutie' ? .30 : undefined}
       style={{
         flexDirection: 'row',
         alignItems: 'center',
@@ -107,7 +107,7 @@ export function MainNavigationDock({ state, descriptors, navigation }: any) {
           );
         })}
       </ThemeAnimatedView>
-      <ThemeAnimatedView pointerEvents={isMoney ? 'auto' : 'none'} accessibilityElementsHidden={!isMoney} importantForAccessibility={isMoney ? 'auto' : 'no-hide-descendants'}
+      <ThemeAnimatedView artworkAlpha={palette.id === 'cutie' ? .30 : undefined} pointerEvents={isMoney ? 'auto' : 'none'} accessibilityElementsHidden={!isMoney} importantForAccessibility={isMoney ? 'auto' : 'no-hide-descendants'}
         style={[StyleSheet.absoluteFill, { flexDirection: 'row', alignItems: 'center', backgroundColor: themed(colors.ink, 'backgroundColor'), borderRadius: 20, padding: 4, marginLeft: 8, marginVertical: 2 }, moneyMotion]}>
         <ThemeWatermark id={palette.id} onHero placement="dock"/>
         {redcoinsSections.map(section => {

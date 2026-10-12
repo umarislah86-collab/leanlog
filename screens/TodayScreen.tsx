@@ -16,7 +16,8 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect, useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 
 import { Ionicons } from '@expo/vector-icons';
-import { saveActivityRecord } from '../services/activityStorage';
+import { activityDate, activityTime } from '../services/activityDateTime';
+import { saveActivityRecord, removeActivityRecord } from '../services/activityStorage';
 import { ActivityRecordModal, ActivityDetailFields } from '../components/ActivityRecord';
 import { activityImageInput, parseActivityImage, activitySummary, cleanActivityDetails } from '../services/activityDetails';
 import type { ActivityDetails } from '../types';
@@ -53,8 +54,8 @@ const calculateTDEE = (p: UserProfile): number => {
   return Math.round(bmr * (ACTIVITY_MULTS[p.activityLevel] ?? 1.55));
 };
 
-const formatEntryDate = (d: Date) => d.toLocaleDateString('ms-MY');
-const formatEntryTime = (d: Date) => d.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' });
+const formatEntryDate = activityDate;
+const formatEntryTime = activityTime;
 
 const parseEntryDateTime = (dateStr: string, timeStr: string): Date => {
   const [day, month, year] = dateStr.split('/').map(Number);
@@ -145,6 +146,7 @@ export default function TodayScreen() {
   // Form state
   const [goalInput, setGoalInput] = useState('');
   const [textFoodInput, setTextFoodInput] = useState('');
+  const [lastSavedActivity, setLastSavedActivity] = useState<ActivityEntry | null>(null);
   const [activityReview, setActivityReview] = useState<ActivityEntry | null>(null);
   const [activityDetailEntry, setActivityDetailEntry] = useState<ActivityEntry | null>(null);
   const [manualActivityDetails, setManualActivityDetails] = useState<ActivityDetails>({});
@@ -204,9 +206,8 @@ export default function TodayScreen() {
   useEffect(() => {
     if (dataHydrated) AsyncStorage.setItem(FOOD_KEY, JSON.stringify(foodEntries)).then(refreshLeanLogWidget);
   }, [foodEntries, dataHydrated]);
-  useEffect(() => {
-    if (dataHydrated) AsyncStorage.setItem(ACTIVITY_KEY, JSON.stringify(activityEntries));
-  }, [activityEntries, dataHydrated]);
+  // Activity mutations persist explicitly. Never write an entire stale screen
+  // snapshot over a record just saved by screenshot review or Cardio Companion.
   useEffect(() => {
     if (dataHydrated) AsyncStorage.setItem(GOAL_KEY, String(calorieGoal)).then(refreshLeanLogWidget);
   }, [calorieGoal, dataHydrated]);
@@ -501,6 +502,8 @@ export default function TodayScreen() {
   const saveReviewedActivity = async (draft:ActivityEntry) => {
     const {entry,rows} = await saveActivityRecord(draft);
     setActivityEntries(rows);
+    setLastSavedActivity(entry);
+    void refreshLeanLogWidget().catch(console.warn);
     void fsUpsert('activityEntries',entry.id,entry).catch(console.warn);
   };
 
@@ -587,8 +590,10 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
         time: entryTime ?? new Date().toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' }),
         date: entryDate ?? today,
       };
-      setActivityEntries((prev) => [entry, ...prev]);
-      fsUpsert('activityEntries', entry.id, entry);
+      const saved = await saveActivityRecord(entry);
+      setActivityEntries(saved.rows); setLastSavedActivity(saved.entry);
+      void refreshLeanLogWidget().catch(console.warn);
+      void fsUpsert('activityEntries', entry.id, saved.entry).catch(console.warn);
     } catch (err) {
       Alert.alert(t('error'), err instanceof Error ? err.message : String(err));
     } finally {
@@ -655,8 +660,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
               setFoodEntries((p) => p.filter((e) => e.id !== optionsTarget.id));
               fsDelete('foodEntries', optionsTarget.id);
             } else {
-              setActivityEntries((p) => p.filter((e) => e.id !== optionsTarget.id));
-              fsDelete('activityEntries', optionsTarget.id);
+              void removeActivityRecord(optionsTarget.id).then(rows => {setActivityEntries(rows);void fsDelete('activityEntries', optionsTarget.id).catch(console.warn);void refreshLeanLogWidget().catch(console.warn);}).catch(e=>Alert.alert('Activity',String(e)));
             }
           },
         },
@@ -674,8 +678,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
       setFoodEntries((p) => p.map((e) => e.id === optionsTarget.id ? { ...e, date: newDate, time: newTime } : e));
     } else {
       const entry = activityEntries.find((e) => e.id === optionsTarget.id);
-      if (entry) fsUpsert('activityEntries', optionsTarget.id, { ...entry, date: newDate, time: newTime });
-      setActivityEntries((p) => p.map((e) => e.id === optionsTarget.id ? { ...e, date: newDate, time: newTime } : e));
+      if (entry) void saveActivityRecord({...entry,date:newDate,time:newTime}).then(saved=>{setActivityEntries(saved.rows);void fsUpsert('activityEntries',saved.entry.id,saved.entry).catch(console.warn);void refreshLeanLogWidget().catch(console.warn);}).catch(e=>Alert.alert('Activity',String(e)));
     }
     setShowEditDateTime(false);
   };
@@ -742,7 +745,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
   const pendingCategoryLabel = MEAL_CATEGORIES.find((c) => c.key === pendingCategory)?.label ?? '';
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView artworkAlpha={palette.id === 'cutie' ? .30 : undefined} style={styles.container} edges={['top']}>
       <ThemeWatermark id={palette.id} placement="page" artwork="log"/>
       <StatusBar style={palette.dark ? 'light' : 'dark'} />
 
@@ -851,6 +854,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
       )}
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        {lastSavedActivity && <TouchableOpacity onPress={()=>setActivityDetailEntry(lastSavedActivity)} style={{padding:14,marginBottom:12,borderWidth:1,borderColor:palette.border,borderRadius:14,backgroundColor:palette.surface}}><Text style={{color:palette.text,fontWeight:'700'}}>Activity saved · {lastSavedActivity.date} · {lastSavedActivity.time}</Text><Text style={{color:palette.muted,fontSize:12}}>{lastSavedActivity.name} · {lastSavedActivity.caloriesBurned} kcal · Tap to view saved record{lastSavedActivity.date!==today?' · See this date in Progress calendar':''}</Text></TouchableOpacity>}
         <TouchableOpacity onPress={() => { setProteinForm(proteinDraft(userProfile)); setBodyOpen(false); setProteinOpen(value => value + 1); setShowProfileModal(true); }} style={{ paddingVertical: 10 }}><Text style={{ color: palette.accent }}>Target protein {proteinGoal}g · Ubah di Profile</Text></TouchableOpacity>
         {/* Suku Suku Separuh Card */}
         {nutritionMode === 'sss' && (() => {

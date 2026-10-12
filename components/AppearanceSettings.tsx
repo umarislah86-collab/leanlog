@@ -14,7 +14,7 @@ function ThemePreview({ palette: p, compact }: { palette: AppPalette; compact: b
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
       <Text style={{ color: p.text, fontFamily: 'serif', fontSize: compact ? 18 : 22 }}>Your day, in balance.</Text>
     </View>
-    <View style={{ backgroundColor: p.hero, borderRadius: 14, padding: compact ? 10 : 14, overflow: 'hidden' }}>
+    <View artworkAlpha={p.id === 'cutie' ? .30 : undefined} style={{ backgroundColor: p.hero, borderRadius: 14, padding: compact ? 10 : 14, overflow: 'hidden' }}>
       <ThemeWatermark id={p.id} onHero/>
       <Text style={{ color: p.onHero, fontSize: 9, fontWeight: '800', letterSpacing: 1 }}>TRUE SPENDABLE CASH</Text>
       <Text typographyRole="number" style={{ color: p.onHero, fontSize: compact ? 23 : 28, marginTop: 4 }}>RM 1,240.00</Text>

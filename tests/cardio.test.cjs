@@ -14,7 +14,7 @@ test('active clock catches up after background, excludes pause, and survives res
  assert.equal(core.elapsedCardioMs(core.createCardioSession(cfg(),100,1000),500),0);
 });
 test('interval phase boundaries and calorie weighting use actual active seconds',()=>{
- const s=core.createCardioSession(cfg({mode:'jog',intervals:{walkSeconds:120,effortSeconds:60,rounds:2}}),100,0);
+ const s={...core.createCardioSession(cfg({mode:'jog',intervals:{walkSeconds:120,effortSeconds:60,rounds:2}}),100,0),calorieVersion:undefined};
  assert.equal(core.cardioPhase(s,119000).mode,'walk');assert.equal(core.cardioPhase(s,120000).mode,'jog');
  assert.equal(core.cardioPhase(s,180000).round,2);assert.equal(core.cardioPhase(s,360000).done,true);
  assert.equal(core.cardioCalories(s,180000),Math.round((4.8*2+7.5)*3.5*100/200));
@@ -79,11 +79,11 @@ test('saving twice/concurrently writes one Activity and one history record with 
  assert.equal(JSON.parse(r.values.get('activity_entries')).length,1);
  assert.equal((await r.store.loadCardioHistory()).length,1);
  assert.equal((await r.store.loadCardioSession()).status,'saved');
- assert.equal(JSON.parse(r.values.get('activity_entries'))[0].caloriesBurned,277);
+ assert.equal(JSON.parse(r.values.get('activity_entries'))[0].caloriesBurned,219);
  r.sql.db.close();
 });
 test('storage/history write failures preserve unsaved session; retry cannot duplicate logged Activity',async()=>{
- const r=runtime();const s=await r.api.manualCardio(cfg(),20,0);
+ const r=runtime();const s=await r.api.manualCardio(cfg(),20,1.5);
  r.failStorage(true);await assert.rejects(r.api.saveCardioActivity(s.id),/disk full/);
  assert.equal((await r.store.loadCardioSession()).status,'finished');assert.equal((await r.store.loadCardioHistory()).length,0);
  r.failStorage(false);r.sql.fail(sql=>{if(sql.includes('INTO cardio_history'))throw Error('history disk full');});
@@ -109,4 +109,29 @@ test('SQLite exclusive updates preserve GPS changes and reject overwrite of unfi
  await assert.rejects(r.api.startCardio(cfg()),/current session/);
  await assert.rejects(r.api.manualCardio(cfg(),10,1),/current session/);
  r.sql.db.close();
+});
+test('auto pace regression: 117kg 5.9km 62min uses active energy, not fixed Jog MET',()=>{
+ const base={...core.createCardioSession(cfg({mode:'auto',gps:false}),117,0),distanceM:5900};
+ assert.equal(core.cardioCalories(base,62*60000),482);
+ assert.equal(core.cardioCalories({...base,weightKg:100},62*60000),412);
+ assert.equal(core.cardioCalories({...base,distanceM:0},62*60000),0);
+ const legacy={...base,calorieVersion:undefined,config:{...base.config,mode:'jog'}};
+ assert.equal(core.cardioCalories(legacy,62*60000),952);
+});
+test('GPS calories follow accepted segment pace; paused time and signal gaps add no energy',()=>{
+ let s=core.createCardioSession(cfg({mode:'auto',gps:true}),117,0);
+ s=core.recordCardioFix(s,fix(0,1000));
+ s=core.recordCardioFix(s,fix(.00085,61000));
+ const first=core.cardioCalories(s,61000);assert.ok(first>6&&first<10);
+ s=core.recordCardioFix(s,fix(.0021,121000));assert.ok(core.cardioCalories(s,121000)>first*2);
+ const energy=core.cardioCalories(s,121000);
+ s=core.recordCardioFix(s,fix(.1,500000));assert.equal(core.cardioCalories(s,500000),energy);
+ s=core.transitionCardio(s,'pause',501000);assert.equal(core.cardioCalories(s,999999),energy);
+});
+test('timer-only save requires measured distance and stores active calorie basis',async()=>{
+ const r=runtime();await assert.rejects(r.api.manualCardio(cfg(),20,0),/distance|Distance/);
+ const s=await r.api.startCardio(cfg());r.advance(20*60000);await r.api.controlCardio('finish',s.id);
+ await assert.rejects(r.api.saveCardioActivity(s.id),/distance|Distance/);
+ await r.api.setCardioDistance(s.id,1.5);await r.api.saveCardioActivity(s.id);
+ const entry=JSON.parse(r.values.get('activity_entries'))[0];assert.equal(entry.details.calorieBasis,'active');assert.ok(entry.caloriesBurned>0);r.sql.db.close();
 });

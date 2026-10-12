@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 
 import Svg, { Path, Defs, LinearGradient, Stop, Circle } from 'react-native-svg';
 import type { WeightEntry } from '../types';
+import { progressChartInk } from '../services/progressChartColours';
 
 interface Props {
   entries: WeightEntry[];
@@ -21,7 +22,8 @@ const parseDateKey = (key: string): number => {
 };
 
 export default function WeightAreaChart({ entries }: Props) {
-  const { themed } = useTheme();
+  const { palette } = useTheme();
+  const chartInk=progressChartInk(palette,palette.hero);
   const [canvasW, setCanvasW] = useState(0);
 
   const sorted = [...entries].sort((a, b) => parseDateKey(a.date) - parseDateKey(b.date));
@@ -79,14 +81,14 @@ export default function WeightAreaChart({ entries }: Props) {
               x2="0" y2={String(bottomY)}
               gradientUnits="userSpaceOnUse"
             >
-              <Stop offset="0" stopColor={themed("#FF6542", 'color')} stopOpacity="0.4" />
-              <Stop offset="1" stopColor={themed("#FF6542", 'color')} stopOpacity="0" />
+              <Stop offset="0" stopColor={chartInk} stopOpacity="0.4" />
+              <Stop offset="1" stopColor={chartInk} stopOpacity="0" />
             </LinearGradient>
           </Defs>
           <Path d={areaPath} fill="url(#wGrad)" />
-          <Path d={linePath} fill="none" stroke={themed("#FF6542", 'color')} strokeWidth={2} />
+          <Path d={linePath} fill="none" stroke={chartInk} strokeWidth={2.5} />
           {[pts[0], pts[pts.length - 1]].map((p, i) => (
-            <Circle key={i} cx={p.x} cy={p.y} r={3.5} fill={themed("#FF6542", 'color')} />
+            <Circle key={i} cx={p.x} cy={p.y} r={3.5} fill={chartInk} />
           ))}
         </Svg>
       )}
