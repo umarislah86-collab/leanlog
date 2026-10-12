@@ -42,22 +42,22 @@ test('all five widget types build headlessly for every theme, keeping actions an
   const quick = JSON.stringify(buildWidgetTree(samples('dusk')[4])); assert.match(quick, /leanlog:\/\/quick\/food/); assert.match(quick, /leanlog:\/\/redcoins\/transfer/);
 });
 test('all themed widget text passes contrast against its actual inherited background', () => {
-  function visit(node, background, id) {
-    if (Array.isArray(node)) return node.forEach(child => visit(child, background, id));
+  function visit(node, background, id, painted = true) {
+    if (Array.isArray(node)) return node.forEach(child => visit(child, background, id, painted));
     if (!node?.props) return;
     const style = node.props.style || {}; let bg = style.backgroundColor || background;
-    if (node.type?.__name__ === 'FrameLayoutWidget') {
+    if (painted && node.type?.__name__ === 'FrameLayoutWidget') {
       const xml = node.props.children[0].props.children.props.svg;
       const ink = [api.appThemes[id].accent, api.appThemes[id].mint].find(c => xml.includes(c));
       const rgb = hex => hex.slice(1).match(/../g).map(x => parseInt(x, 16));
       const base = rgb(bg), top = rgb(ink);
       // Worst-case fully painted motif stroke behind text, not only the blank SVG area.
-      bg = '#' + base.map((x,i) => Math.round(x * .925 + top[i] * .075).toString(16).padStart(2,'0')).join('');
+      bg = '#' + base.map((x,i) => Math.round(x * .76 + top[i] * .24).toString(16).padStart(2,'0')).join('');
     }
     if (node.props.text && style.color) assert.ok(contrast(style.color, bg) >= 4.5, `${id}: ${node.props.text}, ${style.color} on ${bg}`);
-    visit(node.props.children, bg, id);
+    visit(node.props.children, bg, id, painted);
   }
-  for (const id of api.themeIds.filter(id => id !== 'cream')) samples(id).forEach(widget => visit(widget, api.appThemes[id].canvas, id));
+  for (const id of api.themeIds.filter(id => id !== 'cream')) samples(id).forEach(widget => { visit(widget, api.appThemes[id].canvas, id); visit(widget, api.appThemes[id].canvas, id, false); });
 });
 test('theme Apply refresh happens only after preference persistence; every native render path reads theme', () => {
   const context = source('context/ThemeContext.tsx'); assert.ok(context.indexOf('await AsyncStorage.setItem(APP_THEME_KEY') < context.indexOf("import('../services/widget')"));
@@ -84,8 +84,8 @@ test('all widget motifs are subtle background layers behind unchanged content', 
     assert.equal(tree.children.length, 2);
     assert.equal(tree.children[0].children[0].type, 'SvgWidget');
     assert.equal(tree.children[1].props.style.backgroundColor, undefined);
-    assert.ok(images[0].props.style.height >= 42);
-    assert.match(images[0].props.svg, /<g opacity="0.075">/);
+    assert.ok(images[0].props.style.height >= 90);
+    assert.match(images[0].props.svg, /<g opacity="0.24">/);
     assert.equal(images[0].props.clickAction, undefined);
     for (const image of images) { assert.match(image.props.svg, /<svg/); assert.ok(!image.props.svg.includes('http:') || image.props.svg.includes('http://www.w3.org/2000/svg')); assert.ok(!image.props.svg.includes('<image')); assert.ok([api.appThemes[id].accent,api.appThemes[id].mint].some(colour=>image.props.svg.includes(colour))); }
   }

@@ -41,7 +41,7 @@ export function themeArtwork(id: AppThemeId, place: ArtworkPlace, onHero = false
   const inner = motif.svg.replace(/^[\s\S]*?<svg\b[^>]*>/, '').replace(/<\/svg>[\s\S]*$/, '');
   const width = id === 'arsenal' ? 315 : id === 'liverpool' ? 34 : 64;
   const height = id === 'arsenal' ? 120 : id === 'liverpool' ? 61 : 64;
-  const scale = Math.min(40 / width, 40 / height);
+  const scale = Math.min(56 / width, 56 / height);
   const x = (64 - width * scale) / 2, y = (64 - height * scale) / 2;
   return { name: `${motif.name} / ${place}`, ratio: 1,
     svg: `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><g transform="translate(${x} ${y}) scale(${scale})">${inner}</g><g fill="none" stroke="${colour}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${ornaments[place]}</g></svg>`,

@@ -1,3 +1,11 @@
+## Release 3.0.5 in progress — 12 October 2026
+
+User authorized build and push after stronger watermark visibility correction. Includes larger artwork, higher opacity, measured dock crop and widget placement/contrast changes below. Build/signature/release verification pending.
+
+## Current unreleased — stronger watermark visibility and dock crop (12 October 2026)
+
+User screenshots of 3.0.4 show nearly invisible artwork and tiny dock emblem. Increased shared artwork central motif bounds from 40/64 to 56/64 (club aspect preserved), Home/page artwork from 220 to 280dp, card/drawer from 76 to 140dp. Opacity Home 24%, page/card 18%, dock 20% (previous 4.5–10%). Dock measures its own height and sizes/centres the SVG so approximately two-thirds of the central emblem height is visible; wide Arsenal cannon gets a larger SVG box to match other themes. All 13 themes share these rules. Widget watermark now 150dp (short Quick Log 90dp), 24% SVG group opacity instead of 7.5%; top alignment and negative top offset expose the artwork in header space rather than hiding it behind filled account/guard cells. Foreground text colour checks now retain contrast on both plain background and the fully painted watermark stroke, tracking each opaque child surface separately. No row/height/action changes; artwork remains excluded from touch/accessibility. Main/QC source synced. No new APK requested for this correction; published APK remains 3.0.4, physical acceptance pending.
+
 # LeanLog — latest published release v3.0.4
 
 Published 12 October 2026 (Asia/Singapore). User authorized build and GitHub publication after anime themes, per-surface artwork and matching typography; complete. All watermark/theme sections immediately below are included and superseded by this release record.
