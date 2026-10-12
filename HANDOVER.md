@@ -1,6 +1,14 @@
-# LeanLog 3.0.1 — release in progress (12 October 2026)
+# LeanLog — latest published release v3.0.1
 
-User authorized APK build and GitHub publication. Includes Cardio contrast fixes, hamburger Settings replacing bottom Settings tab, fixed theme preview/list-only scroll, Cyberpunk/Arabia/Arsenal/Liverpool themes (11 total), theme-aware widgets and bundled club watermarks. Building preview-arm64 with umiaq / umiaqs-team and original signing key. Version 3.0.1; remote Android versionCode auto-increments. Earlier unreleased sections below describe changes now included in this release. Verification and published APK details will be filled after build completes.
+Published 12 October 2026 (Asia/Singapore). User authorized build and GitHub push; release complete. Historical unreleased sections below are included in 3.0.1 and superseded by this record.
+
+- Source commit: a78344de572a50000de26fab1d52dcb6a53a9173 (following f93a65f), branch github-release-v221, pushed to origin.
+- EAS umiaq / umiaqs-team, build 1dd26644-1d31-4a9d-947a-5225e441b677 FINISHED, preview-arm64, version 3.0.1 / versionCode 33.
+- APK: https://github.com/umarislah86-collab/leanlog/releases/download/v3.0.1/leanlog-V3.0.1.apk (44,399,856 bytes); local ../../outputs/leanlog-V3.0.1.apk.
+- SHA-256: 5a80c8fc402dfbb4333eb264bf270543091a6f630cb9bb9126480669ff7849d6.
+- Original package com.calorietracker.app / signer 62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c retained; APK V2 signature/content digest, ZIP CRC, ARM64 ABI and manifest version verified (../../outputs/leanlog-3.0.1-apk-verification.json).
+- Includes hamburger Settings, fixed appearance preview/list-only scrolling, readable Cardio controls, Cyberpunk/Arabia/Arsenal/Liverpool (11 themes), widget colour support, bundled club watermark assets and Chronicle v3.0.1. Large + and RedCoins navigation preserved.
+- 326 automated tests + production/QC TypeScript pass. Android QC bundle verified with production cloud excluded. Phone visual acceptance remains pending. Generated mockups are concepts: stadium wallpaper and decorative Home embellishments are not runtime app features.
 
 ## Current unreleased — Liverpool theme (12 October 2026)
 
