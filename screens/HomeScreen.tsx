@@ -1,3 +1,4 @@
+import { AppMenuButton, useAppMenu } from '../context/AppMenuContext';
 import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
 import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -60,6 +61,7 @@ const displayName = () => {
 };
 
 export default function HomeScreen({ navigation }: any) {
+  const appMenu=useAppMenu();
   const themedStyles = useThemeStyles(baseStyles);
   const { themed, palette } = useTheme();
   // These surfaces keep their bright identity colours in every theme.
@@ -244,7 +246,7 @@ export default function HomeScreen({ navigation }: any) {
         clearInterval(bluecoinsWatcher);
         clearInterval(clockTicker);
       };
-    }, [loadLeanLog, loadBluecoins, loadHealth, loadAgenda, loadInsights, loadHabits]),
+    }, [loadLeanLog, loadBluecoins, loadHealth, loadAgenda, loadInsights, loadHabits, appMenu.settingsRevision]),
   );
 
   const refresh = async () => {
@@ -287,7 +289,7 @@ export default function HomeScreen({ navigation }: any) {
   };
 
   const connectBluecoins = async (changingSource = false) => {
-    navigation.navigate('Settings');
+    appMenu.openSettings();
   };
 
   const explainWeek = async () => {
@@ -509,10 +511,10 @@ export default function HomeScreen({ navigation }: any) {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView style={styles.screen} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.coral} />}>
         <View style={styles.headerRow}>
-          <View>
+          <View style={{flexDirection:'row',alignItems:'center',gap:12}}><AppMenuButton/><View>
             <Text style={styles.brand}>LeanLog</Text>
             <Text style={styles.date}>{dateLabel}</Text>
-          </View>
+          </View></View>
           <View style={styles.brandMarkWrap} accessibilityLabel="LeanLog logo">
             <Image source={require('../assets/brand-mark.png')} style={styles.brandMark} />
           </View>
@@ -657,7 +659,7 @@ export default function HomeScreen({ navigation }: any) {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.moneyCard} onPress={bluecoinsConnected && bluecoins ? openBudgetCoach : () => navigation.navigate('Settings')} activeOpacity={0.9}>
+          <TouchableOpacity style={styles.moneyCard} onPress={bluecoinsConnected && bluecoins ? openBudgetCoach : () => appMenu.openSettings()} activeOpacity={0.9}>
             <View style={styles.moneyTop}>
               <Text style={styles.moneyEyebrow}>BUDGET COACH · LAST 7 DAYS</Text>
               <Ionicons name="wallet-outline" size={22} color={'#101722'} />

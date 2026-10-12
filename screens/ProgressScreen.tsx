@@ -1,3 +1,4 @@
+import { AppMenuButton, useAppMenu } from '../context/AppMenuContext';
 import { ActivityRecordModal } from '../components/ActivityRecord';
 import { activitySummary } from '../services/activityDetails';
 import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
@@ -232,6 +233,7 @@ interface DaySummary {
 }
 
 export default function ProgressScreen() {
+  const appMenu=useAppMenu();
   const navigation = useNavigation<any>();
   const styles = useThemeStyles(baseStyles);
   const { themed } = useTheme();
@@ -284,7 +286,7 @@ export default function ProgressScreen() {
   useFocusEffect(
     useCallback(() => {
       loadData(period);
-    }, [period])
+    }, [period,appMenu.settingsRevision])
   );
 
   const buildSummaries = (food: FoodEntry[], acts: ActivityEntry[], p: Period): DaySummary[] => {
@@ -948,6 +950,7 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={{flexDirection:'row',alignItems:'center',gap:12,paddingHorizontal:18,paddingTop:8}}><AppMenuButton/><Text style={{fontWeight:'700'}}>Progress</Text></View>
       <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
         <Text style={styles.headerTitle}>{t('progressTitle')}</Text>
         <TouchableOpacity disabled={!orderReady} accessibilityRole="button" onPress={() => setShowCardOrder(true)} style={{ flexDirection: 'row', gap: 5, padding: 8 }}><Ionicons name="swap-vertical-outline" size={17} color={themed('#101A2B', 'color')} /><Text style={{ color: themed('#101A2B', 'color'), fontSize: 12, fontWeight: '700' }}>{lang === 'en' ? 'Arrange' : 'Susun kad'}</Text></TouchableOpacity>

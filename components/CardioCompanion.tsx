@@ -11,15 +11,18 @@ import { useLanguage } from '../context/LanguageContext';
 import { cardioCalories, cardioClock, cardioGoalProgress, cardioNames, cardioPace, cardioPhase, defaultCardioConfig, elapsedCardioMs, validateCardioConfig, type CardioConfig, type CardioMode, type CardioSession } from '../services/cardioCore';
 import { loadCardioHistory, loadCardioSession } from '../services/cardioStore';
 import { controlCardio, currentCardioWeight, discardCardio, manualCardio, recoverCardioTracking, resetForegroundCardioAnchor, saveCardioActivity, speakCardio, startCardio } from '../services/cardioRuntime';
+import { cardioAppearance, readableTextOn } from '../services/cardioAppearance';
 import { refreshLeanLogWidget } from '../services/widget';
 
 function CardioKeepAwake() { useKeepAwake('leanlog-cardio', { suppressDeactivateWarnings: true }); return null; }
 type Preset = { name: string; config: CardioConfig };
 export function CardioCompanion({ gymActive, openRequest }: { gymActive: boolean; openRequest?: number }) {
   const themedStyles = useThemeStyles(base);
-  const { themed } = useTheme();
-  const accentInk = { color: themed('#101A2B', 'onAccent') };
-  const s = { ...themedStyles, primaryText: [themedStyles.primaryText, accentInk], phaseName: [themedStyles.phaseName, accentInk], phaseTime: [themedStyles.phaseTime, accentInk] };
+  const { themed, palette } = useTheme();
+  const semantic=cardioAppearance(palette);
+  const s=Object.fromEntries(Object.entries(themedStyles).map(([key,value])=>[key,{...value,...semantic[key as keyof typeof semantic]}])) as unknown as typeof themedStyles;
+  const accentInk={color:readableTextOn(palette.mint)};
+  const finishFill=themed('#FF6542','backgroundColor');
   const { lang } = useLanguage();
   const bm = lang === 'bm', focused = useIsFocused();
   const [visible, setVisible] = useState(false), [busy, setBusy] = useState(false);
@@ -103,7 +106,7 @@ export function CardioCompanion({ gymActive, openRequest }: { gymActive: boolean
   const currentPace = selected?.lastFix && now - selected.lastFix.timestamp < 20000 && selected.speedMps > 0 ? 1000 / selected.speedMps : null;
   const averagePace = selected && selected.distanceM >= 20 ? elapsed / (selected.distanceM / 1000) : null;
   const summary = selected?.status === 'finished' || selected?.status === 'saved';
-  const icon = (name: React.ComponentProps<typeof Ionicons>['name'], size = 20, accent = false) => <Ionicons name={name} size={size} color={themed('#101A2B',accent ? 'onAccent' : 'color')} />;
+  const icon = (name: React.ComponentProps<typeof Ionicons>['name'], size = 20, accent = false) => <Ionicons name={name} size={size} color={accent ? accentInk.color : palette.text} />;
   const toggle = (label: string, value: boolean, onValueChange: (value: boolean) => void, hint?: string) => <View style={s.toggle}><View style={{ flex: 1 }}><Text style={s.toggleTitle}>{label}</Text>{hint && <Text style={s.hint}>{hint}</Text>}</View><Switch value={value} onValueChange={onValueChange} trackColor={{ true: themed('#8FD6B4','backgroundColor'), false: '#888' }} /></View>;
   const field = (label: string, value: string, setter: (value: string) => void, placeholder?: string) => <View style={{ flex: 1 }}><Text style={s.fieldLabel}>{label}</Text><TextInput value={value} onChangeText={setter} keyboardType="decimal-pad" style={s.input} placeholder={placeholder} /></View>;
   return <>
@@ -131,7 +134,7 @@ export function CardioCompanion({ gymActive, openRequest }: { gymActive: boolean
             {!!selected.gpsError && <Text style={s.notice}>GPS: {selected.gpsError}</Text>}
             <Text style={s.hint}>Calories are an estimate based on activity, active duration and your weight at session start.</Text>
             {selected.splits.length > 0 && <View style={s.card}><Text style={s.eyebrow}>KILOMETRE SPLITS</Text>{selected.splits.map(split => <View key={split.km} style={s.split}><Text style={s.toggleTitle}>KM {split.km}</Text><Text style={s.toggleTitle}>{cardioPace(split.seconds)} /km</Text></View>)}</View>}
-            {!detail && live && <View style={s.row}><TouchableOpacity disabled={busy} style={[s.secondary,{flex:1}]} onPress={() => { void run(() => controlCardio(selected.status === 'paused' ? 'resume' : 'pause', selected.id)); }}>{icon(selected.status === 'paused' ? 'play' : 'pause')}<Text style={s.secondaryText}>{selected.status === 'paused' ? 'Resume' : 'Pause'}</Text></TouchableOpacity><TouchableOpacity disabled={busy} style={[s.primary,{flex:1,backgroundColor:themed('#FF6542','backgroundColor')}]} onPress={finish}><Text style={s.primaryText}>Finish</Text></TouchableOpacity></View>}
+            {!detail && live && <View style={s.row}><TouchableOpacity disabled={busy} style={[s.secondary,{flex:1}]} onPress={() => { void run(() => controlCardio(selected.status === 'paused' ? 'resume' : 'pause', selected.id)); }}>{icon(selected.status === 'paused' ? 'play' : 'pause')}<Text style={s.secondaryText}>{selected.status === 'paused' ? 'Resume' : 'Pause'}</Text></TouchableOpacity><TouchableOpacity disabled={busy} style={[s.primary,{flex:1,backgroundColor:themed('#FF6542','backgroundColor')}]} onPress={finish}><Text style={[s.primaryText,{color:readableTextOn(finishFill)}]}>Finish</Text></TouchableOpacity></View>}
             {!detail && selected.status === 'finished' && <TouchableOpacity disabled={busy} style={s.primary} onPress={() => { void run(async () => { await saveCardioActivity(selected.id); await refreshLeanLogWidget().catch(console.warn); }); }}><Text style={s.primaryText}>{busy ? 'Saving…' : bm ? 'Simpan ke Activity' : 'Save to Activity'}</Text></TouchableOpacity>}
             {!detail && selected.status === 'saved' && <><Text style={s.saved}>Saved to Activity · No AI used</Text><TouchableOpacity style={s.primary} disabled={busy} onPress={() => { void run(() => discardCardio()); }}><Text style={s.primaryText}>New session</Text></TouchableOpacity></>}
             {!detail && selected.status !== 'saved' && <TouchableOpacity disabled={busy} onPress={discard} style={s.textButton}><Text style={s.hint}>Discard session</Text></TouchableOpacity>}

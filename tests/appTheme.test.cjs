@@ -38,8 +38,8 @@ function runtime(values = new Map(), failure = {}) {
 const luminance = hex => { const rgb = hex.replace('#', '').match(/../g).map(x => parseInt(x, 16) / 255).map(x => x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4); return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722; };
 const contrast = (a, b) => { const x = luminance(a), y = luminance(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
 
-test('six explicit themes, unknown/missing preference safely defaults to Original', () => {
-  assert.equal(Object.keys(appThemes).length, 7);
+test('eleven explicit themes, unknown/missing preference safely defaults to Original', () => {
+  assert.equal(Object.keys(appThemes).length, 11);
   for (const value of [null, undefined, 'auto', 'invalid', '{}']) assert.equal(validThemeId(value), 'cream');
   assert.equal(validThemeId('midnight'), 'midnight'); assert.equal(validThemeId('neutral'), 'neutral');
   for (const id of api.themeIds) assert.equal(validThemeId(id), id);
@@ -113,7 +113,7 @@ test('TextInput forwards value, events, ref and selection; nested text keeps nat
 test('Appearance preview applies only on explicit save; all screens use stable context, not remount keys', () => {
   const appearance = source('components/AppearanceSettings.tsx');
   assert.equal((appearance.match(/await setTheme\(preview\)/g) || []).length, 1);
-  assert.ok(appearance.includes('setPreview(id)')); assert.ok(appearance.includes('onRequestClose={close}')); assert.ok(appearance.includes('onPress={close}'));
+  assert.ok(appearance.includes('setPreview(id)')); assert.ok(appearance.includes('onRequestClose={showCredits ? () => setShowCredits(false) : close}')); assert.ok(appearance.includes('onPress={close}'));
   const app = source('App.tsx'); assert.ok(app.includes('<ThemeProvider><AppStatusBar /><AppContent /></ThemeProvider>')); assert.ok(app.includes('DarkTheme')); assert.ok(!/key=\{(?:palette|theme)/.test(app));
   for (const file of fs.readdirSync(path.join(root, 'screens')).filter(file => file.endsWith('.tsx'))) assert.ok(source('screens/' + file).includes('useThemeStyles'), file);
   for (const file of ['components/RedCoinsBudgetEditor.tsx', 'components/RedCoinsBankReviewModal.tsx', 'components/RedCoinsAiPromptModal.tsx', 'components/RedCoinsBatchModal.tsx']) assert.ok(source(file).includes('useThemeStyles'), file);

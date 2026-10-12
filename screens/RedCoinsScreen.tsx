@@ -1,3 +1,4 @@
+import { AppMenuButton, useAppMenu } from '../context/AppMenuContext';
 import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
 import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import React, { memo, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -108,6 +109,7 @@ const ICON_LIBRARY = [
 ];
 
 export default function RedCoinsScreen({ navigation, route }: any) {
+  const appMenu=useAppMenu();
   const isFocused = useIsFocused();
   const themedStyles = useThemeStyles(baseS);
   const { themed, palette: appPalette } = useTheme();
@@ -296,6 +298,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       setLoadError(error instanceof Error ? error.message : String(error));
     });
   }, [loadAttempt]);
+
+  useEffect(()=>{if(appMenu.settingsRevision)void loadRedCoins().then(setState).catch(console.warn);},[appMenu.settingsRevision]);
 
   const salaryLedgerWindow = useMemo(() => {
     if (filterDateMode !== 'cycle') return null;
@@ -2243,7 +2247,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={s.safe}>
-      <RedCoinsSetup defaults={state} visible={isFocused && needsRedCoinsSetup(state)} onBluecoins={() => navigation.navigate('Settings', { redcoinsImport: true })}
+      <RedCoinsSetup defaults={state} visible={isFocused && needsRedCoinsSetup(state)} onBluecoins={() => appMenu.openSettings({redcoinsImport:true})}
         onSaved={(current, firstEntry) => {
           setState(current);
           setCycleBudgetDraft(String(current.monthlyBudget)); setPaydayDraft(String(current.payday));
@@ -2252,12 +2256,13 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           if (firstEntry) navigation.setParams({ mode: route?.params?.mode || 'expense' });
         }} />
       <View style={s.header}>
+        <AppMenuButton/>
         <TouchableOpacity onPress={goBackInsideRedCoins} style={s.back}>
           <Ionicons name="arrow-back" size={21} color={themed(C.ink, 'color')} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={s.brand}>REDCOINS</Text>
-          <Text style={s.source}>{state.importedSource ? `Structure seeded from ${state.importedSource}` : 'LeanLog money room'}</Text>
+          <Text numberOfLines={1} style={s.source}>{state.importedSource ? `Structure seeded from ${state.importedSource}` : 'LeanLog money room'}</Text>
         </View>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Return to LeanLog Home" onPress={() => { Keyboard.dismiss(); navigation.navigate('Home'); }}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 12, paddingHorizontal: 10, borderRadius: 14, borderWidth: 1, borderColor: themed('#D9D0C0', 'borderColor') }}>
@@ -2267,7 +2272,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       </View>
       <RedCoinsPager section={section} pagerControlRef={pagerControl} onPreview={navigationDock.showSection} enabled={isFocused && !entrySaving && !batchBusy && !receiptBusy}
         onSection={navigateSection}
-        onExit={target => { Keyboard.dismiss(); navigation.navigate(target); }}
+        onExit={target => { Keyboard.dismiss(); if(target==='Settings')appMenu.openSettings();else navigation.navigate(target); }}
         renderSection={page => (page === 'activity' ? (
         <View style={s.activityBody}>
           {activityHeader}

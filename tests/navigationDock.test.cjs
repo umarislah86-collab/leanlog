@@ -19,14 +19,15 @@ function renderDock(route) {
       StyleSheet: { create: x => x, absoluteFill: {} } };
     if (name === '@expo/vector-icons') return { Ionicons: 'Icon' };
     if (name === 'react-native-safe-area-context') return { useSafeAreaInsets: () => ({ bottom: 24 }) };
+    if (name === './RedCoinsMark') return {RedCoinsMark:'RedCoinsMark'};
     if (name === './ThemePrimitives') return { ThemeText: 'Text' };
-    if (name === '../context/ThemeContext') return { useTheme: () => ({ themed }), useThemeStyles: x => x };
+    if (name === '../context/ThemeContext') return { useTheme: () => ({ themed, palette:{dark:false} }), useThemeStyles: x => x };
     if (name === '../context/NavigationDockContext') return { useMoneyNavigation: () => ({ section: 'accounts', select: x => calls.push(['section', x]) }) };
     if (name === '../services/redcoinsSwipe') return { redcoinsSections: ['home', 'activity', 'accounts', 'plan', 'reports'] };
     if (name === '../theme') return { colors: {} };
     throw Error(name);
   }});
-  const routes = ['Home', 'Log', 'Progress', 'Coach', 'RedCoins', 'Settings'].map(name => ({ name, key: name }));
+  const routes = ['Home', 'Log', 'Progress', 'Coach', 'RedCoins'].map(name => ({ name, key: name }));
   const tree = exports.MainNavigationDock({ state: { routes, index: routes.findIndex(r => r.name === route) },
     descriptors: Object.fromEntries(routes.map(r => [r.key, { options: {} }])), navigation: { navigate: (...args) => calls.push(args) } });
   function find(node, predicate) {
@@ -51,7 +52,7 @@ test('shared plus stays outside animated tabs in both modes, opens quick logger 
 });
 
 test('only active navigation layer is touchable; RedCoins selection calls screen navigation', () => {
-  for (const route of ['Coach', 'RedCoins', 'Settings']) {
+  for (const route of ['Coach', 'RedCoins']) {
     const dock = renderDock(route);
     const slot = dock.tree.props.children[0];
     const [main, money] = slot.props.children;

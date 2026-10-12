@@ -1,3 +1,4 @@
+import { AppMenuButton, useAppMenu } from '../context/AppMenuContext';
 import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
 import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -85,6 +86,7 @@ interface SessionSet { reps: string; weight: string; done: boolean; warmup?: boo
 interface SessionExercise { mode?: 'auto' | 'reps' | 'timer'; name: string; restSeconds: number; notes?: string; sets: SessionSet[]; }
 
 export default function CoachScreen({ route }: any) {
+  const appMenu=useAppMenu();
   const styles = useThemeStyles(baseStyles);
   const { themed } = useTheme();
   const { lang, t } = useLanguage();
@@ -171,6 +173,8 @@ export default function CoachScreen({ route }: any) {
     return () => subscription.remove();
   }, []);
   useEffect(() => { if (focused) updateRest(); }, [focused]);
+
+  useEffect(()=>{if(appMenu.settingsRevision&&view!=='session')void loadData();},[appMenu.settingsRevision]);
 
   const loadData = async () => {
     const [planStr, setupStr, savedHistory, savedDraft, healthRaw] = await Promise.all([
@@ -901,6 +905,7 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={{flexDirection:'row',alignItems:'center',gap:12,paddingHorizontal:18,paddingTop:8}}><AppMenuButton/><Text style={{fontWeight:'700'}}>Coach</Text></View>
       <CardioCompanion gymActive={view === 'session'} openRequest={route?.params?.cardioOpen} />
       {view === 'setup' && renderSetup()}
       {view === 'plan' && renderPlan()}

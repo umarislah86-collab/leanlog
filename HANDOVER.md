@@ -1,3 +1,29 @@
+# LeanLog 3.0.1 — release in progress (12 October 2026)
+
+User authorized APK build and GitHub publication. Includes Cardio contrast fixes, hamburger Settings replacing bottom Settings tab, fixed theme preview/list-only scroll, Cyberpunk/Arabia/Arsenal/Liverpool themes (11 total), theme-aware widgets and bundled club watermarks. Building preview-arm64 with umiaq / umiaqs-team and original signing key. Version 3.0.1; remote Android versionCode auto-increments. Earlier unreleased sections below describe changes now included in this release. Verification and published APK details will be filled after build completes.
+
+## Current unreleased — Liverpool theme (12 October 2026)
+
+Added eleventh theme Liverpool: Anfield red, white, charcoal ink and warm gold, with existing Space Grotesk/Manrope fonts. Bundled official Liverpool site Liver bird SVG + PNG; decorative, non-interactive watermark in fixed appearance preview and burger menu. Source noted in assets/liverpool-source.md. Widgets and Cardio use existing theme mappings; all 326 tests pass including eleven-palette text contrast/widget coverage. Main/QC TypeScript and Android bundle checked. QC header 11 THEMES QC; public release remains 3.0.0. Native phone visual acceptance pending. User also requested concept app/widget image; generated preview is illustrative, not a runtime screenshot.
+
+## Current unreleased — pinned appearance preview + Arsenal (12 October 2026)
+
+Appearance preview/header stays outside the theme-list ScrollView, with Apply pinned below. Preview compact mode follows short windows/large text. Font licences open a separate scrollable view within the same modal and Android Back returns to the theme picker. All ten theme rows remain reachable; preview changes do not save until Apply.
+
+Arsenal palette: white/navy surfaces, North London red hero/accent, warm gold actions, Space Grotesk + Manrope. Official Arsenal website cannon bundled locally (assets/arsenal-source.md); subtle decorative watermark on preview hero and menu background, Arsenal theme only. No network/font dependency added. Widget raised red surface darkened for financial-text contrast. Full 326 tests pass including all ten palette/widget/Cardio contrast; main/QC TypeScript pass. Android QC bundle confirms ten-theme header, Arsenal palette and pinned list; production Firebase excluded (../../outputs/leanlog-arsenal-qc.android.bundle). QC header 10 THEMES QC. Native visual acceptance pending; public APK still 3.0.0.
+
+## Current unreleased — Cyberpunk and Arabia themes (12 October 2026)
+
+Added cyberpunk and arabia IDs, palettes and bundled-font mappings. Appearance now lists nine themes. Cyberpunk: charcoal/navy, electric magenta, neon cyan, Space Grotesk. Arabia: sandstone, deep emerald, brass, Lora headlines/numbers and Manrope body. Existing language stays unchanged. Bright action fills use theme mint; Cyberpunk legacy coral buttons use a darker magenta fill for readable light labels. Theme preference, preview/apply, headless widgets and Cardio semantic colours support both IDs. Arabia alternate surface was lightened to pass negative/positive financial-value contrast in widgets.
+
+Main/QC TypeScript and full 326-test suite verified after palette changes; contrast tests now cover all nine themes and all five widget trees. Same Expo Go QC tunnel, header 9 THEMES QC. User phone visual acceptance pending; public APK remains 3.0.0 pending next requested build.
+
+## Current unreleased — theme contrast and hamburger Settings (12 October 2026)
+
+User reported pale text on pale Cardio surfaces in 3.0.0 and requested moving Settings from the bottom tab to a burger at top left. Added explicit cardioAppearance surface/text pairs for all seven palettes, readable foregrounds for filled actions and the two missing legacy cream aliases (#EFE5D4, #F0E8DB). Context/AppMenuContext provides an animated/reduced-motion-aware scrollable side menu and full Settings modal with Back to the original tab. All five main screens have menu access; bottom tabs now Home/Log/Progress/Coach/RedCoins, preserving RedCoins identity and the large +. Home setup links, RedCoins Bluecoins setup and Reports edge swipe open the modal; Coach boundary remains unchanged. Closing Settings increments a context revision so existing data refresh callbacks run without navigating/remounting tabs; live strength session is preserved.
+
+Production/QC TypeScript pass. 326 tests include all-seven-palette Cardio contrast, legacy aliases, menu routing, Settings/import intent, Android Back, data refresh revision and dock gestures/+ checks. QC actual Home/Settings screens are included, Firebase/auth/cloud/account actions mocked; MENU + THEME QC header and same Expo Go tunnel. Android QC bundle checked with production Firebase excluded. Native phone visual/interaction acceptance pending. No version bump/new APK/GitHub publication requested for this patch; public release remains 3.0.0 below.
+
 # LeanLog — latest published release v3.0.0
 
 Updated 12 October 2026 (Asia/Singapore). User requested version 3.0.0 and HANDOVER update. Release completed; unreleased/no-build/in-progress wording below is historical and superseded.

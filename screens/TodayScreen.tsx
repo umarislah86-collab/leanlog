@@ -1,3 +1,4 @@
+import { AppMenuButton, useAppMenu } from '../context/AppMenuContext';
 import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
 import { useTheme, useThemeStyles } from '../context/ThemeContext';
 import * as Linking from 'expo-linking';
@@ -60,6 +61,7 @@ const parseEntryDateTime = (dateStr: string, timeStr: string): Date => {
 };
 
 export default function TodayScreen() {
+  const appMenu=useAppMenu();
   const styles = useThemeStyles(baseStyles);
   const { themed, palette } = useTheme();
   const { t } = useLanguage();
@@ -196,7 +198,7 @@ export default function TodayScreen() {
   const yesterdayNet = yesterdayConsumed - yesterdayBurned;
   const hasYesterday = yesterdayFood.length > 0 || yesterdayActs.length > 0;
 
-  useFocusEffect(useCallback(() => { loadData(); }, []));
+  useFocusEffect(useCallback(() => { loadData(); }, [appMenu.settingsRevision]));
   useEffect(() => {
     if (dataHydrated) AsyncStorage.setItem(FOOD_KEY, JSON.stringify(foodEntries)).then(refreshLeanLogWidget);
   }, [foodEntries, dataHydrated]);
@@ -744,7 +746,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
-          <Text style={styles.headerTitle}>{t('headerTitle')}</Text>
+          <View style={{flexDirection:'row',alignItems:'center',gap:10}}><AppMenuButton/><Text style={styles.headerTitle}>{t('headerTitle')}</Text></View>
           <View style={styles.headerRight}>
             {latestWeight !== null && (
               <View style={styles.weightBadge}>

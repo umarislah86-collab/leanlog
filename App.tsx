@@ -13,7 +13,7 @@ import { useTrial } from './hooks/useTrial';
 import HomeScreen from './screens/HomeScreen';
 import TodayScreen from './screens/TodayScreen';
 import ProgressScreen from './screens/ProgressScreen';
-import SettingsScreen from './screens/SettingsScreen';
+import { AppMenuProvider } from './context/AppMenuContext';
 import CoachScreen from './screens/CoachScreen';
 import RedCoinsScreen from './screens/RedCoinsScreen';
 import { MainNavigationDock } from './components/MainNavigationDock';
@@ -46,14 +46,13 @@ const Tab = createMaterialTopTabNavigator();
 function MainTabs() {
   const { t } = useLanguage();
   return (
-    <NavigationDockProvider><Tab.Navigator tabBarPosition="bottom" tabBar={(props) => <MainNavigationDock {...props} />} screenOptions={{ swipeEnabled: true }}>
+    <AppMenuProvider><NavigationDockProvider><Tab.Navigator tabBarPosition="bottom" tabBar={(props) => <MainNavigationDock {...props} />} screenOptions={{ swipeEnabled: true }}>
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Home' }} />
       <Tab.Screen name="Log" component={TodayScreen} options={{ title: 'Log' }} />
       <Tab.Screen name="Progress" component={ProgressScreen} options={{ title: t('tabProgress') }} />
       <Tab.Screen name="Coach" component={CoachScreen} options={{ title: t('tabCoach') }} />
       <Tab.Screen name="RedCoins" component={RedCoinsScreen} options={{ title: 'RedCoins', swipeEnabled: false }} />
-      <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
-    </Tab.Navigator></NavigationDockProvider>
+    </Tab.Navigator></NavigationDockProvider></AppMenuProvider>
   );
 }
 

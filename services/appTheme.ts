@@ -1,6 +1,6 @@
 /** App appearance only. Finance meaning, chart series, PDFs and widgets stay independent. */
 export const APP_THEME_KEY = 'leanlog_appearance_v1';
-export type AppThemeId = 'cream' | 'midnight' | 'neutral' | 'grove' | 'dusk' | 'folio' | 'onyx';
+export type AppThemeId = 'cream' | 'midnight' | 'neutral' | 'grove' | 'dusk' | 'folio' | 'onyx' | 'cyberpunk' | 'arabia' | 'arsenal' | 'liverpool';
 export const appThemes = {
   cream: { id: 'cream', name: 'Original / Cream', description: 'Warm paper, navy and the original LeanLog accents.', dark: false, canvas: '#FFF9ED', surface: '#FFFDF7', surfaceAlt: '#F3EAD7', hero: '#101A2B', heroRaised: '#26334A', text: '#101722', muted: '#697180', onHero: '#FFFDF7', heroMuted: '#AAB5C7', border: '#DED5C5', accent: '#FF6542', mint: '#8FD6B4', mintTint: '#DDF1E7', coralTint: '#FFE6DC', blueTint: '#E8E8FF', warningTint: '#F2E7CB', expense: '#EF3F43', income: '#168A65', transfer: '#528FF2' },
   midnight: { id: 'midnight', name: 'Midnight', description: 'Layered navy, soft mint and coral. Made for low light.', dark: true, canvas: '#0B1220', surface: '#142033', surfaceAlt: '#1C2B41', hero: '#101A2B', heroRaised: '#23334C', text: '#F3F1EB', muted: '#A9B5C7', onHero: '#FFFDF7', heroMuted: '#B3BFD0', border: '#34455E', accent: '#FF856B', mint: '#8FD6B4', mintTint: '#183A35', coralTint: '#452B2B', blueTint: '#282F52', warningTint: '#3A3223', expense: '#FF8383', income: '#6CD5AF', transfer: '#8BB6FF' },
@@ -9,9 +9,13 @@ export const appThemes = {
   dusk: { id: 'dusk', name: 'Dusk / Studio', description: 'Plum-black, lilac light. Space Grotesk throughout.', dark: true, canvas: '#17131E', surface: '#241F2D', surfaceAlt: '#302939', hero: '#211B2B', heroRaised: '#3A3046', text: '#F5EFF8', muted: '#BDB0C7', onHero: '#FCF7FF', heroMuted: '#C6B7D2', border: '#4D415B', accent: '#CEADF2', mint: '#A8D8CC', mintTint: '#243D37', coralTint: '#462D35', blueTint: '#30304D', warningTint: '#403625', expense: '#FF8383', income: '#6CD5AF', transfer: '#8BB6FF' },
   folio: { id: 'folio', name: 'Folio', description: 'Bookish ivory and oxblood. Lora with crisp Space Grotesk.', dark: false, canvas: '#F7EFE7', surface: '#FFFAF5', surfaceAlt: '#EBDFD3', hero: '#3B2328', heroRaised: '#54353C', text: '#39292B', muted: '#6B5855', onHero: '#FFF8EE', heroMuted: '#D1BDB7', border: '#D9C9BC', accent: '#813847', mint: '#C5D9B2', mintTint: '#E8EFDF', coralTint: '#F1DCD5', blueTint: '#E9E5F0', warningTint: '#EEE2C8', expense: '#EF3F43', income: '#168A65', transfer: '#528FF2' },
   onyx: { id: 'onyx', name: 'Onyx Gold', description: 'Charcoal black, warm gold accents and ivory text. Space Grotesk with Manrope.', dark: true, canvas: '#0E0E10', surface: '#1A1A1D', surfaceAlt: '#252528', hero: '#141416', heroRaised: '#29272A', text: '#F5F0E6', muted: '#BAB5AB', onHero: '#FFF8E8', heroMuted: '#C9C0B0', border: '#46423A', accent: '#DDBB68', mint: '#DDBB68', mintTint: '#332D1E', coralTint: '#40272A', blueTint: '#262E40', warningTint: '#37301E', expense: '#FF8383', income: '#6CD5AF', transfer: '#8BB6FF' },
+  cyberpunk: { id: 'cyberpunk', name: 'Cyberpunk', description: 'Midnight charcoal, neon cyan and electric magenta. Space Grotesk throughout.', dark: true, canvas: '#090C18', surface: '#131A2B', surfaceAlt: '#1C2740', hero: '#0B1022', heroRaised: '#22314A', text: '#EDF9FF', muted: '#A7BED3', onHero: '#F1FBFF', heroMuted: '#ADC6DC', border: '#354768', accent: '#FF72D0', mint: '#57F0E1', mintTint: '#103B3B', coralTint: '#3F2340', blueTint: '#222B51', warningTint: '#3E3422', expense: '#FF8FA6', income: '#60E2AE', transfer: '#83BEFF' },
+  arabia: { id: 'arabia', name: 'Arabia', description: 'Sandstone, deep emerald and warm brass. Lora headlines with Manrope body.', dark: false, canvas: '#F4E9D6', surface: '#FFF9EE', surfaceAlt: '#ECDFC6', hero: '#103B32', heroRaised: '#245247', text: '#2B332D', muted: '#625440', onHero: '#FFF6DF', heroMuted: '#C8D1BC', border: '#C3AD80', accent: '#14624F', mint: '#D8C08A', mintTint: '#E8E1CC', coralTint: '#F0DCD0', blueTint: '#DEE5DF', warningTint: '#EEE0BD', expense: '#B52D36', income: '#146B50', transfer: '#245FBD' },
+  arsenal: { id: 'arsenal', name: 'Arsenal', description: 'North London red, crisp white, navy and gold. The cannon, quietly in the details.', dark: false, canvas: '#F8F5F1', surface: '#FFFFFF', surfaceAlt: '#EEE7DD', hero: '#8F1428', heroRaised: '#871B30', text: '#17243A', muted: '#62574C', onHero: '#FFFFFF', heroMuted: '#F5D9D9', border: '#D7C9B6', accent: '#9C1830', mint: '#DCC18A', mintTint: '#E5EDDF', coralTint: '#F5DFE1', blueTint: '#E2E8F0', warningTint: '#F0E3C8', expense: '#AD2436', income: '#146B50', transfer: '#245FBD' },
+  liverpool: { id: 'liverpool', name: 'Liverpool', description: 'Anfield red, clean white and warm gold. The Liver bird in the details.', dark: false, canvas: '#FAF7F2', surface: '#FFFFFF', surfaceAlt: '#EEE7DA', hero: '#981326', heroRaised: '#851A2A', text: '#232725', muted: '#64584A', onHero: '#FFFFFF', heroMuted: '#F5DEDB', border: '#D9CBB7', accent: '#A71930', mint: '#E1C685', mintTint: '#E0EDE7', coralTint: '#F6E0E1', blueTint: '#E2E9EE', warningTint: '#F0E4CA', expense: '#AD2436', income: '#146B50', transfer: '#245FBD' },
 } as const;
 export type AppPalette = typeof appThemes[AppThemeId];
-export const themeIds: AppThemeId[] = ['cream', 'midnight', 'neutral', 'grove', 'dusk', 'folio', 'onyx'];
+export const themeIds: AppThemeId[] = ['cream', 'midnight', 'neutral', 'grove', 'dusk', 'folio', 'onyx', 'cyberpunk', 'arabia', 'arsenal', 'liverpool'];
 export const validThemeId = (value: unknown): AppThemeId => typeof value === 'string' && themeIds.includes(value as AppThemeId) ? value as AppThemeId : 'cream';
 
 export const themeTypography = {
@@ -22,6 +26,10 @@ export const themeTypography = {
   dusk: { heading: 'SpaceGrotesk', body: 'SpaceGrotesk', label: 'SpaceGrotesk', number: 'SpaceGrotesk' },
   folio: { heading: 'Lora', body: 'SpaceGrotesk', label: 'SpaceGrotesk', number: 'Lora' },
   onyx: { heading: 'SpaceGrotesk', body: 'Manrope', label: 'SpaceGrotesk', number: 'SpaceGrotesk' },
+  cyberpunk: { heading: 'SpaceGrotesk', body: 'SpaceGrotesk', label: 'SpaceGrotesk', number: 'SpaceGrotesk' },
+  arabia: { heading: 'Lora', body: 'Manrope', label: 'Manrope', number: 'Lora' },
+  arsenal: { heading: 'SpaceGrotesk', body: 'Manrope', label: 'SpaceGrotesk', number: 'SpaceGrotesk' },
+  liverpool: { heading: 'SpaceGrotesk', body: 'Manrope', label: 'SpaceGrotesk', number: 'SpaceGrotesk' },
 } as const;
 export type TypographyRole = keyof typeof themeTypography.cream;
 /** Resolve explicit static font faces; never ask Android to synthesize a custom weight. */
@@ -44,7 +52,7 @@ const hero = words('#101A2B #111A2A #111827 #172338 #17243A #172033 #15243A #0D1
 const raised = words('#26334A #33415C #1C2940 #29364D #24334C #29364B #2A3A5A #344158 #2D405D #2A3A53 #34314F #344560 #30405A #293348 #29405E #202B3E #344057 #303650 #4A5870 #202C40 #536079');
 const muted = words('#7D8799 #737A84 #7C8290 #657086 #8D97A8 #68758A #59616D #8E9AAF #7E8AA0 #596173 #8A93A1 #94A1B4 #4D586A #8B8B8B #9AA8BA #9CA5B4 #8993A6 #AAA393 #566070 #8A8272 #5F6670 #758198 #53627A #667389 #9299A4 #AAA #8993A5 #718096 #748096 #68717E #697180 #93A0B3 #6F7E93 #9CA7B7 #555B70 #8E99A9 #8792A5 #7C756B #5E6672 #8A8175 #485260 #737A85');
 const heroMuted = words('#7F8BA0 #AAB3C2 #AAB5C7 #AEB8C9 #AEB7C7 #93A0B2 #8490A3 #CBD2DD #CDD4E0');
-const borders = words('#E2D9C9 #E7DECE #DED5C5 #E4DBCB #E1DCCF #E7E1D5 #D9CFBF #EEE6D8 #E9E1D3 #F4EDDE #DDD4C5 #D6CCBC #D8CEBE #F0EADD #E2D9C8 #DED6C8 #E8DFD0 #DDD3C1 #E4DFD3 #F7EEDC #F2E9D8 #DCD3C1 #E1D8C8 #DED5C6 #F0E6D4 #B9B3A8 #C8C1B5 #E5DDCF #E3DACB #D8CEBD #EEE8D8 #EAE2D5 #F0E5D1 #E2D7C3 #F3EDDF #CFC4B3 #CEC3B2 #E7DFD0 #D2C8B8 #E5DDCE #EFE7D8 #F1E9DA #DDD2C0 #D7CDBC #E9E2D3 #DED7CC #E5DCCA #E8DFCF #DCD3C4 #EAE2D4 #F6EFE2 #E4DAC9 #E9E0D2 #E6DDCD #C4BAAA #DDD8CB #E9E4D8 #E9E1D4 #F8F0DF #E4D9C6 #EEE5D6 #EEE3CF #EFE6D6 #E0D9CD #CEC7B9 #DED6C6 #DDD8CD #D6CEBE #D9D3C6 #F3EBDC #F3EAD7');
+const borders = words('#EFE5D4 #F0E8DB #E2D9C9 #E7DECE #DED5C5 #E4DBCB #E1DCCF #E7E1D5 #D9CFBF #EEE6D8 #E9E1D3 #F4EDDE #DDD4C5 #D6CCBC #D8CEBE #F0EADD #E2D9C8 #DED6C8 #E8DFD0 #DDD3C1 #E4DFD3 #F7EEDC #F2E9D8 #DCD3C1 #E1D8C8 #DED5C6 #F0E6D4 #B9B3A8 #C8C1B5 #E5DDCF #E3DACB #D8CEBD #EEE8D8 #EAE2D5 #F0E5D1 #E2D7C3 #F3EDDF #CFC4B3 #CEC3B2 #E7DFD0 #D2C8B8 #E5DDCE #EFE7D8 #F1E9DA #DDD2C0 #D7CDBC #E9E2D3 #DED7CC #E5DCCA #E8DFCF #DCD3C4 #EAE2D4 #F6EFE2 #E4DAC9 #E9E0D2 #E6DDCD #C4BAAA #DDD8CB #E9E4D8 #E9E1D4 #F8F0DF #E4D9C6 #EEE5D6 #EEE3CF #EFE6D6 #E0D9CD #CEC7B9 #DED6C6 #DDD8CD #D6CEBE #D9D3C6 #F3EBDC #F3EAD7');
 const mintTints = words('#DDF1E7 #E2F4EB #D8EFE4 #DDF5E9 #E6F6EF #E4F3EB');
 const coralTints = words('#FFE6DC #FFF0EB #FFE4DC #FFE0D6 #FFE2DB #FFF1E9 #FFE6DE #FFD8CF');
 const blueTints = words('#E8E8FF #EEF0FF #E8EDF8 #D5DDED #E3E2F7 #D9D8FF #D4D3F4');
@@ -60,6 +68,7 @@ export function themeColour(value: string, palette: AppPalette, role: ColourRole
     if (paper.has(key) || borders.has(key) || raised.has(key) || /^RGBA\(16,\s*(26|23),/.test(key)) return palette.border;
   }
   if (role === 'backgroundColor') {
+    if (key === '#8FD6B4' && (palette.id === 'cyberpunk' || palette.id === 'arabia' || palette.id === 'arsenal' || palette.id === 'liverpool')) return palette.mint;
     if (canvas.has(key)) return palette.canvas;
     if (paper.has(key)) return palette.surface;
     if (hero.has(key)) return palette.hero;
@@ -86,7 +95,7 @@ export function themeColour(value: string, palette: AppPalette, role: ColourRole
     if (transfers.has(key)) return palette.transfer;
     if (key === '#846139' || key === '#997123') return '#E5BD77';
   }
-  if (accents.has(key)) return role === 'backgroundColor' && palette.dark ? palette.id === 'dusk' ? '#73528C' : '#C44831' : palette.accent;
+  if (accents.has(key)) return role === 'backgroundColor' && palette.dark ? palette.id === 'dusk' ? '#73528C' : palette.id === 'cyberpunk' ? '#75315E' : '#C44831' : palette.accent;
   return value;
 }
 export function themeStyleSheet<T extends Record<string, object>>(styles: T, palette: AppPalette): T {
