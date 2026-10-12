@@ -1,6 +1,14 @@
-# LeanLog 3.0.2 — release in progress (12 October 2026)
+# LeanLog — latest published release v3.0.2
 
-User authorized APK build and GitHub publication. Includes direct Settings drawer/opening improvements, today's Mi Fitness steps preference with Health Connect fallback, surface-aware text/input contrast and shared all-category Income/Expense logger picker. Building preview-arm64 on umiaq / umiaqs-team with original signer. Version 3.0.2; Android versionCode auto-increments remotely. Historical unreleased sections below are included in this release; final build and APK verification details follow upon completion.
+Published 12 October 2026 (Asia/Singapore). User authorized build and GitHub publication; complete. All historical unreleased sections below are included in 3.0.2 and superseded by this record.
+
+- Source b5cf0ab7ab0406b9a87df96a36627df5d7a7b83a, branch github-release-v221, pushed to origin.
+- EAS umiaq / umiaqs-team, build 3b6b83f4-7609-4759-b2cf-b9f4d8ca29e7 FINISHED; preview-arm64, 3.0.2 / versionCode 34.
+- APK https://github.com/umarislah86-collab/leanlog/releases/download/v3.0.2/leanlog-V3.0.2.apk ; local ../../outputs/leanlog-V3.0.2.apk (44,408,096 bytes).
+- SHA256 dbdb23395228c52b92ffa4b2c6f045186d0d614610cd7d27647d435f148a866e.
+- Verified APK V2 signature/content digest, ZIP CRC, ARM64 ABI, com.calorietracker.app and version 3.0.2/34. Original signer 62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c retained. Verification ../../outputs/leanlog-3.0.2-apk-verification.json.
+- Includes direct Settings side drawer and opening/render improvements, surface-aware text/input-placeholder contrast, today's Mi Fitness steps preference/Health Connect fallback and Home source label, all saved categories/subcategories for Income/Expense, Chronicle v3.0.2.
+- 333 automated tests + production/QC TypeScript and Android QC bundle passed. Native phone visual/performance and Health Connect acceptance remain pending. Release file availability checked after publication.
 
 ## Current unreleased — shared income/expense category picker (12 October 2026)
 
