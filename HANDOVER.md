@@ -1,6 +1,15 @@
-# Release in progress — v3.0.0
+# LeanLog — latest published release v3.0.0
 
-User requested APK version 3.0.0 and HANDOVER update on 12 October 2026. Building with EAS umiaq / umiaqs-team, profile preview-arm64, existing Android application ID and original signing credentials. Includes Cardio Companion, rich Activity screenshot review/detail storage, Coach/companion Activity detail integration, and RedCoins branded navigation mark. Main/QC TypeScript and 322 tests passed; APK signature/version verification pending build completion. All unreleased/no-build wording below is historical and superseded by this request. Native GPS/background notification and real Gemini OCR phone QC remain pending; automated tests do not establish phone acceptance.
+Updated 12 October 2026 (Asia/Singapore). User requested version 3.0.0 and HANDOVER update. Release completed; unreleased/no-build/in-progress wording below is historical and superseded.
+
+- Source commit: a8ad2dbdd6b298f4670669026940b8992f306744, branch github-release-v221, pushed to origin.
+- EAS account umiaq / umiaqs-team, project umarcoc93. Build a9723cdf-7ba6-4634-94ce-cca5f3df89cc FINISHED; preview-arm64, 3.0.0 / versionCode 32.
+- APK: https://github.com/umarislah86-collab/leanlog/releases/download/v3.0.0/leanlog-V3.0.0.apk (44,367,052 bytes). Local ../../outputs/leanlog-V3.0.0.apk.
+- SHA-256: bcdbdb1def8cede484ca1d22b7e6a439d87f600aa9169c9c3ea260d6cab96d94. GitHub asset digest matches; public/latest release and download HTTP 200 verified.
+- Existing com.calorietracker.app and original signer 62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c retained. APK v2 signature/content digest, ARM64 ABI, version manifest and ZIP CRC verified. Verification ../../outputs/leanlog-3.0.0-apk-verification.json.
+- Includes Cardio Companion (GPS/timer, goals, intervals, pause/resume, quick log and no-AI Activity Save), rich screenshot Activity extraction/review/details with original local images, completed Coach sets and companion details in Activity, RedCoins branded red/gold R navigation mark and Chronicle chapter 3.0.0.
+- Validation: 322 automated tests, main/QC TypeScript, Expo native config and Android QC bundle passed. Native Xiaomi background GPS/notification and real Gemini screenshot OCR acceptance remain pending phone QC; build success does not verify those behaviours.
+- docs/cardio-companion.md and docs/activity-records.md document runtime/schema/limitations. QC ../../outputs/leanlog-expo-go remains cloud/AI disabled, exp://p2n3imy-umiaq-8084.exp.direct (while Metro is running). Cardio mock ../../outputs/leanlog-cardio-companion-mock.png is a design preview, not a phone screenshot.
 
 ## Current unreleased work — rich Activity records (12 October 2026)
 Screenshot logger now sends the extended visible-only extraction prompt to the existing activity_image callable, validates optional metrics, offers an editable review, and copies the original screenshot into app documents before durable local Save. No Functions redeploy needed: deployed callable forwards the supplied prompt. Live Gemini OCR on a user screenshot and phone UI remain unverified. Main/QC TypeScript and 322 tests pass. No APK build/push requested for these changes.

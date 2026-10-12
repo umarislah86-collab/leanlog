@@ -1,3 +1,5 @@
+Release status: included in published v3.0.0 on 12 October 2026. Earlier no-build wording is historical. Native phone acceptance checks remain pending.
+
 # Cardio Companion — 12 October 2026
 
 Coach opens a companion for Brisk walk, Jog and Run. Start-session setup supports free/time/distance targets, GPS or timer only, voice/vibration cues, optional screen awake, custom walk/effort interval rounds, and eight local presets. Quick log reviews a completed session without AI. Finish shows active time, distance/pace when known, estimated calories, kilometre splits and a Save to Activity action. Recent saved sessions remain in local history.

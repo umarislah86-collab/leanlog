@@ -1,3 +1,5 @@
+Release status: included in published v3.0.0 on 12 October 2026. Earlier no-build wording is historical. Native phone acceptance checks remain pending.
+
 # Rich Activity records
 
 ActivityEntry retains its existing name, duration (active minutes), caloriesBurned, date and time. Optional details and imageUri preserve backward compatibility; existing calculations continue using caloriesBurned and do not add active/total calories twice.
