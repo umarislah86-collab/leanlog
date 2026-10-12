@@ -1,5 +1,13 @@
 # LeanLog — latest published release v3.0.5
 
+## Public feature page — 12 October 2026
+
+User requested a complete app feature/pricing page, fresh ImageGen artwork (no old screenshots), then explicitly requested hosting in their GitHub. Live public GitHub Pages: https://umarislah86-collab.github.io/leanlog/ . Hosting source is `master` root; page commit 62bf96a98aa61fc8e808ee9995537c72c012d431, Pages build confirmed built, actual public URL passed browser checks. Same web files cherry-picked onto github-release-v221 to prevent future branch merges reverting the page. No Android version/build change.
+
+Web files: index.html, style.css, app.js, themes.js, page-assets/, .nojekyll; LANDING_PAGE.md documents maintenance. Feature tour, complete expandable directory, cardio, 13 real theme palettes/motifs, five widgets, RM7/month or RM49/year, 3-day trial/paywall, manual payment/activation, APK v3.0.5 download and WhatsApp links. Demo data explicitly labelled. Real receipt-folder/Drive and local-media backup limits stated.
+
+QA on the public URL: 320/375/390/768/1440px, all five tabs + keyboard arrows, example protein history, all 13 themes, both pricing choices, nine directory groups and FAQ. No horizontal overflow, JS errors, missing images or HTTP asset failures. Editable local source, original generated artwork and prompts retained at ../../sites/leanlog-guide; generated WebP images are committed in page-assets. An earlier private Sites registration was created during initial preparation, but no Sites deployment was started; the user's selected hosting is GitHub Pages.
+
 Published 12 October 2026 (Asia/Singapore). User authorized build and push after watermark visibility correction; complete. The stronger-watermark section below is included in this release.
 
 - Source 9051be11dec733cd128acc646df3bd98928632e8, branch github-release-v221, pushed to origin.
