@@ -1,6 +1,15 @@
-# LeanLog — latest published release v3.0.6
+# LeanLog — latest published release v3.0.7
 
-## Release 3.0.7 in progress — native character artwork, 12 October 2026
+## Release 3.0.7 published — native character artwork, 12 October 2026
+
+Published and verified, user authorized APK and GitHub release.
+- Exact built source: 4696bb7a4f538f5777910e1ee39e6b4c3ed69967, github-release-v221, pushed.
+- EAS umiaq / umiaqs-team, preview-arm64, build 10cbcc6b-1b55-4e29-a069-1290604ee52b FINISHED; 3.0.7 / versionCode 39.
+- APK: https://github.com/umarislah86-collab/leanlog/releases/download/v3.0.7/leanlog-V3.0.7.apk ; local ../../outputs/leanlog-V3.0.7.apk, 48,418,910 bytes.
+- SHA256 9338ec44d0749c3bd99822fdae9632486114f76b242f1187dacd5cb6088ad468; GitHub published digest/size match, public download HTTP 200, tag matches built source.
+- APK V2 signature/content digest, ZIP CRC, ARM64-only ABI, com.calorietracker.app and 3.0.7/39 verified. Original signer 62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c retained.
+- 349 automated tests and TypeScript passed. Artifacts ../../outputs/leanlog-3.0.7-build.json, leanlog-3.0.7-apk-verification.json, leanlog-3.0.7-github-release.json, leanlog-3.0.7-tests.txt.
+- Expo Go QC source synced. Runtime expo-notifications failure fixed in QC-only Metro resolver with qc/notifications.ts; Android bundle confirms native push listener absent. Session 84296, exp://p2n3imy-umiaq-8084.exp.direct while running, QR ../../outputs/leanlog-artwork-fix-qc-qr.png. Starts Home, header ARTWORK FIX QC. Native launcher visual confirmation remains pending.
 
 User reports both anime themes render no character artwork, Cutie widget blank, and drawer artwork badly placed in installed 3.0.6. Previous desktop SVG rendering/headless tests did not verify Android pixels; do not claim that release's artwork works on device.
 
@@ -10,7 +19,7 @@ User reports both anime themes render no character artwork, Cutie widget blank, 
 - Drawer header uses a dedicated 64px character slot beside the title with shrink/wrap space and separate close action, replacing the clipped 140px bottom-positioned watermark.
 - Existing 347 tests plus two new regressions pass: decode all 30 page/widget mappings and assert visible pixels, PNG dimensions, transparent edges and baked widget alpha; assert native app Image route and headless ImageWidget path. TypeScript and Android production export pass.
 - Actual PNG review sheet ../../outputs/native-art-fix-preview.png visually inspected (asset sheet, not Android screenshot). Native phone/launcher confirmation still pending. Exact cause of the previous Android SVG failure has not been reproduced on a device; the failing image-in-SVG route is removed.
-- User authorized APK build and GitHub publication for this correction. Version bumped to 3.0.7; EAS preview-arm64 / umiaq, original signing key. Build details pending. Regenerate using node scripts/bundle-native-art.cjs after changing source character/Cutie art.
+- Correction included in published 3.0.7. Regenerate using node scripts/bundle-native-art.cjs after changing source character/Cutie art.
 
 ## Release v3.0.6 published — 12 October 2026
 
