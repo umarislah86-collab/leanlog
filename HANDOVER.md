@@ -1,6 +1,17 @@
-## Release 3.0.4 in progress — 12 October 2026
+# LeanLog — latest published release v3.0.4
 
-User authorized build and GitHub publication after anime themes, per-surface artwork and matching typography. Includes all unpublished widget/background watermark work since 3.0.3. Grand Line heading uses bundled Pirata One; Saiyan heading uses bundled Bangers, both single regular faces at all heading weights. Body Manrope and number/label Space Grotesk retain readable data; font licences included in Appearance credits. Native font plugin now copies eleven static TTFs. Build/signature/release verification pending.
+Published 12 October 2026 (Asia/Singapore). User authorized build and GitHub publication after anime themes, per-surface artwork and matching typography; complete. All watermark/theme sections immediately below are included and superseded by this release record.
+
+- Source 132030d8dafc4e0a78d405eb75c0483d29030b09, branch github-release-v221, pushed to origin.
+- EAS umiaq / umiaqs-team, build bc4eda43-3603-4a1b-8c35-987e7787051e FINISHED; preview-arm64, 3.0.4 / versionCode 36.
+- APK https://github.com/umarislah86-collab/leanlog/releases/download/v3.0.4/leanlog-V3.0.4.apk; local ../../outputs/leanlog-V3.0.4.apk (44,566,590 bytes).
+- SHA256 c9228fd58c1a479795dc1b9fc70fc206c7ca3ef8f0fbf8961f08e479b07c2f2c.
+- Verified V2 signature/content digest, ZIP CRC, ARM64 ABI, com.calorietracker.app and 3.0.4/36. Original signer 62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c retained.
+- Includes Grand Line / One Piece and Saiyan / Dragon Ball (13 total), bundled Pirata One/Bangers headings, readable body/numbers, different line-art characters on Log/Progress/Coach/drawer, matching motif compositions per surface for all themes, and background watermarks on Home/navigation/all five launcher widgets.
+- Native widget font assets verified inside APK: eleven TTFs including Pirata One and Bangers. Both fonts' OFL licences included in Appearance credits; single regular heading faces resolve all requested weights.
+- 336 automated tests, production/QC TypeScript and Android QC bundle passed. All-theme widget contrast includes watermark strokes behind text. GitHub release asset size/digest and HTTP download verified. Physical phone visual acceptance remains pending.
+- Handover/artifacts: ../../outputs/leanlog-3.0.4-build.json, leanlog-3.0.4-apk-verification.json, leanlog-3.0.4-github-release.json, leanlog-3.0.4-tests.txt, leanlog-3.0.4-qc.android.bundle, leanlog-anime-artwork.png.
+- QC folder synced, Metro running LAN on port 8084 (old tunnel stopped; ngrok package unavailable following npm install). Start local QC using npm start; do not promise previous tunnel URL is live.
 
 ## Current unreleased — anime themes and artwork per surface (12 October 2026)
 
