@@ -1,6 +1,7 @@
 'use no memo';
 import React from 'react';
 import { FlexWidget, TextWidget } from 'react-native-android-widget';
+import { clubEmblem } from './club-emblem';
 import { themedWidgetTree } from './widget-theme';
 import type { AppThemeId } from '../services/appTheme';
 
@@ -11,6 +12,7 @@ export type WidgetAccount = { name: string; type: string; balance: number };
 export function AccountSnapshotWidget({ account, updated, themeId = 'cream' }: { account: WidgetAccount | null; updated: string; themeId?: AppThemeId }) {
   return themedWidgetTree(<FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://redcoins?section=accounts' }} style={shell}>
     <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', justifyContent: 'space-between' }}>
+      {clubEmblem(themeId)}
       <TextWidget text="REDCOINS / ACCOUNT" style={{ color: '#EF3F43', fontSize: 9, fontWeight: '700' }} />
       <TextWidget text={updated} style={{ color: '#7C756B', fontSize: 7, fontWeight: '700' }} />
     </FlexWidget>
@@ -25,7 +27,7 @@ export function AccountSnapshotWidget({ account, updated, themeId = 'cream' }: {
 export type CashWidgetData = { trueSpendable: number; liquidBalance: number; cardOutstanding: number; safetyBuffer?: number } | null;
 export function CashRealityWidget({ cash, updated, themeId = 'cream' }: { cash: CashWidgetData; updated: string; themeId?: AppThemeId }) {
   return themedWidgetTree(<FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://redcoins?section=plan' }} style={{ ...shell, backgroundColor: '#172033' }}>
-    <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', justifyContent: 'space-between' }}><TextWidget text="REDCOINS / CASH REALITY" style={{ color: '#91DCBB', fontSize: 9, fontWeight: '700' }} /><TextWidget text={updated} style={{ color: '#98A0AD', fontSize: 7 }} /></FlexWidget>
+    <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', justifyContent: 'space-between' }}>{clubEmblem(themeId, true)}<TextWidget text="REDCOINS / CASH REALITY" style={{ color: '#91DCBB', fontSize: 9, fontWeight: '700' }} /><TextWidget text={updated} style={{ color: '#98A0AD', fontSize: 7 }} /></FlexWidget>
     <TextWidget text={cash ? money(cash.trueSpendable) : 'NO CASH DATA'} maxLines={1} style={{ color: cash && cash.trueSpendable < 0 ? '#FF8069' : '#FFF4DB', fontSize: 25, fontWeight: '700', marginTop: 7 }} />
     <TextWidget text="TRUE SPENDABLE NOW" style={{ color: '#91DCBB', fontSize: 8, fontWeight: '700', marginTop: 2 }} />
     {cash && <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', marginTop: 8 }}>
@@ -38,7 +40,7 @@ export function CashRealityWidget({ cash, updated, themeId = 'cream' }: { cash: 
 export function QuickLogWidget({ themeId = 'cream' }: { themeId?: AppThemeId } = {}) {
   const button = { flex: 1, borderRadius: 12, paddingVertical: 10, alignItems: 'center' as const };
   return themedWidgetTree(<FlexWidget style={shell}>
-    <TextWidget text="LEANLOG / QUICK LOG" style={{ color: '#172033', fontSize: 10, fontWeight: '700' }} />
+    <FlexWidget style={{width:'match_parent',flexDirection:'row',alignItems:'center'}}>{clubEmblem(themeId)}<TextWidget text="LEANLOG / QUICK LOG" style={{ color: '#172033', fontSize: 10, fontWeight: '700' }} /></FlexWidget>
     <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', marginTop: 10 }}>
       <FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://quick/food' }} style={{ ...button, backgroundColor: '#172033', marginRight: 5 }}><TextWidget text="FOOD" style={{ color: '#FFF4DB', fontSize: 9, fontWeight: '700' }} /></FlexWidget>
       <FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://redcoins/expense' }} style={{ ...button, backgroundColor: '#EF3F43', marginRight: 5 }}><TextWidget text="EXPENSE" style={{ color: '#FFFFFF', fontSize: 9, fontWeight: '700' }} /></FlexWidget>
@@ -51,7 +53,7 @@ export function QuickLogWidget({ themeId = 'cream' }: { themeId?: AppThemeId } =
 export type AutomationWidgetRow = { id: string; item: string; amount: number; due: string; automatic: boolean };
 export function AutomationWidget({ rows, updated, themeId = 'cream' }: { rows: AutomationWidgetRow[]; updated: string; themeId?: AppThemeId }) {
   return themedWidgetTree(<FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://redcoins?section=plan' }} style={shell}>
-    <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', justifyContent: 'space-between' }}><TextWidget text="REDCOINS / UPCOMING" style={{ color: '#EF3F43', fontSize: 9, fontWeight: '700' }} /><TextWidget text={updated} style={{ color: '#7C756B', fontSize: 7 }} /></FlexWidget>
+    <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', justifyContent: 'space-between' }}>{clubEmblem(themeId)}<TextWidget text="REDCOINS / UPCOMING" style={{ color: '#EF3F43', fontSize: 9, fontWeight: '700' }} /><TextWidget text={updated} style={{ color: '#7C756B', fontSize: 7 }} /></FlexWidget>
     {rows.length ? rows.slice(0, 2).map((row) => <FlexWidget key={row.id} style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center', backgroundColor: '#EEE3CF', borderRadius: 11, padding: 8, marginTop: 7 }}>
       <FlexWidget style={{ flex: 1 }}><TextWidget text={row.item} maxLines={1} style={{ color: '#172033', fontSize: 10, fontWeight: '700' }} /><TextWidget text={`${row.automatic ? 'AUTO-LOG' : 'REMINDER'} · ${row.due}`} maxLines={1} style={{ color: '#7C756B', fontSize: 6, marginTop: 2 }} /></FlexWidget>
       <TextWidget text={money(row.amount)} style={{ color: '#D4422B', fontSize: 9, fontWeight: '700' }} />

@@ -1,3 +1,4 @@
+import { ThemeMotif, ThemeWatermark } from './ThemeMotif';
 import { ThemePressable as Pressable, ThemeScrollView as ScrollView, ThemeView as View, ThemeSafeAreaView as SafeAreaView } from './ThemeSurfaces';
 import React, { useState } from 'react';
 import { Modal, ActivityIndicator, useWindowDimensions } from 'react-native';
@@ -6,8 +7,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemeText as Text, ThemeTypographyPreview } from './ThemePrimitives';
 import { useTheme } from '../context/ThemeContext';
 import { appThemes, themeIds, type AppThemeId, type AppPalette } from '../services/appTheme';
-import { LiverpoolWatermark } from './LiverpoolWatermark';
-import { ArsenalWatermark } from './ArsenalWatermark';
 import { themeFontLicenses } from '../services/themeFontLicenses';
 
 function ThemePreview({ palette: p, compact }: { palette: AppPalette; compact: boolean }) {
@@ -16,8 +15,7 @@ function ThemePreview({ palette: p, compact }: { palette: AppPalette; compact: b
       <Text style={{ color: p.text, fontFamily: 'serif', fontSize: compact ? 18 : 22 }}>Your day, in balance.</Text>
     </View>
     <View style={{ backgroundColor: p.hero, borderRadius: 14, padding: compact ? 10 : 14, overflow: 'hidden' }}>
-      {p.id === 'arsenal' && <ArsenalWatermark />}
-      {p.id === 'liverpool' && <LiverpoolWatermark />}
+      <ThemeWatermark id={p.id} onHero/>
       <Text style={{ color: p.onHero, fontSize: 9, fontWeight: '800', letterSpacing: 1 }}>TRUE SPENDABLE CASH</Text>
       <Text typographyRole="number" style={{ color: p.onHero, fontSize: compact ? 23 : 28, marginTop: 4 }}>RM 1,240.00</Text>
     </View>
@@ -66,7 +64,7 @@ export function AppearanceSettings() {
                 {themeIds.map(id => {
                   const candidate = appThemes[id]; const selected = preview === id;
                   return <Pressable key={id} disabled={saving} onPress={() => setPreview(id)} accessibilityRole="radio" accessibilityState={{ checked: selected, disabled: saving }} style={{ padding: 13, borderRadius: 15, borderWidth: selected ? 2 : 1, borderColor: selected ? palette.accent : palette.border, backgroundColor: palette.surface, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <View style={{ width: 38, height: 38, backgroundColor: candidate.canvas, borderRadius: 12, borderWidth: 1, borderColor: candidate.border, alignItems: 'center', justifyContent: 'center' }}><View style={{ backgroundColor: candidate.hero, width: 20, height: 15, borderRadius: 5 }} /></View>
+                    <View style={{ width: 38, height: 38, backgroundColor: candidate.canvas, borderRadius: 12, borderWidth: 1, borderColor: candidate.border, alignItems: 'center', justifyContent: 'center' }}><ThemeMotif id={id} size={24}/></View>
                     <View style={{ flex: 1 }}><Text style={{ color: palette.text, fontSize: 13, fontWeight: '700' }}>{candidate.name}{palette.id === id ? ' · Current' : ''}</Text><Text style={{ color: palette.muted, fontSize: 10, lineHeight: 15, marginTop: 3 }}>{candidate.description}</Text></View>
                     <Ionicons name={selected ? 'checkmark-circle' : 'ellipse-outline'} size={21} color={selected ? palette.accent : palette.muted} />
                   </Pressable>;

@@ -1,6 +1,6 @@
 import { ThemeTouchableOpacity as TouchableOpacity, ThemeView as View, ThemeSafeAreaView as SafeAreaView } from '../components/ThemeSurfaces';
 import React, { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Modal } from 'react-native';
+import { AccessibilityInfo, Animated, BackHandler, Keyboard, StyleSheet, useWindowDimensions } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeText as Text } from '../components/ThemePrimitives';
@@ -19,8 +19,11 @@ export function AppMenuButton() {
 }
 export function AppMenuProvider({ children }: { children: React.ReactNode }) {
   const { palette: p } = useTheme();
+  const { width } = useWindowDimensions();
+  const panelWidth = Math.min(width * .92, 480);
   const [visible, setVisible] = useState(false), [ready, setReady] = useState(false);
   const [params, setParams] = useState<SettingsParams>(EMPTY_PARAMS), [settingsRevision, setSettingsRevision] = useState(0);
+  const nextParams = useRef<SettingsParams>(EMPTY_PARAMS);
   const opened = useRef(false), motion = useRef(new Animated.Value(0)).current, reduceMotion = useRef(false);
   useEffect(() => {
     void AccessibilityInfo.isReduceMotionEnabled().then(v => { reduceMotion.current = v; }).catch(() => {});
@@ -32,7 +35,8 @@ export function AppMenuProvider({ children }: { children: React.ReactNode }) {
     opened.current = false;
     motion.stopAnimation();
     setVisible(false);
-    setReady(false);
+    motion.setValue(0);
+    Keyboard.dismiss();
     setSettingsRevision(v => v + 1);
   }, [motion]);
   const openSettings = useCallback((next: SettingsParams = EMPTY_PARAMS) => {
@@ -40,25 +44,33 @@ export function AppMenuProvider({ children }: { children: React.ReactNode }) {
     opened.current = true;
     motion.stopAnimation();
     motion.setValue(0);
-    setParams(next);
+    nextParams.current = next;
     setVisible(true);
+    // Panel already exists: submit native animation directly from the press handler.
+    Animated.timing(motion, { toValue: 1, duration: reduceMotion.current ? 0 : 160, useNativeDriver: true }).start(({ finished }) => {
+      if (finished && opened.current) { setParams(nextParams.current); setReady(true); }
+    });
   }, [motion]);
   const openMenu = useCallback(() => openSettings(), [openSettings]);
   // Opening the drawer must not invalidate every screen's menu subscription.
   const api = useMemo(() => ({ settingsRevision, openMenu, openSettings }), [settingsRevision, openMenu, openSettings]);
-  const reveal = useCallback(() => {
-    Animated.timing(motion, { toValue: 1, duration: reduceMotion.current ? 0 : 160, useNativeDriver: true }).start(({ finished }) => {
-      if (finished && opened.current) setReady(true);
-    });
-  }, [motion]);
-  return <AppMenu.Provider value={api}>{children}
-    <Modal visible={visible} transparent animationType="none" onShow={reveal} onRequestClose={close}>
-      <View style={{ flex: 1, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,.45)' }}>
-        <Animated.View style={{ width: '92%', maxWidth: 480, backgroundColor: p.canvas, transform: [{ translateX: motion.interpolate({ inputRange: [0, 1], outputRange: [-480, 0] }) }] }}>
-          {ready ? <DrawerSettings drawer menuParams={params} onClose={close} /> : <SafeAreaView style={{ flex: 1, padding: 18 }}><View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}><Text style={{ color: p.text, fontSize: 28, fontWeight: '800' }}>Settings</Text><TouchableOpacity accessibilityLabel="Close Settings" onPress={close} style={{ padding: 12 }}><Ionicons name="close" size={24} color={p.text} /></TouchableOpacity></View></SafeAreaView>}
-        </Animated.View>
-        <TouchableOpacity accessibilityLabel="Dismiss Settings" style={{ flex: 1 }} onPress={close} />
-      </View>
-    </Modal>
-  </AppMenu.Provider>;
+  // Prepare Settings offscreen once; repeated openings reuse the mounted tree.
+  useEffect(() => {
+    const warmup = setTimeout(() => setReady(true), 600);
+    return () => clearTimeout(warmup);
+  }, []);
+  useEffect(() => {
+    if (!visible) return;
+    const listener = BackHandler.addEventListener('hardwareBackPress', () => { close(); return true; });
+    return () => listener.remove();
+  }, [visible, close]);
+  return <AppMenu.Provider value={api}><View style={{ flex: 1 }}>
+    <View style={{ flex: 1 }} accessibilityElementsHidden={visible} importantForAccessibility={visible ? 'no-hide-descendants' : 'auto'}>{children}</View>
+    <Animated.View testID="settings-drawer" pointerEvents={visible ? 'auto' : 'none'} accessibilityElementsHidden={!visible} importantForAccessibility={visible ? 'auto' : 'no-hide-descendants'} accessibilityViewIsModal={visible} style={[StyleSheet.absoluteFill, { zIndex: 1000, elevation: 1000, flexDirection: 'row', opacity: motion }]}>
+      <TouchableOpacity accessibilityLabel="Dismiss Settings" onPress={close} style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,.45)' }]} />
+      <Animated.View style={{ width: panelWidth, backgroundColor: p.canvas, transform: [{ translateX: motion.interpolate({ inputRange: [0, 1], outputRange: [-panelWidth, 0] }) }] }}>
+        {ready ? <DrawerSettings drawer menuParams={params} onClose={close} /> : <SafeAreaView style={{ flex: 1, padding: 18 }}><View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}><Text style={{ color: p.text, fontSize: 28, fontWeight: '800' }}>Settings</Text><TouchableOpacity accessibilityLabel="Close Settings" onPress={close} style={{ padding: 12 }}><Ionicons name="close" size={24} color={p.text} /></TouchableOpacity></View></SafeAreaView>}
+      </Animated.View>
+    </Animated.View>
+  </View></AppMenu.Provider>;
 }

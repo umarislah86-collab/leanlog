@@ -1,3 +1,4 @@
+import { ThemeWatermark } from '../components/ThemeMotif';
 import { ThemeScrollView as ScrollView, ThemeTouchableOpacity as TouchableOpacity, ThemeView as View, ThemeSafeAreaView as SafeAreaView } from '../components/ThemeSurfaces';
 import { AppMenuButton, useAppMenu } from '../context/AppMenuContext';
 import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
@@ -549,6 +550,7 @@ export default function HomeScreen({ navigation }: any) {
         </TouchableOpacity>
 
         <View style={styles.briefCard}>
+          <ThemeWatermark id={palette.id} onHero/>
           <View style={styles.cardHeadingRow}>
             <Text style={styles.briefEyebrow}>DAILY BRIEFING</Text>
             <Text style={styles.briefDate}>TODAY</Text>

@@ -3,6 +3,7 @@ import React from 'react';
 import { FlexWidget, TextWidget } from 'react-native-android-widget';
 import type { WidgetGuardSnapshot } from '../services/spendingGuards';
 import type { WidgetAccount } from './RedCoinsWidgets';
+import { clubEmblem } from './club-emblem';
 import { themedWidgetTree } from './widget-theme';
 import type { AppThemeId } from '../services/appTheme';
 
@@ -38,6 +39,7 @@ export function LeanLogWidget({ eaten, burned, meals, goal, steps, guards, botto
     >
       <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center' }}>
         <FlexWidget style={{ width: 0, flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+          {clubEmblem(themeId)}
           <TextWidget text={`${left.toLocaleString()}`} maxLines={1} style={{ color: '#172033', fontSize: 22, fontWeight: '700' }} />
           <TextWidget text="KCAL LEFT" style={{ color: '#FF6542', fontSize: 8, fontWeight: '700', marginLeft: 4 }} />
         </FlexWidget>

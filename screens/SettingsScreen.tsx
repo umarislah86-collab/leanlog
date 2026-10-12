@@ -1,3 +1,4 @@
+import { ThemeWatermark } from '../components/ThemeMotif';
 import { ThemeScrollView as ScrollView, ThemeTouchableOpacity as TouchableOpacity, ThemeView as View, ThemeSafeAreaView as SafeAreaView } from '../components/ThemeSurfaces';
 import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
 import { useTheme, useThemeStyles } from '../context/ThemeContext';
@@ -23,8 +24,6 @@ import { getNagDays, getNagTimes, isNagModeEnabled, setNagDays, setNagModeEnable
 import LeanLogChronicle from '../components/LeanLogChronicle';
 import { RedCoinsBackupSettings } from '../components/RedCoinsBackupSettings';
 import { RedCoinsDataCheck } from '../components/RedCoinsDataCheck';
-import { ArsenalWatermark } from '../components/ArsenalWatermark';
-import { LiverpoolWatermark } from '../components/LiverpoolWatermark';
 import { AppearanceSettings } from '../components/AppearanceSettings';
 import { chooseBluecoinsFolder, getBluecoinsSourceMetadata } from '../services/bluecoins';
 import { stageRedCoinsImport, commitRedCoinsImport } from '../services/redcoinsImport';
@@ -454,8 +453,7 @@ export default function SettingsScreen({menuParams={},onClose,drawer=false}:{men
   return (
     <SafeAreaView style={styles.container} edges={drawer ? ['top', 'bottom'] : ['top']}>
       <View style={[styles.header, drawer && { padding: 16, overflow: 'hidden' }]}>
-        {drawer && palette.id === 'arsenal' && <ArsenalWatermark colour={palette.accent} width={160}/>}
-        {drawer && palette.id === 'liverpool' && <LiverpoolWatermark colour={palette.accent} height={70}/>}
+        {drawer && <ThemeWatermark id={palette.id}/>}
         {drawer ? <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8}}><Text style={styles.headerTitle}>{t('settingsTitle')}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Close Settings" onPress={onClose} style={{padding:10}}><Ionicons name="close" size={24} color={themed('#101A2B','color')}/></TouchableOpacity></View> : <>
         <View style={{flexDirection:'row',alignItems:'center',gap:12,marginBottom:10}}>{onClose&&<TouchableOpacity accessibilityLabel="Back to app" onPress={onClose} style={{padding:8}}><Ionicons name="arrow-back" size={24} color={themed('#101A2B','color')}/></TouchableOpacity>}<Text style={styles.headerEyebrow}>LEANLOG / CONTROL ROOM</Text></View>
         <Text style={styles.headerTitle}>{t('settingsTitle')}</Text>

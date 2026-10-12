@@ -1,3 +1,21 @@
+## Release 3.0.3 in progress — 12 October 2026
+
+User authorized APK build and GitHub push/publication. Includes persistent Settings drawer and all-theme decorative motifs below. Version bumped to 3.0.3; preview-arm64 on umiaq. Source checks passed (335 tests, main/QC TypeScript, QC Android bundle). Build/signature/release verification pending.
+
+## Current unreleased — identity for every theme (12 October 2026)
+
+All eleven themes now share offline vector motifs across Home Daily Briefing, Settings drawer header, pinned appearance preview, theme list thumbnails and all five native widget types. Original: sunrise; Midnight: crescent; Soft Neutral: balanced stones; Grove: leaf; Dusk: orbit; Folio: quill; Onyx: diamond; Cyberpunk: original neon circuit; Arabia: original geometric arabesque; Arsenal/Liverpool retain sourced cannon/Liver bird. Arabia uses geometry rather than arbitrary calligraphy, Cyberpunk uses original art rather than a game logo. Shared services/themeMotifs.ts provides palette-coloured XML; native SvgWidget needs no network or asset resolution. Decorative watermarks ignore touches/accessibility and use low opacity; widget symbols remain in existing rows. 335 tests pass, including all-theme widget trees/contrast and distinct offline motif XML. Main/QC TypeScript checked; actual Android launcher and drawer performance QC still pending. No new APK/release requested; published version remains 3.0.2.
+
+## Current unreleased — club emblems on widgets (12 October 2026)
+
+User requested Arsenal/Liverpool emblems on matching launcher widgets. Added small inline SVG cannon/Liver bird using the same sourced club assets to all five widget types (Daily, Account, Cash Reality, Quick Log, Upcoming). Red emblem on light surfaces, gold on Cash Reality hero. Emblems sit in existing header rows; no new branding row on Daily, figures and quick actions retained. SvgWidget gets inline XML so headless rendering needs no network/asset resolution. Superseded by the all-theme motif extension above. 334 tests including all-theme headless trees/contrast and club-only emblem coverage pass; main/QC TypeScript checked. Actual launcher visual QC pending; Expo Go cannot render native Android widgets. Persistent drawer fix below also unreleased; public APK remains 3.0.2.
+
+## Current unreleased — persistent Settings drawer (12 October 2026)
+
+User measured approximately 2 seconds opening delay on 3.0.2. Previous architecture still mounted a native Modal and waited for onShow, then remounted Settings after every animation. Replaced native Modal with always-mounted absolute sibling overlay inside the main tabs container. Native opacity/translate animation starts directly in the press callback. Settings warms offscreen once after startup and remains mounted across closes; memoized props/API preserve the content/tab trees on ordinary opens. A very early cold tap shows lightweight shell immediately and fills Settings after animation. Import intent commits after animation so it cannot burden initial slide. BackHandler/backdrop/Close work; closed drawer has pointerEvents none and hidden accessibility descendants; underlying tabs are accessibility-hidden while open. Panel width follows window dimensions. Close still emits one refresh revision. No device timing has been measured for this patch; do not claim a verified millisecond opening time.
+
+333 tests pass including persistent content, direct animation scheduling, context identity, warm/cold opens, import intent, Back, duplicate close and late callbacks. Main/QC TypeScript and Android QC bundle checked. Public APK remains 3.0.2; new APK not yet requested/built.
+
 # LeanLog — latest published release v3.0.2
 
 Published 12 October 2026 (Asia/Singapore). User authorized build and GitHub publication; complete. All historical unreleased sections below are included in 3.0.2 and superseded by this record.

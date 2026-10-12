@@ -49,6 +49,7 @@ test('account snapshot reads current balances and names in selection order, with
 });
 const primitive = name => Object.assign(() => {}, { __name__: name, convertProps: props => props });
 const { LeanLogWidget } = load('widgets/LeanLogWidget.tsx', {
+  './club-emblem': {clubEmblem:()=>null},
   './widget-theme': { themedWidgetTree: node => node },
   react: require('react'), 'react-native-android-widget': { FlexWidget: primitive('LinearLayoutWidget'), TextWidget: primitive('TextWidget') },
 });
