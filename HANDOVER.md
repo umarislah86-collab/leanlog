@@ -1,6 +1,15 @@
-## Release 3.0.3 in progress — 12 October 2026
+# LeanLog — latest published release v3.0.3
 
-User authorized APK build and GitHub push/publication. Includes persistent Settings drawer and all-theme decorative motifs below. Version bumped to 3.0.3; preview-arm64 on umiaq. Source checks passed (335 tests, main/QC TypeScript, QC Android bundle). Build/signature/release verification pending.
+Published 12 October 2026 (Asia/Singapore). User authorized APK build and GitHub publication; complete. The persistent drawer and all-theme motif sections below are included in this release.
+
+- Source 4ea1d90d4e9e303f442064310da4ffa30e85c680, branch github-release-v221, pushed to origin.
+- EAS umiaq / umiaqs-team, build c0ff0a13-2465-4684-86be-028df89aa61f FINISHED; preview-arm64, 3.0.3 / versionCode 35.
+- APK https://github.com/umarislah86-collab/leanlog/releases/download/v3.0.3/leanlog-V3.0.3.apk; local ../../outputs/leanlog-V3.0.3.apk (44,417,980 bytes).
+- SHA256 6b36a4d87e02a3afdce72b87aad7619b037cd4d551f0cad5197a094e50373dff.
+- Verified V2 signature/content digest, ZIP CRC, ARM64 ABI, package com.calorietracker.app and version 3.0.3/35. Original signer 62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c retained.
+- Includes persistent Settings drawer, shared motifs for all eleven themes on Home/Settings/preview and all five native widgets, Chronicle 3.0.3.
+- 335 automated tests, production/QC TypeScript and Android QC bundle passed. GitHub published asset size and HTTP download checked. Physical phone drawer timing and native launcher visual acceptance remain pending.
+- Verification files: ../../outputs/leanlog-3.0.3-build.json, leanlog-3.0.3-apk-verification.json, leanlog-3.0.3-github-release.json and leanlog-3.0.3-tests.txt.
 
 ## Current unreleased — identity for every theme (12 October 2026)
 
