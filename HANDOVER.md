@@ -1,6 +1,6 @@
 # LeanLog — latest published release v3.0.6
 
-## Unreleased correction — native character artwork, 12 October 2026
+## Release 3.0.7 in progress — native character artwork, 12 October 2026
 
 User reports both anime themes render no character artwork, Cutie widget blank, and drawer artwork badly placed in installed 3.0.6. Previous desktop SVG rendering/headless tests did not verify Android pixels; do not claim that release's artwork works on device.
 
@@ -10,7 +10,7 @@ User reports both anime themes render no character artwork, Cutie widget blank, 
 - Drawer header uses a dedicated 64px character slot beside the title with shrink/wrap space and separate close action, replacing the clipped 140px bottom-positioned watermark.
 - Existing 347 tests plus two new regressions pass: decode all 30 page/widget mappings and assert visible pixels, PNG dimensions, transparent edges and baked widget alpha; assert native app Image route and headless ImageWidget path. TypeScript and Android production export pass.
 - Actual PNG review sheet ../../outputs/native-art-fix-preview.png visually inspected (asset sheet, not Android screenshot). Native phone/launcher confirmation still pending. Exact cause of the previous Android SVG failure has not been reproduced on a device; the failing image-in-SVG route is removed.
-- Published APK remains 3.0.6; this correction is not in that APK. Regenerate using node scripts/bundle-native-art.cjs after changing source character/Cutie art.
+- User authorized APK build and GitHub publication for this correction. Version bumped to 3.0.7; EAS preview-arm64 / umiaq, original signing key. Build details pending. Regenerate using node scripts/bundle-native-art.cjs after changing source character/Cutie art.
 
 ## Release v3.0.6 published — 12 October 2026
 
