@@ -1,6 +1,15 @@
-## Release 3.0.5 in progress — 12 October 2026
+# LeanLog — latest published release v3.0.5
 
-User authorized build and push after stronger watermark visibility correction. Includes larger artwork, higher opacity, measured dock crop and widget placement/contrast changes below. Build/signature/release verification pending.
+Published 12 October 2026 (Asia/Singapore). User authorized build and push after watermark visibility correction; complete. The stronger-watermark section below is included in this release.
+
+- Source 9051be11dec733cd128acc646df3bd98928632e8, branch github-release-v221, pushed to origin.
+- EAS umiaq / umiaqs-team, build 32bca635-84f8-4c60-8959-7935878099af FINISHED; preview-arm64, 3.0.5 / versionCode 37.
+- APK https://github.com/umarislah86-collab/leanlog/releases/download/v3.0.5/leanlog-V3.0.5.apk; local ../../outputs/leanlog-V3.0.5.apk (44,567,766 bytes).
+- SHA256 441c5825bcf44551287c3c8eaff385658b509ac6784741bcdb53d4571193f5f6.
+- Verified V2 signature/content digest, ZIP CRC, ARM64 ABI, com.calorietracker.app and 3.0.5/37. Original signer 62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c retained.
+- Includes larger central theme motifs, 280dp Home/page and 140dp card/drawer artwork, opacity 18–24%, measured dock zoom/crop at 20%, larger top-aligned widget motif at 24%, and text contrast correction on both plain and painted widget areas. All 13 themes covered; Chronicle 3.0.5.
+- 336 automated tests, production/QC TypeScript and Android QC bundle passed. GitHub asset size/digest and HTTP download verified. Physical phone watermark/crop/launcher acceptance remains pending; do not claim native pixel verification.
+- Artifacts: ../../outputs/leanlog-3.0.5-build.json, leanlog-3.0.5-apk-verification.json, leanlog-3.0.5-github-release.json, leanlog-3.0.5-tests.txt.
 
 ## Current unreleased — stronger watermark visibility and dock crop (12 October 2026)
 
