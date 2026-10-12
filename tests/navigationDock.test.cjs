@@ -13,6 +13,7 @@ function renderDock(route) {
   vm.runInNewContext(ts.transpileModule(fs.readFileSync('components/MainNavigationDock.tsx', 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React, esModuleInterop: true },
   }).outputText, { exports, setTimeout: callback => callback(), require: name => {
+    if (name === './ThemeMotif') return {ThemeWatermark:'ThemeWatermark'};
     if (name === './ThemeSurfaces') return {ThemeAnimatedView:'AnimatedView',ThemeView:'View',ThemeTouchableOpacity:'TouchableOpacity'};
     if (name === 'react') return react;
     if (name === 'react-native') return { View: 'View', TouchableOpacity: 'TouchableOpacity', Modal: 'Modal',
@@ -55,7 +56,7 @@ test('shared plus stays outside animated tabs in both modes, opens quick logger 
 test('only active navigation layer is touchable; RedCoins selection calls screen navigation', () => {
   for (const route of ['Coach', 'RedCoins']) {
     const dock = renderDock(route);
-    const slot = dock.tree.props.children[0];
+    const slot = dock.tree.props.children.find(n => n?.type === 'View' && n.props.style?.height === 64);
     const [main, money] = slot.props.children;
     assert.equal(main.props.pointerEvents, route === 'RedCoins' ? 'none' : 'auto');
     assert.equal(money.props.pointerEvents, route === 'RedCoins' ? 'auto' : 'none');

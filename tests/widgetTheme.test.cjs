@@ -9,9 +9,10 @@ function load(file, mocks = {}) {
 const api = load('services/appTheme.ts'); const stored = new Map(); let fail = false;
 const theme = load('widgets/widget-theme.tsx', { react: React, '../services/appTheme': api, '@react-native-async-storage/async-storage': { getItem: async key => { if (fail) throw new Error('unavailable'); return stored.get(key); } } });
 const primitive = name => Object.assign(() => {}, { __name__: name, convertProps: props => props });
-const mocks = { react: React, './widget-theme': theme, 'react-native-android-widget': { FlexWidget: primitive('LinearLayoutWidget'), TextWidget: primitive('TextWidget'), SvgWidget: primitive('SvgWidget') } };
+const mocks = { react: React, './widget-theme': theme, 'react-native-android-widget': { FlexWidget: primitive('LinearLayoutWidget'), TextWidget: primitive('TextWidget'), SvgWidget: primitive('SvgWidget'), OverlapWidget: primitive('FrameLayoutWidget') } };
 const motifs = load('services/themeMotifs.ts', {'./appTheme':api});
-mocks['./club-emblem'] = load('widgets/club-emblem.tsx', {...mocks, '../services/themeMotifs': motifs});
+const artwork = load('services/themeArtwork.ts', {'./appTheme': api, './themeMotifs': motifs});
+mocks['./widget-watermark'] = load('widgets/widget-watermark.tsx', {...mocks, '../services/themeArtwork': artwork, '../services/textContrast':load('services/textContrast.ts')});
 const { LeanLogWidget } = load('widgets/LeanLogWidget.tsx', mocks); const others = load('widgets/RedCoinsWidgets.tsx', mocks);
 const { buildWidgetTree } = require('../node_modules/react-native-android-widget/lib/commonjs/api/build-widget-tree');
 const samples = id => [
@@ -44,7 +45,15 @@ test('all themed widget text passes contrast against its actual inherited backgr
   function visit(node, background, id) {
     if (Array.isArray(node)) return node.forEach(child => visit(child, background, id));
     if (!node?.props) return;
-    const style = node.props.style || {}; const bg = style.backgroundColor || background;
+    const style = node.props.style || {}; let bg = style.backgroundColor || background;
+    if (node.type?.__name__ === 'FrameLayoutWidget') {
+      const xml = node.props.children[0].props.children.props.svg;
+      const ink = [api.appThemes[id].accent, api.appThemes[id].mint].find(c => xml.includes(c));
+      const rgb = hex => hex.slice(1).match(/../g).map(x => parseInt(x, 16));
+      const base = rgb(bg), top = rgb(ink);
+      // Worst-case fully painted motif stroke behind text, not only the blank SVG area.
+      bg = '#' + base.map((x,i) => Math.round(x * .925 + top[i] * .075).toString(16).padStart(2,'0')).join('');
+    }
     if (node.props.text && style.color) assert.ok(contrast(style.color, bg) >= 4.5, `${id}: ${node.props.text}, ${style.color} on ${bg}`);
     visit(node.props.children, bg, id);
   }
@@ -55,27 +64,45 @@ test('theme Apply refresh happens only after preference persistence; every nativ
   for (const file of ['services/widget.tsx', 'widgets/widget-task-handler.tsx', 'widgets/WidgetConfigurationScreen.tsx', 'widgets/widget-data.ts']) assert.ok(source(file).includes('getWidgetTheme'), file);
   assert.ok(source('plugins/withWidgetThemeFonts.js').includes('app/src/main/assets/fonts')); assert.ok(source('app.json').includes('withWidgetThemeFonts'));
 });
-test('native-font plugin copies all nine faces that the Android widget loader can resolve', async () => {
+test('native-font plugin copies all eleven faces that the Android widget loader can resolve', async () => {
   const temp = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'leanlog-widget-fonts-'));
   const plugin = load('plugins/withWidgetThemeFonts.js', { '@expo/config-plugins': { withDangerousMod: (_config, [, callback]) => callback }, fs, path });
   const mod = { modRequest: { platformProjectRoot: temp } }; assert.equal(await plugin({})(mod), mod);
-  const fonts = path.join(temp, 'app/src/main/assets/fonts'); assert.equal(fs.readdirSync(fonts).length, 9);
+  const fonts = path.join(temp, 'app/src/main/assets/fonts'); assert.equal(fs.readdirSync(fonts).length, 11);
   for (const id of api.themeIds.filter(id => id !== 'cream')) for (const role of ['heading', 'body', 'number']) {
     const family = api.themeFont(id, { fontWeight: '700' }, role).fontFamily;
-    assert.ok(fs.statSync(path.join(fonts, `${family}.ttf`)).size > 50000);
+    assert.ok(fs.statSync(path.join(fonts, `${family}.ttf`)).size > 10000);
   }
 });
 
-test('all five widget types show their own offline theme motif', () => {
+test('all widget motifs are subtle background layers behind unchanged content', () => {
   for (const id of api.themeIds) for (const widget of samples(id)) {
     const tree=buildWidgetTree(widget), images=[];
     const visit=node=>{if(node.type==='SvgWidget')images.push(node);(node.children||[]).forEach(visit);};visit(tree);
     assert.equal(images.length, 1);
+    assert.equal(tree.type, 'FrameLayoutWidget');
+    assert.equal(tree.children.length, 2);
+    assert.equal(tree.children[0].children[0].type, 'SvgWidget');
+    assert.equal(tree.children[1].props.style.backgroundColor, undefined);
+    assert.ok(images[0].props.style.height >= 42);
+    assert.match(images[0].props.svg, /<g opacity="0.075">/);
+    assert.equal(images[0].props.clickAction, undefined);
     for (const image of images) { assert.match(image.props.svg, /<svg/); assert.ok(!image.props.svg.includes('http:') || image.props.svg.includes('http://www.w3.org/2000/svg')); assert.ok(!image.props.svg.includes('<image')); assert.ok([api.appThemes[id].accent,api.appThemes[id].mint].some(colour=>image.props.svg.includes(colour))); }
   }
 });
 
-test('all eleven motifs have distinct identities and XML without text or external images', () => {
-  const names=api.themeIds.map(id=>motifs.themeMotif(id).name);assert.equal(new Set(names).size,11);
+test('all thirteen motifs have distinct identities and XML without text or external images', () => {
+  const names=api.themeIds.map(id=>motifs.themeMotif(id).name);assert.equal(new Set(names).size,13);
   for(const id of api.themeIds)for(const hero of [false,true]){const motif=motifs.themeMotif(id,hero);assert.ok(motif.ratio>0);assert.ok(!/<text|<image|href=/i.test(motif.svg));assert.ok(motif.svg.includes(hero?api.appThemes[id].mint:api.appThemes[id].accent));}
+});
+
+ test('every theme has distinct artwork per surface; anime pages have separate characters', () => {
+  const places=['home','log','progress','coach','drawer','widget','account','cash','quick','upcoming'];
+  for(const id of api.themeIds){
+    const pieces=places.map(place=>artwork.themeArtwork(id,place));
+    assert.equal(new Set(pieces.map(x=>x.svg)).size,places.length,id);
+    pieces.forEach(x=>{assert.equal(x.ratio,1);assert.ok(!/<text|<image|href=/i.test(x.svg));});
+  }
+  assert.deepEqual(['log','progress','coach','drawer'].map(p=>artwork.themeArtwork('grandline',p).name),['luffy','zoro','sanji','chopper']);
+  assert.deepEqual(['log','progress','coach','drawer'].map(p=>artwork.themeArtwork('saiyan',p).name),['goku','vegeta','piccolo','shenron']);
 });

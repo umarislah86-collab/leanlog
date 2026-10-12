@@ -1,3 +1,4 @@
+import { ThemeWatermark } from '../components/ThemeMotif';
 import { ThemeScrollView as ScrollView, ThemeTouchableOpacity as TouchableOpacity, ThemeView as View, ThemeSafeAreaView as SafeAreaView } from '../components/ThemeSurfaces';
 import { AppMenuButton, useAppMenu } from '../context/AppMenuContext';
 import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
@@ -742,10 +743,11 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <ThemeWatermark id={palette.id} placement="page" artwork="log"/>
       <StatusBar style={palette.dark ? 'light' : 'dark'} />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: 'transparent' }]}>
         <View style={styles.headerTopRow}>
           <View style={{flexDirection:'row',alignItems:'center',gap:10}}><AppMenuButton/><Text style={styles.headerTitle}>{t('headerTitle')}</Text></View>
           <View style={styles.headerRight}>

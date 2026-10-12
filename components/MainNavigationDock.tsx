@@ -1,3 +1,4 @@
+import { ThemeWatermark } from './ThemeMotif';
 import { ThemeAnimatedView } from './ThemeSurfaces';
 import { ThemeTouchableOpacity as TouchableOpacity, ThemeView as View } from './ThemeSurfaces';
 import React, { useEffect, useRef, useState } from 'react';
@@ -65,6 +66,7 @@ export function MainNavigationDock({ state, descriptors, navigation }: any) {
         paddingTop: 6,
       }}
     >
+      <ThemeWatermark id={palette.id} placement="dock"/>
       <View style={{ flex: 1, height: 64, overflow: 'hidden' }}>
       <ThemeAnimatedView pointerEvents={isMoney ? 'none' : 'auto'} accessibilityElementsHidden={isMoney} importantForAccessibility={isMoney ? 'no-hide-descendants' : 'auto'}
         style={[StyleSheet.absoluteFill, { flexDirection: 'row', alignItems: 'center' }, leanlogMotion]}>
@@ -107,6 +109,7 @@ export function MainNavigationDock({ state, descriptors, navigation }: any) {
       </ThemeAnimatedView>
       <ThemeAnimatedView pointerEvents={isMoney ? 'auto' : 'none'} accessibilityElementsHidden={!isMoney} importantForAccessibility={isMoney ? 'auto' : 'no-hide-descendants'}
         style={[StyleSheet.absoluteFill, { flexDirection: 'row', alignItems: 'center', backgroundColor: themed(colors.ink, 'backgroundColor'), borderRadius: 20, padding: 4, marginLeft: 8, marginVertical: 2 }, moneyMotion]}>
+        <ThemeWatermark id={palette.id} onHero placement="dock"/>
         {redcoinsSections.map(section => {
           const active = section === (money?.section || 'home');
           const ink = themed(active ? '#FFFDF7' : '#AEB8CD', 'color');

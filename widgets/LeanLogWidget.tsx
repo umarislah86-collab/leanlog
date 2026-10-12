@@ -3,7 +3,7 @@ import React from 'react';
 import { FlexWidget, TextWidget } from 'react-native-android-widget';
 import type { WidgetGuardSnapshot } from '../services/spendingGuards';
 import type { WidgetAccount } from './RedCoinsWidgets';
-import { clubEmblem } from './club-emblem';
+import { widgetWatermark } from './widget-watermark';
 import { themedWidgetTree } from './widget-theme';
 import type { AppThemeId } from '../services/appTheme';
 
@@ -32,14 +32,13 @@ export function LeanLogWidget({ eaten, burned, meals, goal, steps, guards, botto
   // wrap_content. Start both columns at zero so label lengths cannot shift
   // the divider independently in each row.
   const snapshotCell = { width: 0, flex: 1, height: 27, flexDirection: 'column' as const, justifyContent: 'center' as const, borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2 };
-  return themedWidgetTree((
+  return widgetWatermark(themedWidgetTree((
     <FlexWidget
       clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://home' }}
       style={{ height: 'match_parent', width: 'match_parent', flexDirection: 'column', backgroundColor: '#F7EEDC', borderRadius: 16, padding: 6 }}
     >
       <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center' }}>
         <FlexWidget style={{ width: 0, flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-          {clubEmblem(themeId)}
           <TextWidget text={`${left.toLocaleString()}`} maxLines={1} style={{ color: '#172033', fontSize: 22, fontWeight: '700' }} />
           <TextWidget text="KCAL LEFT" style={{ color: '#FF6542', fontSize: 8, fontWeight: '700', marginLeft: 4 }} />
         </FlexWidget>
@@ -80,5 +79,5 @@ export function LeanLogWidget({ eaten, burned, meals, goal, steps, guards, botto
         <FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://redcoins/transfer' }} style={{ width: 0, flex: 1, height: 24, justifyContent: 'center', backgroundColor: '#528FF2', borderRadius: 6, alignItems: 'center' }}><TextWidget text="⇄ TRANSFER" style={{ color: '#FFFFFF', fontSize: 7, fontWeight: '700' }} /></FlexWidget>
       </FlexWidget>
     </FlexWidget>
-  ), themeId) as React.JSX.Element;
+  ), themeId) as React.JSX.Element, themeId);
 }

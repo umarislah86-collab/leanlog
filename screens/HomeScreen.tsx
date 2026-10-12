@@ -512,6 +512,8 @@ export default function HomeScreen({ navigation }: any) {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView style={styles.screen} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.coral} />}>
+        <View>
+          <ThemeWatermark id={palette.id} onHero placement="home"/>
         <View style={styles.headerRow}>
           <View style={{flexDirection:'row',alignItems:'center',gap:12}}><AppMenuButton/><View>
             <Text style={styles.brand}>LeanLog</Text>
@@ -527,6 +529,7 @@ export default function HomeScreen({ navigation }: any) {
           {displayName()}
         </Text>
         <Text style={styles.mantra}>Keep the rhythm, not the pressure.</Text>
+        </View>
 
         <TouchableOpacity style={styles.nutritionCard} onPress={() => navigation.navigate('Log')} activeOpacity={0.9}>
           <View style={styles.cardHeadingRow}>

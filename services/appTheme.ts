@@ -1,6 +1,6 @@
 /** App appearance only. Finance meaning, chart series, PDFs and widgets stay independent. */
 export const APP_THEME_KEY = 'leanlog_appearance_v1';
-export type AppThemeId = 'cream' | 'midnight' | 'neutral' | 'grove' | 'dusk' | 'folio' | 'onyx' | 'cyberpunk' | 'arabia' | 'arsenal' | 'liverpool';
+export type AppThemeId = 'cream' | 'midnight' | 'neutral' | 'grove' | 'dusk' | 'folio' | 'onyx' | 'cyberpunk' | 'arabia' | 'arsenal' | 'liverpool' | 'grandline' | 'saiyan';
 export const appThemes = {
   cream: { id: 'cream', name: 'Original / Cream', description: 'Warm paper, navy and the original LeanLog accents.', dark: false, canvas: '#FFF9ED', surface: '#FFFDF7', surfaceAlt: '#F3EAD7', hero: '#101A2B', heroRaised: '#26334A', text: '#101722', muted: '#697180', onHero: '#FFFDF7', heroMuted: '#AAB5C7', border: '#DED5C5', accent: '#FF6542', mint: '#8FD6B4', mintTint: '#DDF1E7', coralTint: '#FFE6DC', blueTint: '#E8E8FF', warningTint: '#F2E7CB', expense: '#EF3F43', income: '#168A65', transfer: '#528FF2' },
   midnight: { id: 'midnight', name: 'Midnight', description: 'Layered navy, soft mint and coral. Made for low light.', dark: true, canvas: '#0B1220', surface: '#142033', surfaceAlt: '#1C2B41', hero: '#101A2B', heroRaised: '#23334C', text: '#F3F1EB', muted: '#A9B5C7', onHero: '#FFFDF7', heroMuted: '#B3BFD0', border: '#34455E', accent: '#FF856B', mint: '#8FD6B4', mintTint: '#183A35', coralTint: '#452B2B', blueTint: '#282F52', warningTint: '#3A3223', expense: '#FF8383', income: '#6CD5AF', transfer: '#8BB6FF' },
@@ -13,9 +13,11 @@ export const appThemes = {
   arabia: { id: 'arabia', name: 'Arabia', description: 'Sandstone, deep emerald and warm brass. Lora headlines with Manrope body.', dark: false, canvas: '#F4E9D6', surface: '#FFF9EE', surfaceAlt: '#ECDFC6', hero: '#103B32', heroRaised: '#245247', text: '#2B332D', muted: '#625440', onHero: '#FFF6DF', heroMuted: '#C8D1BC', border: '#C3AD80', accent: '#14624F', mint: '#D8C08A', mintTint: '#E8E1CC', coralTint: '#F0DCD0', blueTint: '#DEE5DF', warningTint: '#EEE0BD', expense: '#B52D36', income: '#146B50', transfer: '#245FBD' },
   arsenal: { id: 'arsenal', name: 'Arsenal', description: 'North London red, crisp white, navy and gold. The cannon, quietly in the details.', dark: false, canvas: '#F8F5F1', surface: '#FFFFFF', surfaceAlt: '#EEE7DD', hero: '#8F1428', heroRaised: '#871B30', text: '#17243A', muted: '#62574C', onHero: '#FFFFFF', heroMuted: '#F5D9D9', border: '#D7C9B6', accent: '#9C1830', mint: '#DCC18A', mintTint: '#E5EDDF', coralTint: '#F5DFE1', blueTint: '#E2E8F0', warningTint: '#F0E3C8', expense: '#AD2436', income: '#146B50', transfer: '#245FBD' },
   liverpool: { id: 'liverpool', name: 'Liverpool', description: 'Anfield red, clean white and warm gold. The Liver bird in the details.', dark: false, canvas: '#FAF7F2', surface: '#FFFFFF', surfaceAlt: '#EEE7DA', hero: '#981326', heroRaised: '#851A2A', text: '#232725', muted: '#64584A', onHero: '#FFFFFF', heroMuted: '#F5DEDB', border: '#D9CBB7', accent: '#A71930', mint: '#E1C685', mintTint: '#E0EDE7', coralTint: '#F6E0E1', blueTint: '#E2E9EE', warningTint: '#F0E4CA', expense: '#AD2436', income: '#146B50', transfer: '#245FBD' },
+  grandline: { id: 'grandline', name: 'Grand Line / One Piece', description: 'Parchment, ocean navy, straw gold and pirate red. Set sail with the crew.', dark: false, canvas: '#F6EDD9', surface: '#FFFAEF', surfaceAlt: '#E9DDC3', hero: '#123249', heroRaised: '#254A61', text: '#173047', muted: '#605C50', onHero: '#FFF8E8', heroMuted: '#C3D2D8', border: '#CEBE9C', accent: '#96372D', mint: '#EBC775', mintTint: '#E5EAD7', coralTint: '#F3DCD2', blueTint: '#DDE7EC', warningTint: '#EFE0B9', expense: '#AD2436', income: '#146B50', transfer: '#245FBD' },
+  saiyan: { id: 'saiyan', name: 'Saiyan / Dragon Ball', description: 'Deep blue, fiery orange and Super Saiyan gold. Find your next power level.', dark: true, canvas: '#0B1628', surface: '#162640', surfaceAlt: '#223754', hero: '#102C51', heroRaised: '#24466C', text: '#FFF5E5', muted: '#B3C4D9', onHero: '#FFF7EA', heroMuted: '#B6CCE6', border: '#3E5673', accent: '#FFAA52', mint: '#FFD16A', mintTint: '#333A2A', coralTint: '#49332F', blueTint: '#243C61', warningTint: '#403821', expense: '#FF9397', income: '#86DFB5', transfer: '#99C8FF' },
 } as const;
 export type AppPalette = typeof appThemes[AppThemeId];
-export const themeIds: AppThemeId[] = ['cream', 'midnight', 'neutral', 'grove', 'dusk', 'folio', 'onyx', 'cyberpunk', 'arabia', 'arsenal', 'liverpool'];
+export const themeIds: AppThemeId[] = ['cream', 'midnight', 'neutral', 'grove', 'dusk', 'folio', 'onyx', 'cyberpunk', 'arabia', 'arsenal', 'liverpool', 'grandline', 'saiyan'];
 export const validThemeId = (value: unknown): AppThemeId => typeof value === 'string' && themeIds.includes(value as AppThemeId) ? value as AppThemeId : 'cream';
 
 export const themeTypography = {
@@ -29,6 +31,8 @@ export const themeTypography = {
   cyberpunk: { heading: 'SpaceGrotesk', body: 'SpaceGrotesk', label: 'SpaceGrotesk', number: 'SpaceGrotesk' },
   arabia: { heading: 'Lora', body: 'Manrope', label: 'Manrope', number: 'Lora' },
   arsenal: { heading: 'SpaceGrotesk', body: 'Manrope', label: 'SpaceGrotesk', number: 'SpaceGrotesk' },
+  grandline: { heading: 'PirataOne', body: 'Manrope', label: 'SpaceGrotesk', number: 'SpaceGrotesk' },
+  saiyan: { heading: 'Bangers', body: 'Manrope', label: 'SpaceGrotesk', number: 'SpaceGrotesk' },
   liverpool: { heading: 'SpaceGrotesk', body: 'Manrope', label: 'SpaceGrotesk', number: 'SpaceGrotesk' },
 } as const;
 export type TypographyRole = keyof typeof themeTypography.cream;
@@ -38,7 +42,7 @@ export function themeFont(id: AppThemeId, style: { fontFamily?: string; fontWeig
   const resolved = role ?? (style.fontFamily === 'serif' || (style.fontSize ?? 0) >= 24 ? 'heading' : (style.letterSpacing ?? 0) >= 1 ? 'label' : 'body');
   const family = themeTypography[id][resolved];
   const weight = style.fontWeight === 'bold' ? 700 : Number(style.fontWeight) || 400;
-  const face = weight >= 700 ? 'Bold' : weight >= 500 ? 'Medium' : 'Regular';
+  const face = family === 'PirataOne' || family === 'Bangers' ? 'Regular' : weight >= 700 ? 'Bold' : weight >= 500 ? 'Medium' : 'Regular';
   return { fontFamily: `LeanLog${family}${face}`, fontWeight: 'normal' as const };
 }
 
@@ -68,7 +72,7 @@ export function themeColour(value: string, palette: AppPalette, role: ColourRole
     if (paper.has(key) || borders.has(key) || raised.has(key) || /^RGBA\(16,\s*(26|23),/.test(key)) return palette.border;
   }
   if (role === 'backgroundColor') {
-    if (key === '#8FD6B4' && (palette.id === 'cyberpunk' || palette.id === 'arabia' || palette.id === 'arsenal' || palette.id === 'liverpool')) return palette.mint;
+    if (key === '#8FD6B4' && (palette.id === 'cyberpunk' || palette.id === 'arabia' || palette.id === 'arsenal' || palette.id === 'liverpool' || palette.id === 'grandline' || palette.id === 'saiyan')) return palette.mint;
     if (canvas.has(key)) return palette.canvas;
     if (paper.has(key)) return palette.surface;
     if (hero.has(key)) return palette.hero;

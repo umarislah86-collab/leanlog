@@ -1,3 +1,4 @@
+import { ThemeWatermark } from '../components/ThemeMotif';
 import { ThemeScrollView as ScrollView, ThemeTouchableOpacity as TouchableOpacity, ThemeView as View, ThemeSafeAreaView as SafeAreaView } from '../components/ThemeSurfaces';
 import { AppMenuButton, useAppMenu } from '../context/AppMenuContext';
 import { ActivityRecordModal } from '../components/ActivityRecord';
@@ -237,7 +238,7 @@ export default function ProgressScreen() {
   const appMenu=useAppMenu();
   const navigation = useNavigation<any>();
   const styles = useThemeStyles(baseStyles);
-  const { themed } = useTheme();
+  const { themed, palette } = useTheme();
   const { t, lang } = useLanguage();
   const [cardOrder, setCardOrder] = useState<ProgressCardId[]>(() => normalizeProgressOrder(null));
   const [orderReady, setOrderReady] = useState(false);
@@ -951,8 +952,9 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <ThemeWatermark id={palette.id} placement="page" artwork="progress"/>
       <View style={{flexDirection:'row',alignItems:'center',gap:12,paddingHorizontal:18,paddingTop:8}}><AppMenuButton/><Text style={{fontWeight:'700'}}>Progress</Text></View>
-      <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+      <View style={[styles.header, { backgroundColor: 'transparent', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
         <Text style={styles.headerTitle}>{t('progressTitle')}</Text>
         <TouchableOpacity disabled={!orderReady} accessibilityRole="button" onPress={() => setShowCardOrder(true)} style={{ flexDirection: 'row', gap: 5, padding: 8 }}><Ionicons name="swap-vertical-outline" size={17} color={themed('#101A2B', 'color')} /><Text style={{ color: themed('#101A2B', 'color'), fontSize: 12, fontWeight: '700' }}>{lang === 'en' ? 'Arrange' : 'Susun kad'}</Text></TouchableOpacity>
       </View>

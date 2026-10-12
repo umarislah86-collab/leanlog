@@ -453,7 +453,7 @@ export default function SettingsScreen({menuParams={},onClose,drawer=false}:{men
   return (
     <SafeAreaView style={styles.container} edges={drawer ? ['top', 'bottom'] : ['top']}>
       <View style={[styles.header, drawer && { padding: 16, overflow: 'hidden' }]}>
-        {drawer && <ThemeWatermark id={palette.id}/>}
+        {drawer && <ThemeWatermark id={palette.id} artwork="drawer"/>}
         {drawer ? <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8}}><Text style={styles.headerTitle}>{t('settingsTitle')}</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Close Settings" onPress={onClose} style={{padding:10}}><Ionicons name="close" size={24} color={themed('#101A2B','color')}/></TouchableOpacity></View> : <>
         <View style={{flexDirection:'row',alignItems:'center',gap:12,marginBottom:10}}>{onClose&&<TouchableOpacity accessibilityLabel="Back to app" onPress={onClose} style={{padding:8}}><Ionicons name="arrow-back" size={24} color={themed('#101A2B','color')}/></TouchableOpacity>}<Text style={styles.headerEyebrow}>LEANLOG / CONTROL ROOM</Text></View>
         <Text style={styles.headerTitle}>{t('settingsTitle')}</Text>

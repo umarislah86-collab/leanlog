@@ -9,5 +9,9 @@ module.exports = config => withDangerousMod(config, ['android', async mod => {
       fs.copyFileSync(source, path.join(destination, `LeanLog${family}${face}.ttf`));
     }
   }
+  for (const [packageName, family] of [['pirata-one', 'PirataOne'], ['bangers', 'Bangers']]) {
+    const source = require.resolve(`@expo-google-fonts/${packageName}/400Regular/${family}_400Regular.ttf`);
+    fs.copyFileSync(source, path.join(destination, `LeanLog${family}Regular.ttf`));
+  }
   return mod;
 }]);

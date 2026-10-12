@@ -2,6 +2,8 @@ import * as Font from 'expo-font';
 
 // Direct asset references keep unused Google Fonts weights/images out of Metro.
 export const themeFontAssets = {
+  LeanLogPirataOneRegular: require('@expo-google-fonts/pirata-one/400Regular/PirataOne_400Regular.ttf'),
+  LeanLogBangersRegular: require('@expo-google-fonts/bangers/400Regular/Bangers_400Regular.ttf'),
   LeanLogLoraRegular: require('@expo-google-fonts/lora/400Regular/Lora_400Regular.ttf'),
   LeanLogLoraMedium: require('@expo-google-fonts/lora/500Medium/Lora_500Medium.ttf'),
   LeanLogLoraBold: require('@expo-google-fonts/lora/700Bold/Lora_700Bold.ttf'),

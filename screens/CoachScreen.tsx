@@ -1,3 +1,4 @@
+import { ThemeWatermark } from '../components/ThemeMotif';
 import { ThemeScrollView as ScrollView, ThemeTouchableOpacity as TouchableOpacity, ThemeView as View, ThemeSafeAreaView as SafeAreaView } from '../components/ThemeSurfaces';
 import { AppMenuButton, useAppMenu } from '../context/AppMenuContext';
 import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
@@ -89,7 +90,7 @@ interface SessionExercise { mode?: 'auto' | 'reps' | 'timer'; name: string; rest
 export default function CoachScreen({ route }: any) {
   const appMenu=useAppMenu();
   const styles = useThemeStyles(baseStyles);
-  const { themed } = useTheme();
+  const { themed, palette } = useTheme();
   const { lang, t } = useLanguage();
 
   const focused = useIsFocused();
@@ -906,6 +907,7 @@ Rules: exactly ${sessionsPerWeek} workout days, 3-6 exercises per day, only exer
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <ThemeWatermark id={palette.id} placement="page" artwork="coach"/>
       <View style={{flexDirection:'row',alignItems:'center',gap:12,paddingHorizontal:18,paddingTop:8}}><AppMenuButton/><Text style={{fontWeight:'700'}}>Coach</Text></View>
       <CardioCompanion gymActive={view === 'session'} openRequest={route?.params?.cardioOpen} />
       {view === 'setup' && renderSetup()}

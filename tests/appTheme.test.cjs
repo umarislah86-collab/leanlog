@@ -40,8 +40,8 @@ function runtime(values = new Map(), failure = {}) {
 const luminance = hex => { const rgb = hex.replace('#', '').match(/../g).map(x => parseInt(x, 16) / 255).map(x => x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4); return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722; };
 const contrast = (a, b) => { const x = luminance(a), y = luminance(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
 
-test('eleven explicit themes, unknown/missing preference safely defaults to Original', () => {
-  assert.equal(Object.keys(appThemes).length, 11);
+test('thirteen explicit themes, unknown/missing preference safely defaults to Original', () => {
+  assert.equal(Object.keys(appThemes).length, 13);
   for (const value of [null, undefined, 'auto', 'invalid', '{}']) assert.equal(validThemeId(value), 'cream');
   assert.equal(validThemeId('midnight'), 'midnight'); assert.equal(validThemeId('neutral'), 'neutral');
   for (const id of api.themeIds) assert.equal(validThemeId(id), id);
@@ -137,6 +137,9 @@ test('theme hooks never run inside conditional section renderers or ledger/categ
 });
 
 test('custom typography resolves heading/body/label/number faces and honors original/mono', () => {
+  assert.equal(api.themeFont('grandline', { fontSize: 30, fontWeight: '900' }).fontFamily, 'LeanLogPirataOneRegular');
+  assert.equal(api.themeFont('saiyan', { fontSize: 30, fontWeight: '900' }).fontFamily, 'LeanLogBangersRegular');
+  assert.equal(api.themeFont('saiyan', {}, 'number').fontFamily, 'LeanLogSpaceGroteskRegular');
   assert.equal(api.themeFont('grove', { fontFamily: 'serif', fontWeight: '800' }).fontFamily, 'LeanLogLoraBold');
   assert.equal(api.themeFont('grove', { fontWeight: '600' }).fontFamily, 'LeanLogManropeMedium');
   assert.equal(api.themeFont('folio', { letterSpacing: 2, fontWeight: 'bold' }).fontFamily, 'LeanLogSpaceGroteskBold');
@@ -175,7 +178,7 @@ test('Text/Input override legacy fonts without rewriting editable props; candida
 test('all resolved font faces are bundled static TTFs, with accessible licences and no remote requests', () => {
   const assets = source('services/themeFonts.ts');
   const paths = [...assets.matchAll(/require\('([^']+\.ttf)'\)/g)].map(match => match[1]);
-  assert.equal(paths.length, 9);
+  assert.equal(paths.length, 11);
   const aliases = [...assets.matchAll(/(LeanLog\w+): require/g)].map(match => match[1]);
   for (const id of api.themeIds.filter(id => id !== 'cream')) for (const role of ['heading', 'body', 'label', 'number']) for (const weight of [400, 600, 800]) assert.ok(aliases.includes(api.themeFont(id, { fontWeight: weight }, role).fontFamily));
   let size = 0;
