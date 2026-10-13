@@ -1,5 +1,48 @@
 # LeanLog — latest published release v3.0.7
 
+## Local Android build ready — 13 October 2026
+
+User authorized setting up Windows APK builds without EAS cloud. Implemented
+npm run build:local (scripts/build-local-android.ps1), local init Gradle worker
+limits and scripts/verify-local-apk.py. docs/local-android-build.md has maintenance,
+signing protection, environment and version-counter instructions.
+
+- Tools under %LOCALAPPDATA%/LeanLogBuild: checksum-verified Temurin JDK 17,
+  Android command-line tools 15859902, SDK 36, build tools 35/36, NDK 27.1.12297006,
+  CMake 3.22.1/platform-tools. No Android Studio/emulator/system PATH change.
+- Original EAS umiaq/umiaqs-team keystore downloaded once and moved outside Git.
+  signing/ folder ACL current Windows user + SYSTEM only; passwords in signing.json
+  are DPAPI-encrypted for this Windows user. Repository credentials.json removed.
+  Do not expose, commit or move this metadata as a portable backup.
+- Same-drive %USERPROFILE%/leanlog-local junction targets this checkout, avoiding
+  mixed C:/L: Kotlin codegen roots. A drive-root alias also breaks Expo package
+  lookup; do not reintroduce SUBST drive building. Build retains native caches.
+- Gradle two workers/4GB heap, CMake Ninja pool two compile jobs per project,
+  Metro two workers; native pool configuration verified. Explicit PSHOME Security
+  import avoids npm inheriting incompatible PowerShell 7 module paths.
+- Signed local 3.0.7 APKs verified: code 42 full build 13m01s, code 43 10m04s,
+  final code 44 incremental build 2m24s (31 executed, 630 up-to-date). Failed setup
+  attempts consumed 40/41; no cloud builds were submitted.
+- Final APK .local-build/apks/leanlog-V3.0.7-local-44.apk, also copied to
+  ../../outputs/leanlog-V3.0.7-local-44.apk; 48,970,866 bytes; SHA256
+  2f94c39211087481c4f908044efbf1537648962026d9bcf985389422609ee242.
+- Verified APK V2 signature/content digest, ZIP CRC, package com.calorietracker.app,
+  3.0.7/44, ARM64-only, debuggable false and embedded standalone JS bundle.
+  Original signer 62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c.
+- Counter baseline app.json android.versionCode 44; local .local-build/version-state.json
+  also 44, next local build auto-reserves 45. Named mutex rejects concurrent builds;
+  failed attempts may leave gaps. Dev package scripts retained; env restored.
+  EAS remote counter synchronized to 44 for fallback (not a cloud build).
+- Generated android/, module Android build directories, .cxx/.gradle, local outputs
+  and credentials ignored. No local APK published as a new GitHub release; public
+  release remains v3.0.7/code39. Local proof APK installation/runtime not phone-tested.
+- Proof uses installed Expo 57.0.27/RN0.86.2; existing lock still Expo57.0.12/RN0.86.2.
+  Builder does not mutate/install dependencies. Before a locked production rebuild,
+  npm ci then validate its native output; fresh npm-ci build not claimed verified.
+- Logs ../../outputs/leanlog-local-build.log (code44), leanlog-local-build-code42.log,
+  leanlog-local-build-code43.log; .apk.verification.json beside each artifact.
+  Concurrent build rejection log ../../outputs/leanlog-local-lock-check.log.
+
 ## Release 3.0.7 published — native character artwork, 12 October 2026
 
 Published and verified, user authorized APK and GitHub release.

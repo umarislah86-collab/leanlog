@@ -15,3 +15,11 @@ credentials/
 web-build/
 /output/
 /tmp/
+
+# Generated native project; config plugins remain the source of truth
+/android/
+*.keystore
+.local-build/
+/modules/**/android/build/
+**/.cxx/
+**/.gradle/

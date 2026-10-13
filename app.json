@@ -14,6 +14,7 @@
     },
     "android": {
       "package": "com.calorietracker.app",
+      "versionCode": 44,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F7F0E1"

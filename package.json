@@ -5,7 +5,8 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
-    "ios": "expo start --ios"
+    "ios": "expo start --ios",
+    "build:local": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-local-android.ps1"
   },
   "dependencies": {
     "@expo-google-fonts/bangers": "^0.4.1",
