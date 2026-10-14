@@ -14,5 +14,23 @@
     "gradleSeconds": 327,
     "executedTasks": 32,
     "upToDateTasks": 629
+  },
+  {
+    "version": "3.0.9",
+    "scope": "npm run build:local including prebuild, Gradle and APK verification; excludes tests and publishing",
+    "sourceCommit": "cd9c5ea3e6d6adab135d8493ff4c3758426ee7a7",
+    "elapsedSeconds": 801.9392523,
+    "startedUtc": "2026-10-14T02:57:25.6242273Z",
+    "elapsed": "00:13:21.9392523",
+    "finishedUtc": "2026-10-14T03:10:47.6736622Z",
+    "exitCode": 0,
+    "gradleElapsed": "12m 50s",
+    "gradleTaskSummary": "661 actionable tasks: 661 executed",
+    "versionCode": 46,
+    "gradleSeconds": 770,
+    "executedTasks": 661,
+    "upToDateTasks": 0,
+    "dependencies": "npm ci; Expo 57.0.12 / React Native 0.86.2",
+    "dependencyMetadataNote": "Seven stale version labels corrected after build started to match existing resolved URLs/integrity and installed manifests; no installed package changed."
   }
 ]

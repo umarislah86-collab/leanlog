@@ -4,9 +4,9 @@ Run from this repository:
 
     npm run build:local
 
-The local counter starts above app.json android.versionCode (currently 45).
+The local counter starts above app.json android.versionCode (currently 46).
 Setup attempts reserved 40 and 41; failures can leave gaps. Successful local
-proof builds: codes 42, 43 and 44. Next automatic code on this PC is 46.
+proof builds: codes 42, 43 and 44. Next automatic code on this PC is 47.
 Subsequent attempts reserve increasing codes in .local-build/version-state.json.
 Failures can consume a code; this is intentional. If a later cloud build exceeds
 the local counter, pass a higher code explicitly:
@@ -121,3 +121,10 @@ prebuild through APK verification, excludes tests and publication. Durable timin
 history is docs/build-timings.json. Local baseline/state now45; next local code46.
 EAS remote was last synchronized to44 at setup; sync to at least45 BEFORE returning
 to cloud builds. Local release workflow does not call EAS.
+
+Published3.0.9/code46 on14 October2026 after npm ci restored Expo57.0.12 / RN0.86.2.
+Full command13m21.94s; Gradle12m50s, all661 tasks executed. Seven old lockfile
+version labels were aligned with existing tarball URLs/integrities and installed
+manifests; package content unchanged. Installed dependency versions now match
+lockfile. Original-signature standalone release verified. Next local code47;
+synchronize EAS remote to at least46 before any future cloud build.

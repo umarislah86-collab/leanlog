@@ -1,32 +1,43 @@
-# LeanLog — latest published release v3.0.8
+# LeanLog — latest published release v3.0.9
 
-## Unreleased startup, Android Back and cloud upload fixes — 14 October 2026
+## Release 3.0.9 published — 14 October 2026
 
-User reports cloud upload stuck for 15 minutes, Android Back unresponsive and
-slow startup on Xiaomi after local-build releases. No device reproduction or
-measured startup comparison with an identical-source EAS build is available.
-
-- Cloud upload now writes only the filtered checkpoint (removed duplicate
-  individual-record upload phase), reports completed/total and stops waiting
-  after 60 seconds. Submitted Firebase writes cannot be cancelled; late results
-  cannot trigger remaining keys or success metadata after expiry. A per-user
-  lock prevents overlapping retries until the pending SDK write settles.
-- Native Modals in Today, Progress and Settings now handle onRequestClose;
-  tab navigation uses history and RedCoins exits via navigation history.
-  Android manifest already disables predictive Back; no native toggle changed.
-- Returning-user empty arrays are valid local history, no longer a trigger
-  to restore cloud data on startup. Tabs mount lazily; theme fonts load after
-  the stored palette is ready. Startup restore/license waits have 12-second
-  limits with retry UI. Late restore checks account identity before applying.
-- Tests: 361 passed; TypeScript and diff whitespace checks passed. Includes
-  native Modal handler coverage, pending-upload retry/late-write behavior and
-  app mounting before fonts resolve. Phone behavior remains unverified.
-- Build comparison: local workflow uses assembleRelease, original signer and
-  verified non-debuggable embedded bundle. Installed Expo57.0.27 differs from
-  lockfile57.0.12; React Native0.86.2 matches. Resolve dependency drift before
-  the next build and record the exact selected versions. Do not attribute these
-  symptoms solely to PC compilation or claim equivalent build inputs yet.
-- Source fixes only: installed/public APK remains3.0.8. No new APK built.
+- APK: https://github.com/umarislah86-collab/leanlog/releases/download/v3.0.9/leanlog-V3.0.9.apk
+  Version3.0.9/code46; exact build-start source cd9c5ea3e6d6adab135d8493ff4c3758426ee7a7.
+  Local ../../outputs/leanlog-V3.0.9.apk; 48,979,946 bytes.
+  SHA256 f03d31782bb9f8cd459328791ac0558536c112b6bc86f802472540aac4a14af9.
+- Full npm run build:local: 801.9392523 seconds (13m21.94s), UTC
+  2026-10-14T02:57:25.6242273Z to03:10:47.6736622Z (10:57–11:10 Singapore).
+  Includes prebuild, Gradle, APK verification; excludes npm ci, tests and publishing.
+  Gradle12m50s; all661 tasks executed after dependency reinstall. No EAS slot used.
+- Restored dependencies with npm ci: Expo57.0.12 / RN0.86.2. Seven stale
+  lockfile version labels were corrected to match their already-existing
+  resolved tarball/integrity and installed manifests; no package content changed
+  during build. See ../../outputs/leanlog-3.0.9-dependencies.json.
+- Original signer62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c,
+  V2 signature/content digest, ZIP CRC, package com.calorietracker.app, version/code,
+  ARM64 ABI, non-debuggable and embedded JS verified. Bundle includes the new
+  startup timeout and pending-upload messages. GitHub asset hash/size matched,
+  public download HEAD200.
+- 361 tests, TypeScript and diff checks passed. No physical Xiaomi runtime test
+  or live user-account Firebase reproduction. PC compilation is not established
+  as the cause; dependency drift was real and has now been resolved.
+- Back: Today, Progress, Settings native Modals handle onRequestClose; tab
+  history is enabled and RedCoins exits through navigation history. Native
+  predictive-Back opt-out already existed; it was not changed.
+- Startup: valid empty histories no longer trigger restore every launch;
+  tabs mount lazily and stored theme renders before optional fonts finish.
+  Restore/license calls have12-second limits and retry UI. Late restore checks
+  account identity before applying. Actual phone startup improvement unmeasured.
+- Cloud upload: removed duplicate individual-record phase, shows completed/total,
+  returns an unconfirmed-upload error at60 seconds. Submitted Firebase writes
+  cannot be cancelled; later keys/metadata are gated after expiry and per-user
+  retries blocked until the pending write settles. RedCoins remains excluded;
+  JSON finance backup unchanged. A timeout is not confirmed backup success.
+- Landing master912b992 updates download and cloud guidance; mirrored index.html
+  on this app branch. Public https://umarislah86-collab.github.io/leanlog/.
+- App baseline/local counter46; next local47. EAS remote last synchronized44:
+  synchronize to at least46 before using an EAS build again.
 
 ## Release 3.0.8 published — 14 October 2026
 
