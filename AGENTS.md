@@ -5,7 +5,9 @@ authorizes pushing source and publishing the APK to GitHub Releases, updating
 the public GitHub Pages landing page, and updating HANDOVER.md. Complete all
 steps together unless the user explicitly narrows the request.
 
-Build locally using npm run build:local; do not consume an EAS cloud build slot.
+Latest user override (14 October 2026, after 3.0.9 phone failures): use EAS cloud
+builds on umiaq / umiaqs-team again. Do not use local builds unless requested.
+Synchronize the remote Android counter above locally distributed codes first.
 Record elapsed wall-clock time for the full build command (prebuild through APK
 verification) and Gradle time separately. Keep tests/setup/publication outside
 the build-command measurement. Append each result to docs/build-timings.json. Verify original signing identity/package/version,
