@@ -1,5 +1,29 @@
 # LeanLog — latest published release v3.0.7
 
+## Unreleased — exclude RedCoins from LeanLog cloud, 14 October 2026
+
+User explicitly requested Upload Data to Cloud contain no RedCoins data.
+Shared cloudBackupScope.ts excludes all redcoins*/bluecoins* storage namespaces
+plus existing auth/cache/widget/device-runtime exclusions. Settings no longer
+reads SQL RedCoins raw state, inserts ledger into fullState, or parses/replaces
+RedCoins during cloud restore. Finance JSON export/restore untouched.
+
+Defence in depth: fsUploadAppState filters payload even if another caller supplies
+an old full-state object. fsFetchAppState filters legacy manifest keys BEFORE
+downloading docs, so old finance payloads are not fetched/applied. Finance-only
+legacy checkpoint returns null; normal old food/activity/weight fallback remains.
+Settings applies only filtered LeanLog pairs. Budgets/payday/guards/receipt and
+backup folder settings/layouts/recovery snapshots stay local/JSON. UI copy now
+explicitly says LeanLog only and separate RedCoins JSON backup.
+
+355 tests passed including four new tests for upload transport exclusion, mixed
+legacy restore preserving local ledger/preferences, finance-only legacy metadata,
+all JSON preferences/prefixes and retained LeanLog state. TypeScript passed.
+No live Firebase upload/delete/deployment, no APK build; existing remote financial
+documents are retained, not purged. Installed APK still has old behaviour until
+next build. Website describes published APK; update its cloud coverage copy when
+publishing this change. Diagnostic changes immediately below are also unreleased.
+
 ## Cloud upload investigation / unreleased diagnostics — 14 October 2026
 
 User reports Settings Upload Data to Cloud always shows generic Check internet.

@@ -19,8 +19,6 @@ import type { UserProfile } from '../types';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { requestPinWidget } from 'react-native-android-widget';
 import { refreshLeanLogWidget } from '../services/widget';
-import { loadRedCoins, readSavedRedCoinsRaw, replaceRedCoinsFromBackup } from '../services/redcoins';
-import { BACKUP_PREFERENCE_KEYS, parseRedCoinsBackup } from '../services/redcoinsBackupFormat';
 import { getNagDays, getNagTimes, isNagModeEnabled, setNagDays, setNagModeEnabled, setNagTimes } from '../services/nagging';
 import LeanLogChronicle from '../components/LeanLogChronicle';
 import { RedCoinsBackupSettings } from '../components/RedCoinsBackupSettings';
@@ -83,18 +81,7 @@ function BluecoinsImportSettings() {
   </View>;
 }
 
-// Back up durable LeanLog state, while excluding device permissions, caches,
-// notification IDs and Firebase's own persisted authentication session.
-const shouldCloudBackupKey = (key: string) => {
-  const lower = key.toLowerCase();
-  if (lower.includes('firebase') || lower.startsWith('@firebase')) return false;
-  if (lower.includes('cache') || lower.includes('widget') || lower.includes('notification_state')) return false;
-  if (lower.startsWith('redcoins_pre_') || lower.startsWith('redcoins_before_')) return false;
-  if (['bluecoins_folder_uri_v1', 'last_uid', 'nag_mode_schedule_v1', 'nag_mode_last_snooze_action_v1',
-    'bluecoins_spending_guard_alerts_v1', 'bluecoins_cash_reality_alert_v1',
-    'bluecoins_background_status_v1'].includes(key)) return false;
-  return true;
-};
+import { shouldCloudBackupKey, filterCloudState } from '../services/cloudBackupScope';
 
 interface Reminder {
   id: string;
@@ -337,10 +324,6 @@ export default function SettingsScreen({menuParams={},onClose,drawer=false}:{men
       const backupKeys = allKeys.filter(shouldCloudBackupKey);
       const backupPairs = await AsyncStorage.multiGet(backupKeys);
       const fullState = Object.fromEntries(backupPairs.filter((pair): pair is [string, string] => pair[1] !== null));
-      // Cloud transport stays JSON; read the current SQL store, not the frozen
-      // pre-migration JSON/recovery file.
-      const redCoinsRaw = await readSavedRedCoinsRaw();
-      if (redCoinsRaw) fullState.redcoins_state_v1 = redCoinsRaw;
       const ops: Promise<void>[] = [];
       if (food) JSON.parse(food).forEach((e: any) => ops.push(fsUpsert('foodEntries', e.id, e)));
       if (acts) JSON.parse(acts).forEach((e: any) => ops.push(fsUpsert('activityEntries', e.id, e)));
@@ -374,19 +357,8 @@ export default function SettingsScreen({menuParams={},onClose,drawer=false}:{men
         return;
       }
       if (fullState) {
-        const raw = fullState.redcoins_state_v1;
-        if (raw) {
-          const current = await loadRedCoins();
-          const expected = await readSavedRedCoinsRaw();
-          const next = parseRedCoinsBackup(JSON.stringify({ format: 'redcoins-backup', version: 1, exportedAt: new Date().toISOString(), state: JSON.parse(raw) })).state;
-          const preferences = Object.fromEntries(BACKUP_PREFERENCE_KEYS.filter(key => typeof fullState[key] === 'string').map(key => [key, fullState[key]]));
-          const expectedPreferences = Object.fromEntries(await AsyncStorage.multiGet(Object.keys(preferences)));
-          const recovery = JSON.stringify(current);
-          await AsyncStorage.setItem('redcoins_before_cloud_restore_v1', recovery);
-          if (await AsyncStorage.getItem('redcoins_before_cloud_restore_v1') !== recovery) throw new Error('Cloud restore safety checkpoint could not be verified.');
-          await replaceRedCoinsFromBackup(next, expected!, preferences, expectedPreferences);
-        }
-        await AsyncStorage.multiSet(Object.entries(fullState).filter(([key]) => key !== 'redcoins_state_v1' && !key.startsWith('redcoins_pre_') && !key.startsWith('redcoins_before_') && (!raw || !(BACKUP_PREFERENCE_KEYS as readonly string[]).includes(key))));
+        const leanLogPairs = Object.entries(filterCloudState(fullState));
+        if (leanLogPairs.length) await AsyncStorage.multiSet(leanLogPairs);
       } else {
         if (food.length) await AsyncStorage.setItem('calorie_entries', JSON.stringify(food));
         if (acts.length) await AsyncStorage.setItem('activity_entries', JSON.stringify(acts));
@@ -603,7 +575,7 @@ export default function SettingsScreen({menuParams={},onClose,drawer=false}:{men
         {/* Cloud Sync */}
         <Text style={styles.sectionLabel}>{t('cloudSync')}</Text>
         <View style={styles.syncCard}>
-          <View style={styles.syncHeader}><Text style={styles.syncKicker}>YOUR DATA, YOUR EXIT</Text><Text style={styles.syncTitle}>Keep a second copy.</Text><Text style={styles.syncSub}>A manual checkpoint for the days you change phone or need to roll back.</Text></View>
+          <View style={styles.syncHeader}><Text style={styles.syncKicker}>YOUR DATA, YOUR EXIT</Text><Text style={styles.syncTitle}>Keep a second copy.</Text><Text style={styles.syncSub}>A manual checkpoint for LeanLog records and settings. RedCoins uses its separate JSON backup below.</Text></View>
           <TouchableOpacity style={styles.syncAction} onPress={uploadToCloud} disabled={syncing}>
             <View style={styles.syncIcon}><Ionicons name="cloud-upload-outline" size={20} color={themed("#101A2B", 'onAccent')} /></View><View style={{ flex: 1 }}>
               <Text style={styles.syncActionTitle}>{t('uploadToCloud')}</Text>
