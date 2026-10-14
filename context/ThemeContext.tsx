@@ -15,8 +15,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let active = true;
     const preference = AsyncStorage.getItem(APP_THEME_KEY).then(value => { if (active) setId(validThemeId(value)); }).catch(console.warn);
-    const fonts = loadThemeFonts().then(() => { if (active) setFontsLoaded(true); }).catch(console.warn);
-    Promise.all([preference, fonts]).finally(() => { if (active) setReady(true); });
+    void loadThemeFonts().then(() => { if (active) setFontsLoaded(true); }).catch(console.warn);
+    preference.finally(() => { if (active) setReady(true); });
     return () => { active = false; };
   }, []);
   const setTheme = useCallback(async (next: AppThemeId) => {

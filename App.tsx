@@ -1,3 +1,4 @@
+import { cloudDeadline } from './services/cloudDeadline';
 import { ThemeText as Text } from './components/ThemePrimitives';
 import { ThemeProvider, useTheme, useThemeStyles } from './context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -7,7 +8,7 @@ import { DarkTheme, DefaultTheme, NavigationContainer, useNavigationContainerRef
 import { StatusBar } from 'expo-status-bar';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { onAuthChange, fsFetchAll, fsFetchSettings, fsFetchAppState, type User } from './firebase';
+import { auth, onAuthChange, fsFetchAll, fsFetchSettings, fsFetchAppState, type User } from './firebase';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { useTrial } from './hooks/useTrial';
 import HomeScreen from './screens/HomeScreen';
@@ -46,7 +47,7 @@ const Tab = createMaterialTopTabNavigator();
 function MainTabs() {
   const { t } = useLanguage();
   return (
-    <AppMenuProvider><NavigationDockProvider><Tab.Navigator tabBarPosition="bottom" tabBar={(props) => <MainNavigationDock {...props} />} screenOptions={{ swipeEnabled: true }}>
+    <AppMenuProvider><NavigationDockProvider><Tab.Navigator tabBarPosition="bottom" tabBar={(props) => <MainNavigationDock {...props} />} backBehavior="history" screenOptions={{ swipeEnabled: true, lazy: true }}>
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Home' }} />
       <Tab.Screen name="Log" component={TodayScreen} options={{ title: 'Log' }} />
       <Tab.Screen name="Progress" component={ProgressScreen} options={{ title: t('tabProgress') }} />
@@ -82,6 +83,8 @@ function AppContent() {
   };
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [authReady, setAuthReady] = useState(false);
+  const [bootError, setBootError] = useState('');
+  const [bootAttempt, setBootAttempt] = useState(0);
   const [hasProfile, setHasProfile] = useState(false);
   const [showSnoozePicker, setShowSnoozePicker] = useState(false);
   const { status: trialStatus, recheck: recheckTrial } = useTrial(!!user && hasProfile && authReady);
@@ -130,8 +133,14 @@ function AppContent() {
 
     const clearLocalData = () => Promise.all(DATA_KEYS.map((k) => AsyncStorage.removeItem(k)));
 
-    const autoRestoreFromCloud = async () => {
+    let active = true;
+    const autoRestoreFromCloud = async (uid: string) => cloudDeadline(async deadlineCheck => {
+      const check = () => {
+        deadlineCheck();
+        if (!active || auth.currentUser?.uid !== uid) throw new Error('Startup account changed.');
+      };
       const [fsFood, fsActs, fsWeights, fsSettings, fullState] = await Promise.all([fsFetchAll<any>('foodEntries'), fsFetchAll<any>('activityEntries'), fsFetchAll<any>('weightEntries'), fsFetchSettings(), fsFetchAppState()]);
+      check();
       if (fullState) {
         await AsyncStorage.multiSet(Object.entries(fullState));
       } else {
@@ -141,9 +150,11 @@ function AppContent() {
         if (fsSettings?.goal) await AsyncStorage.setItem('calorie_goal', String(fsSettings.goal));
         if (fsSettings?.profile) await AsyncStorage.setItem('user_profile', JSON.stringify(fsSettings.profile));
       }
-    };
+    }, 12000, 'Cloud restore did not respond within 12 seconds. Retry when connected.');
 
+    setBootError('');
     const unsub = onAuthChange(async (u) => {
+      try {
       if (!u) {
         // Logged out — just update React state; login handler owns data clearing
         setHasProfile(false);
@@ -158,24 +169,32 @@ function AppContent() {
         // First login ever, or different user — clear any stale data then restore
         await clearLocalData();
         await AsyncStorage.setItem('last_uid', u.uid);
-        await autoRestoreFromCloud();
+        await autoRestoreFromCloud(u.uid);
       } else {
         // Same user returning — only restore if local is missing
-        const [localFood, localActivities] = await Promise.all([AsyncStorage.getItem('calorie_entries'), AsyncStorage.getItem('activity_entries')]);
-        const foodMissing = !localFood || localFood === '[]';
-        const activitiesMissing = !localActivities || localActivities === '[]';
-        if (foodMissing || activitiesMissing) {
-          await autoRestoreFromCloud();
+        const [localFood, localActivities, localProfile] = await Promise.all([AsyncStorage.getItem('calorie_entries'), AsyncStorage.getItem('activity_entries'), AsyncStorage.getItem('user_profile')]);
+        // An empty history is valid. Returning users with local data never wait for restore.
+        if (localFood === null && localActivities === null && localProfile === null) {
+          await autoRestoreFromCloud(u.uid);
         }
       }
 
       const localProfile = await AsyncStorage.getItem('user_profile');
+      if (!active || auth.currentUser?.uid !== u.uid) return;
       setHasProfile(!!localProfile);
       setUser(u);
       setAuthReady(true);
+      } catch (error) { if (active && auth.currentUser?.uid === u?.uid) setBootError(error instanceof Error ? error.message : String(error)); }
     });
-    return unsub;
-  }, []);
+    return () => { active = false; unsub(); };
+  }, [bootAttempt]);
+
+  if (bootError || trialStatus === 'error') {
+    return <View style={{flex:1,backgroundColor:palette.canvas,justifyContent:'center',padding:24}}>
+      <Text style={{color:palette.text}}>Unable to finish startup. {bootError || 'License check did not respond. Please retry.'}</Text>
+      <TouchableOpacity accessibilityRole="button" onPress={() => { setBootError(''); if (trialStatus === 'error') void recheckTrial(); else setBootAttempt(v => v + 1); }} style={{padding:16}}><Text style={{color:palette.accent}}>Retry</Text></TouchableOpacity>
+    </View>;
+  }
 
   if (!authReady || !trialReady) {
     return <View style={{ flex: 1, backgroundColor: palette.canvas, alignItems: 'center', justifyContent: 'center' }}>

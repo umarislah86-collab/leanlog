@@ -150,9 +150,11 @@ test('custom typography resolves heading/body/label/number faces and honors orig
   for (const id of api.themeIds.filter(id => id !== 'cream')) assert.equal(api.themeFont(id, { fontWeight: '900' }).fontWeight, 'normal');
 });
 
-test('font loading precedes first app mount, with safe system-font fallback on failure', async () => {
+test('saved theme mounts without waiting for fonts, then adopts loaded faces with safe fallback', async () => {
   let release; const r = runtime(new Map([[api.APP_THEME_KEY, 'folio']]), { fontWait: new Promise(resolve => { release = resolve; }) });
-  r.render(); await tick(); assert.equal(r.render().props.children, null);
+  r.render(); await tick(); assert.equal(r.render().props.children, 'mounted-app');
+  assert.equal(r.context.useTheme().fontsLoaded, false);
+  assert.equal(r.context.useTheme().palette.id, 'folio');
   release(); await tick(); assert.equal(r.render().props.children, 'mounted-app');
   assert.equal(r.context.useTheme().fontsLoaded, true); assert.equal(r.context.useTheme().palette.id, 'folio');
   const failed = runtime(new Map([[api.APP_THEME_KEY, 'grove']]), { fonts: true });

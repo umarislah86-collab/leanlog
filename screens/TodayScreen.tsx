@@ -984,7 +984,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
       </ScrollView>
 
       {/* ── Category Picker ── */}
-      <Modal visible={showCategoryPicker} transparent animationType="slide">
+      <Modal visible={showCategoryPicker} transparent animationType="slide" onRequestClose={() => setShowCategoryPicker(false)}>
         <TouchableOpacity style={styles.sheetOverlay} activeOpacity={1} onPress={() => setShowCategoryPicker(false)}>
           <View style={styles.loggerSheet} onStartShouldSetResponder={() => true}>
             <View style={styles.sheetHandle} />
@@ -1046,7 +1046,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
         </TouchableOpacity>
       </Modal>
 
-      <Modal visible={showQuickNoteModal} transparent animationType="fade">
+      <Modal visible={showQuickNoteModal} transparent animationType="fade" onRequestClose={() => setShowQuickNoteModal(false)}>
         <View style={styles.centeredOverlay}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Quick Note</Text>
@@ -1161,7 +1161,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
       </Modal>}
 
       {/* ── Text Food Modal ── */}
-      <Modal visible={showTextModal} transparent animationType="fade">
+      <Modal visible={showTextModal} transparent animationType="fade" onRequestClose={() => setShowTextModal(false)}>
         <View style={styles.centeredOverlay}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>{t('typeFoodTitle')}</Text>
@@ -1208,7 +1208,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
       </Modal>
 
       {/* ── Goal Modal ── */}
-      <Modal visible={showGoalModal} transparent animationType="fade">
+      <Modal visible={showGoalModal} transparent animationType="fade" onRequestClose={() => setShowGoalModal(false)}>
         <View style={styles.centeredOverlay}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>{t('setGoal')}</Text>
@@ -1222,7 +1222,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
       </Modal>
 
       {/* ── Activity Modal ── */}
-      <Modal visible={showActivityModal} transparent animationType="fade">
+      <Modal visible={showActivityModal} transparent animationType="fade" onRequestClose={() => setShowActivityModal(false)}>
         <View style={styles.centeredOverlay}>
           <ScrollView style={[styles.modalBox,{maxHeight:'90%'}]} keyboardShouldPersistTaps="handled">
             <Text style={styles.modalTitle}>{t('logActivity')}</Text>
@@ -1358,7 +1358,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
       </Modal>
 
       {/* ── Entry Options Sheet ── */}
-      <Modal visible={showEntryOptions} transparent animationType="slide">
+      <Modal visible={showEntryOptions} transparent animationType="slide" onRequestClose={() => setShowEntryOptions(false)}>
         <TouchableOpacity style={styles.sheetOverlay} activeOpacity={1} onPress={() => setShowEntryOptions(false)}>
           <View style={styles.categorySheet}>
             <View style={styles.sheetHandle} />
@@ -1382,7 +1382,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
       </Modal>
 
       {/* ── Edit DateTime Modal ── */}
-      <Modal visible={showEditDateTime} transparent animationType="fade">
+      <Modal visible={showEditDateTime} transparent animationType="fade" onRequestClose={() => setShowEditDateTime(false)}>
         <View style={styles.centeredOverlay}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>{t('editDateTimeTitle')}</Text>
@@ -1403,7 +1403,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
       </Modal>
 
       {/* ── Food Detail Modal ── */}
-      <Modal visible={!!selectedEntry} transparent animationType="slide">
+      <Modal visible={!!selectedEntry} transparent animationType="slide" onRequestClose={() => setSelectedEntry(null)}>
         <View style={styles.detailOverlay}>
           <View style={styles.detailBox}>
             {selectedEntry && (<>
@@ -1544,7 +1544,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
       )}
 
       {/* ── Log Weight Modal (from FAB) ── */}
-      <Modal visible={showWeightModal} transparent animationType="fade">
+      <Modal visible={showWeightModal} transparent animationType="fade" onRequestClose={() => setShowWeightModal(false)}>
         <View style={styles.centeredOverlay}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>{t('logWeightTitle')}</Text>

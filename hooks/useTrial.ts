@@ -1,3 +1,4 @@
+import { cloudDeadline } from '../services/cloudDeadline';
 import { useEffect, useState } from 'react';
 import * as Application from 'expo-application';
 import {
@@ -5,7 +6,7 @@ import {
   fsSetDevicePaid, fsGetLicense,
 } from '../firebase';
 
-export type TrialStatus = 'loading' | 'active' | 'expired' | 'paid';
+export type TrialStatus = 'loading' | 'active' | 'expired' | 'paid' | 'error';
 
 const TRIAL_DAYS = 3;
 const FAR_FUTURE = '2099-01-01T00:00:00.000Z'; // for backward compat with old paid:true docs
@@ -23,15 +24,19 @@ export function useTrial(enabled: boolean) {
   }, [enabled]);
 
   const check = async () => {
+    setStatus('loading');
     try {
+      await cloudDeadline(async checkActive => {
       const androidId = Application.getAndroidId();
       if (!androidId) { setStatus('active'); return; }
 
       let license = await fsGetDeviceLicense(androidId);
+      checkActive();
 
       if (!license?.trialStartDate) {
         const now = new Date().toISOString();
         await fsSetDeviceTrialStart(androidId, now);
+        checkActive();
         license = { trialStartDate: now, paid: false };
       }
 
@@ -51,6 +56,7 @@ export function useTrial(enabled: boolean) {
       if (diffDays >= TRIAL_DAYS) {
         // Trial expired — check UID license as fallback (user may have changed phone)
         const uidLicense = await fsGetLicense();
+        checkActive();
         const uidPaid = uidLicense?.paid === true || isPaidByDate(uidLicense?.paidUntil);
         if (uidPaid) {
           const paidUntil = uidLicense?.paidUntil ?? FAR_FUTURE;
@@ -62,7 +68,9 @@ export function useTrial(enabled: boolean) {
       } else {
         setStatus('active');
       }
-    } catch {
+      }, 12000, 'License check timed out.');
+    } catch (error) {
+      if ((error as {code?:string})?.code === 'deadline-exceeded') { setStatus('error'); return; }
       setStatus('active');
     }
   };

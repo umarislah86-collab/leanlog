@@ -261,7 +261,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       setSection(previous);
       return true;
     }
-    navigation.navigate('Home');
+    if (navigation.canGoBack()) navigation.goBack();
+    else navigation.navigate('Home');
     return true;
   }, [navigation, section, categoriesOpen, planPage]);
 

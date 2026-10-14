@@ -1,5 +1,33 @@
 # LeanLog — latest published release v3.0.8
 
+## Unreleased startup, Android Back and cloud upload fixes — 14 October 2026
+
+User reports cloud upload stuck for 15 minutes, Android Back unresponsive and
+slow startup on Xiaomi after local-build releases. No device reproduction or
+measured startup comparison with an identical-source EAS build is available.
+
+- Cloud upload now writes only the filtered checkpoint (removed duplicate
+  individual-record upload phase), reports completed/total and stops waiting
+  after 60 seconds. Submitted Firebase writes cannot be cancelled; late results
+  cannot trigger remaining keys or success metadata after expiry. A per-user
+  lock prevents overlapping retries until the pending SDK write settles.
+- Native Modals in Today, Progress and Settings now handle onRequestClose;
+  tab navigation uses history and RedCoins exits via navigation history.
+  Android manifest already disables predictive Back; no native toggle changed.
+- Returning-user empty arrays are valid local history, no longer a trigger
+  to restore cloud data on startup. Tabs mount lazily; theme fonts load after
+  the stored palette is ready. Startup restore/license waits have 12-second
+  limits with retry UI. Late restore checks account identity before applying.
+- Tests: 361 passed; TypeScript and diff whitespace checks passed. Includes
+  native Modal handler coverage, pending-upload retry/late-write behavior and
+  app mounting before fonts resolve. Phone behavior remains unverified.
+- Build comparison: local workflow uses assembleRelease, original signer and
+  verified non-debuggable embedded bundle. Installed Expo57.0.27 differs from
+  lockfile57.0.12; React Native0.86.2 matches. Resolve dependency drift before
+  the next build and record the exact selected versions. Do not attribute these
+  symptoms solely to PC compilation or claim equivalent build inputs yet.
+- Source fixes only: installed/public APK remains3.0.8. No new APK built.
+
 ## Release 3.0.8 published — 14 October 2026
 
 Complete: locally built, original signature verified, GitHub release published

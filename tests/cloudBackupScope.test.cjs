@@ -1,13 +1,25 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
-function load(file,mocks={}){const m={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText,{module:m,exports:m.exports,require:id=>{if(!(id in mocks))throw Error(id);return mocks[id];},console});return m.exports;}
+function load(file,mocks={}){const m={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText,{module:m,exports:m.exports,require:id=>{if(!(id in mocks))throw Error(id);return mocks[id];},console,setTimeout,clearTimeout});return m.exports;}
 const scope=load('services/cloudBackupScope.ts');
-function fixture(){
+function fixture(options={}){
  const stored=new Map(),writes=[],reads=[];const auth={currentUser:{uid:'qc-user'}};
  const snap=value=>({exists:()=>value!==undefined,data:()=>value});
- const api={getFirestore:()=>({}),collection:(_db,...p)=>p.join('/'),doc:(_db,...p)=>p.join('/'),setDoc:async(p,v)=>{writes.push([p,v]);stored.set(p,v);},getDoc:async p=>{reads.push(p);return snap(stored.get(p));},getDocs:async()=>({docs:[]}),deleteDoc:async()=>{}};
- const firebase=load('firebase.ts',{'@react-native-async-storage/async-storage':{},'firebase/app':{getApps:()=>[],initializeApp:()=>({})},'firebase/firestore':api,'firebase/auth':{initializeAuth:()=>auth,getAuth:()=>auth,getReactNativePersistence:()=>({})},'./services/cloudBackupErrors':load('services/cloudBackupErrors.ts'),'./services/cloudBackupScope':scope});
+ const api={getFirestore:()=>({}),collection:(_db,...p)=>p.join('/'),doc:(_db,...p)=>p.join('/'),setDoc:async(p,v)=>{writes.push([p,v]);if(options.write)await options.write();stored.set(p,v);},getDoc:async p=>{reads.push(p);return snap(stored.get(p));},getDocs:async()=>({docs:[]}),deleteDoc:async()=>{}};
+ const deadline=load('services/cloudDeadline.ts');
+ const firebase=load('firebase.ts',{'@react-native-async-storage/async-storage':{},'firebase/app':{getApps:()=>[],initializeApp:()=>({})},'firebase/firestore':api,'firebase/auth':{initializeAuth:()=>auth,getAuth:()=>auth,getReactNativePersistence:()=>({})},'./services/cloudDeadline':options.timeout?{cloudDeadline:work=>deadline.cloudDeadline(work,options.timeout)}:deadline,'./services/cloudBackupErrors':load('services/cloudBackupErrors.ts'),'./services/cloudBackupScope':scope});
  return {firebase,stored,writes,reads};
 }
+
+test('timed-out Firebase write blocks retries until settled and never submits remaining keys or metadata',async()=>{
+ let release;const pending=new Promise(resolve=>release=resolve);
+ const f=fixture({write:()=>pending,timeout:10});
+ await assert.rejects(f.firebase.fsUploadAppState({calorie_entries:'[]',activity_entries:'[]'}),e=>e.code==='deadline-exceeded');
+ await assert.rejects(f.firebase.fsUploadAppState({calorie_entries:'new'}),e=>e.code==='failed-precondition');
+ assert.equal(f.writes.length,1);release();await new Promise(resolve=>setTimeout(resolve,10));
+ assert.equal(f.writes.length,1);
+ await f.firebase.fsUploadAppState({calorie_entries:'new'});
+ assert.equal(f.writes.length,3);
+});
 test('upload cannot send finance keys even when a caller supplies the full old state',async()=>{
  const f=fixture();await f.firebase.fsUploadAppState({calorie_entries:'[]',user_profile:'{}',redcoins_state_v1:'large-ledger',bluecoins_monthly_budget_v1:'999',redcoins_receipt_folder_v1:'content://private'});
  assert.deepEqual(f.writes.map(([p])=>p),['users/qc-user/appState/calorie_entries','users/qc-user/appState/user_profile','users/qc-user/appStateMeta/latest']);

@@ -1,3 +1,4 @@
+import { cloudDeadline } from './services/cloudDeadline';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, collection, doc, setDoc, getDocs, deleteDoc, getDoc } from 'firebase/firestore';
@@ -101,19 +102,33 @@ export const fsFetchSettings = async (): Promise<{ goal?: number; profile?: User
   }
 };
 
-export const fsUploadAppState = async (state: Record<string, string>): Promise<void> => {
+const activeCheckpointUsers = new Set<string>();
+export const fsUploadAppState = async (state: Record<string, string>, onProgress?: (completed: number, total: number) => void): Promise<void> => {
   const uid = getUID();
   if (!uid) throw new Error('Sign in before uploading a backup.');
+  if (activeCheckpointUsers.has(uid)) throw Object.assign(new Error('A previous upload still has a pending Firebase write. Wait or restart the app before retrying.'), { code: 'failed-precondition' });
   const entries = Object.entries(filterCloudState(state));
-  await Promise.all(entries.map(([key, value]) =>
-    setDoc(userDoc(uid, 'appState', encodeURIComponent(key)), { key, value })
-      .catch(error => { throw backupWriteError(error, key, value); })
-  ));
-  await setDoc(userDoc(uid, 'appStateMeta', 'latest'), {
-    keys: entries.map(([key]) => key),
-    updatedAt: new Date().toISOString(),
-    version: 1,
+  activeCheckpointUsers.add(uid);
+  await cloudDeadline(async check => {
+    try {
+    let completed = 0;
+    onProgress?.(0, entries.length + 1);
+    for (const [key, value] of entries) {
+      check();
+      try { await setDoc(userDoc(uid, 'appState', encodeURIComponent(key)), { key, value }); }
+      catch (error) { throw backupWriteError(error, key, value); }
+      check();
+      onProgress?.(++completed, entries.length + 1);
+    }
+    check();
+    await setDoc(userDoc(uid, 'appStateMeta', 'latest'), {
+      keys: entries.map(([key]) => key), updatedAt: new Date().toISOString(), version: 1,
+    });
+    check();
+    onProgress?.(++completed, entries.length + 1);
+    } finally { activeCheckpointUsers.delete(uid); }
   });
+
 };
 
 export const fsFetchAppState = async (): Promise<Record<string, string> | null> => {

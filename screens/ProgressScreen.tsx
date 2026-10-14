@@ -975,7 +975,7 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
         const burned = dayAct.reduce((s, a) => s + a.caloriesBurned, 0);
         const net = eaten - burned;
         return (
-          <Modal visible transparent animationType="slide">
+          <Modal visible transparent animationType="slide" onRequestClose={() => setSelectedDay(null)}>
             <View style={styles.centeredOverlay}>
               <View style={[styles.modalBox, { maxHeight: '85%', width: '92%' }]}>
                 <View style={styles.journalHeader}>
@@ -1118,7 +1118,7 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
       })()}
 
       {/* Weight List Modal */}
-      <Modal visible={showWeightListModal} transparent animationType="slide">
+      <Modal visible={showWeightListModal} transparent animationType="slide" onRequestClose={() => setShowWeightListModal(false)}>
         <View style={styles.centeredOverlay}>
           <View style={[styles.modalBox, { maxHeight: '75%', width: '92%' }]}>
             <Text style={styles.modalTitle}>{t('weightRecords')}</Text>
@@ -1236,7 +1236,7 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
       </Modal>
 
       {/* Log Weight Modal */}
-      <Modal visible={showWeightModal} transparent animationType="fade">
+      <Modal visible={showWeightModal} transparent animationType="fade" onRequestClose={() => setShowWeightModal(false)}>
         <View style={styles.centeredOverlay}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>{t('logWeightTitle')}</Text>
@@ -1267,7 +1267,7 @@ Berikan analisa dalam format berikut (ringkas, tidak lebih 200 patah perkataan):
       </Modal>
 
       {/* AI Feedback Modal */}
-      <Modal visible={showFeedback} transparent animationType="fade">
+      <Modal visible={showFeedback} transparent animationType="fade" onRequestClose={() => setShowFeedback(false)}>
         <View style={styles.centeredOverlay}>
           <View style={[styles.modalBox, { maxHeight: '80%' }]}>
             <Text style={styles.modalTitle}>{t('aiAnalysisTitle')}</Text>

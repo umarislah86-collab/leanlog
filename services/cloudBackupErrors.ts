@@ -19,7 +19,8 @@ export function cloudBackupFailure(error: unknown, malay: boolean): string {
   else if (code === 'unauthenticated' || /Sign in before/.test(e?.message || '')) reason = malay ? 'Log masuk semula sebelum backup.' : 'Sign in again before backing up.';
   else if (code === 'resource-exhausted') reason = malay ? 'Kuota Firebase atau had resource telah dicapai.' : 'Firebase quota or resource limits were reached.';
   else if (/maximum.*(size|bytes)|too large|exceeds.*(size|bytes)|1048576/i.test(e?.message || '') || (code === 'invalid-argument' && (e.backupBytes || 0) > 1040000)) reason = malay ? 'Data terlalu besar untuk satu dokumen Firestore (had 1MiB). Format backup perlu dipecahkan.' : 'Data is too large for one Firestore document (1MiB limit). The backup format needs chunking.';
-  else if (code === 'unavailable' || code === 'deadline-exceeded') reason = malay ? 'Sambungan ke Firebase tidak tersedia atau timeout. Cuba semula.' : 'Firebase is unavailable or the connection timed out. Retry.';
+  else if (code === 'deadline-exceeded') reason = malay ? 'Cloud belum mengesahkan upload dalam 60 saat. Write yang telah dihantar mungkin masih pending; backup ini belum disahkan berjaya.' : 'Cloud did not confirm upload within 60 seconds. Submitted writes may still be pending; this backup is not confirmed.';
+  else if (code === 'unavailable') reason = malay ? 'Sambungan ke Firebase tidak tersedia atau timeout. Cuba semula.' : 'Firebase is unavailable or the connection timed out. Retry.';
   else reason = e?.message || (malay ? 'Backup gagal; punca tidak diketahui.' : 'Backup failed; cause unknown.');
   const context = e?.backupKey ? `\n${e.backupKey} · ${((e.backupBytes || 0) / 1048576).toFixed(2)} MiB` : '';
   return `❌ ${reason}\n[${code}]${context}`;

@@ -8,7 +8,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Platform, StyleSheet, Switch } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
-import { auth, signOut, fsUpsert, fsSetSettings, fsFetchAll, fsFetchSettings, fsUploadAppState, fsFetchAppState } from '../firebase';
+import { auth, signOut, fsFetchAll, fsFetchSettings, fsUploadAppState, fsFetchAppState } from '../firebase';
 
 let Notifications: any = null;
 try { Notifications = require('expo-notifications'); } catch {}
@@ -313,25 +313,11 @@ export default function SettingsScreen({menuParams={},onClose,drawer=false}:{men
     setSyncing(true);
     setSyncMsg(t('uploading'));
     try {
-      const [food, acts, weights, goal, profile, allKeys] = await Promise.all([
-        AsyncStorage.getItem('calorie_entries'),
-        AsyncStorage.getItem('activity_entries'),
-        AsyncStorage.getItem('weight_entries'),
-        AsyncStorage.getItem('calorie_goal'),
-        AsyncStorage.getItem('user_profile'),
-        AsyncStorage.getAllKeys(),
-      ]);
+      const allKeys = await AsyncStorage.getAllKeys();
       const backupKeys = allKeys.filter(shouldCloudBackupKey);
       const backupPairs = await AsyncStorage.multiGet(backupKeys);
       const fullState = Object.fromEntries(backupPairs.filter((pair): pair is [string, string] => pair[1] !== null));
-      const ops: Promise<void>[] = [];
-      if (food) JSON.parse(food).forEach((e: any) => ops.push(fsUpsert('foodEntries', e.id, e)));
-      if (acts) JSON.parse(acts).forEach((e: any) => ops.push(fsUpsert('activityEntries', e.id, e)));
-      if (weights) JSON.parse(weights).forEach((e: any) => ops.push(fsUpsert('weightEntries', e.id, e)));
-      if (goal) ops.push(fsSetSettings({ goal: Number(goal) }));
-      if (profile) ops.push(fsSetSettings({ profile: JSON.parse(profile) as UserProfile }));
-      await Promise.all(ops);
-      await fsUploadAppState(fullState);
+      await fsUploadAppState(fullState, (completed, total) => setSyncMsg(`${t('uploading')} ${completed}/${total}`));
       setSyncMsg(t('uploadSuccess'));
     } catch (error) {
       setSyncMsg(cloudBackupFailure(error, lang === 'bm'));
@@ -656,7 +642,7 @@ export default function SettingsScreen({menuParams={},onClose,drawer=false}:{men
       </ScrollView>
 
       {/* Add Reminder Modal */}
-      <Modal visible={showAddReminder} transparent animationType="fade">
+      <Modal visible={showAddReminder} transparent animationType="fade" onRequestClose={() => setShowAddReminder(false)}>
         <View style={styles.centeredOverlay}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>{t('addReminderTitle')}</Text>
@@ -686,7 +672,7 @@ export default function SettingsScreen({menuParams={},onClose,drawer=false}:{men
       </Modal>
 
       {/* Edit Reminder Modal */}
-      <Modal visible={showEditReminderModal} transparent animationType="fade">
+      <Modal visible={showEditReminderModal} transparent animationType="fade" onRequestClose={() => setShowEditReminderModal(false)}>
         <View style={styles.centeredOverlay}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>{lang === 'bm' ? 'Edit Peringatan' : 'Edit Reminder'}</Text>
