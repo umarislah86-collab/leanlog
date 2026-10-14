@@ -1,5 +1,13 @@
 # LeanLog — latest published release v3.0.7
 
+## Release 3.0.8 in progress — 14 October 2026
+
+User requests timed local APK build and authorizes GitHub publication and landing
+page refresh. Standing instruction persisted in AGENTS.md: future APK build
+requests include build, GitHub source/release, website update and handover.
+Version 3.0.8; expected code45. Full-command and Gradle times recorded separately.
+Includes cloud scope isolation and diagnostic changes documented below.
+
 ## Unreleased — exclude RedCoins from LeanLog cloud, 14 October 2026
 
 User explicitly requested Upload Data to Cloud contain no RedCoins data.
