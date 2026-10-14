@@ -19,6 +19,10 @@ User requested all local APK compiler setup removed. Completed:
   with existing ACLs and DPAPI encryption. EAS remote credentials unchanged.
 - EAS-only workflow documented in docs/android-release.md and AGENTS.md.
   Historical local notes below describe deleted experiments, not current setup.
+- Small SDK repository metadata remains in C:\Users\Taqip\.android; automatic
+  approval review rejected its removal, including a more limited file cleanup.
+  SDK/JDK/compiler and large caches are removed. Do not report this metadata
+  folder as deleted or bypass the rejection.
 
 ## Release 3.0.10 — 14 October 2026; phone issues NOT yet confirmed resolved
 
