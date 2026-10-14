@@ -15,7 +15,9 @@ do not present the no-wait submission command as the full build duration.
 Keep tests/setup/publication outside
 the build-command measurement. Append each result to docs/build-timings.json. Verify original signing identity/package/version,
 ARM64 ABI, embedded JS and non-debuggable release before publication.
-Never commit signing credentials. See docs/local-android-build.md.
+Local build toolchain/workflow removed at user request. Never recreate it without
+an explicit request. APK verifier: scripts/verify-android-apk.py.
+Never commit signing credentials. See docs/android-release.md.
 
 Public site uses master/root at https://umarislah86-collab.github.io/leanlog/.
 Work in ../leanlog-pages, preserve existing design/assets, refresh feature copy

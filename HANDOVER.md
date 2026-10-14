@@ -1,5 +1,25 @@
 # LeanLog — latest published release v3.0.10 (EAS)
 
+## User-confirmed recovery and local build removal — 14 October 2026
+
+User confirms EAS3.0.10 resolves all reported slow boot, Android Back and
+cloud upload problems. This is device feedback, superseding the pending-QC
+status below. Exact technical reason for local/EAS divergence remains unknown.
+
+User requested all local APK compiler setup removed. Completed:
+- Deleted %LOCALAPPDATA%\LeanLogBuild SDK/JDK/tool downloads, ~/.gradle,
+  generated repo android/, .local-build/, native module build/.cxx/.gradle
+  outputs, local proof APK copies3.0.7-local44/3.0.8/3.0.9 and build junction.
+- Disk free increased10,291,068,928 bytes (10.29GB /9.58GiB), measured before
+  and after deletion. Audit ../../outputs/local-build-cleanup-result.json.
+- Removed npm build:local, local build PowerShell/init scripts and setup doc.
+  Generic APK verifier retained as scripts/verify-android-apk.py for EAS.
+- Source, JS dependencies, Expo Go QC and EAS3.0.10 APK retained. Original
+  recovery signing copy (about4KB) preserved at %LOCALAPPDATA%\LeanLogSigning,
+  with existing ACLs and DPAPI encryption. EAS remote credentials unchanged.
+- EAS-only workflow documented in docs/android-release.md and AGENTS.md.
+  Historical local notes below describe deleted experiments, not current setup.
+
 ## Release 3.0.10 — 14 October 2026; phone issues NOT yet confirmed resolved
 
 User tested3.0.9 and reports boot still extremely slow, Android Back still
