@@ -1,5 +1,31 @@
 # LeanLog — latest published release v3.0.7
 
+## Cloud upload investigation / unreleased diagnostics — 14 October 2026
+
+User reports Settings Upload Data to Cloud always shows generic Check internet.
+Traced Settings upload: scans durable AsyncStorage keys, inserts live SQL RedCoins
+state as redcoins_state_v1, writes individual food/activity/weight records and
+profile/goal, then each full serialized storage key to one Firestore appState
+document. Manifest latest written after those writes. Account auth required.
+Media paths are metadata, not file uploads; Mirror photos are stored separately
+directly in Firestore by Progress. Existing fsUpsert/settings helpers swallow
+their own errors. Current checkpoint writes are mutable/non-atomic: a failed
+upload can have partially written key documents; do not promise last-good snapshot
+integrity or complete media portability.
+
+Firestore's 1MiB per-document limit is a strong design-level candidate for growing
+RedCoins/food/activity histories, but exact phone error and actual key sizes have
+not been obtained. Deployed rules/quota/session/network not inspected. Source
+rules permit account-owned appState; cannot equate source to deployed rules.
+
+Added cloudBackupErrors.ts and wrapper on appState writes preserving Firebase
+error code and failed key/UTF8 value byte count without attaching the payload.
+Settings now shows distinct size/quota/permission/login/network/other failures,
+rather than always blaming internet. Upload description narrowed to app records
+and settings. Two diagnostic tests plus TypeScript pass. No chunking/snapshot
+protocol change, no server writes/deployment and no APK build in this task.
+Current installed/public APK still has generic messaging until next build.
+
 ## Public website refreshed — 14 October 2026
 
 Updated GitHub Pages master/root to public app release 3.0.7 (APK code39),

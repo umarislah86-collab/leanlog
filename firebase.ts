@@ -11,6 +11,7 @@ import {
   User,
 } from 'firebase/auth';
 import type { UserProfile } from './types';
+import { backupWriteError } from './services/cloudBackupErrors';
 
 // Firebase exposes this at runtime on React Native, while its web-first type
 // entrypoint omits it. Keeping the bridge here avoids losing persisted login.
@@ -105,6 +106,7 @@ export const fsUploadAppState = async (state: Record<string, string>): Promise<v
   const entries = Object.entries(state);
   await Promise.all(entries.map(([key, value]) =>
     setDoc(userDoc(uid, 'appState', encodeURIComponent(key)), { key, value })
+      .catch(error => { throw backupWriteError(error, key, value); })
   ));
   await setDoc(userDoc(uid, 'appStateMeta', 'latest'), {
     keys: entries.map(([key]) => key),

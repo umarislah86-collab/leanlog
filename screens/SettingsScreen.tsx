@@ -1,4 +1,5 @@
 import { ThemeMotif } from '../components/ThemeMotif';
+import { cloudBackupFailure } from '../services/cloudBackupErrors';
 import { ThemeScrollView as ScrollView, ThemeTouchableOpacity as TouchableOpacity, ThemeView as View, ThemeSafeAreaView as SafeAreaView } from '../components/ThemeSurfaces';
 import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
 import { useTheme, useThemeStyles } from '../context/ThemeContext';
@@ -349,8 +350,8 @@ export default function SettingsScreen({menuParams={},onClose,drawer=false}:{men
       await Promise.all(ops);
       await fsUploadAppState(fullState);
       setSyncMsg(t('uploadSuccess'));
-    } catch {
-      setSyncMsg(t('uploadFail'));
+    } catch (error) {
+      setSyncMsg(cloudBackupFailure(error, lang === 'bm'));
     } finally {
       setSyncing(false);
     }
