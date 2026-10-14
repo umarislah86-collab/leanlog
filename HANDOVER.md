@@ -1,5 +1,27 @@
 # LeanLog — latest published release v3.0.7
 
+## Public website refreshed — 14 October 2026
+
+Updated GitHub Pages master/root to public app release 3.0.7 (APK code39),
+fourteen themes including Cutie, actual anime PNG previews and matching
+Pirata One/Bangers headings. Retained existing generated hero/cardio artwork;
+no old screenshots. Cutie public preview uses the supplied illustrated meal
+sticker rather than a family portrait. All palettes re-exported from app source.
+
+Explains Auto pace, active calories excluding resting energy, GPS signal gaps,
+measured distance requirement for timer/Quick log, AM/PM and PG/PTG normalization,
+local activity save confirmation and weight-chart contrast. Pricing rechecked:
+RM7/month, RM49/year, 3-day trial. Local proof APK/code44 is not advertised as a
+public release. APK CTA points to published GitHub v3.0.7 asset.
+
+Live https://umarislah86-collab.github.io/leanlog/ ; master commit
+4d46e92c8aed2fc046241eb50e866d5b09509921, Pages build confirmed built.
+Mirror cherry-pick cb1f342 on github-release-v221 avoids reverting public files.
+Browser verified public footer/date, APK link, 14 theme entries and Auto pace.
+Local QA: every theme/art load, all five tabs, monthly pricing, no JS errors,
+no desktop or 390px mobile horizontal overflow. No app APK build in this task.
+Proof ../../outputs/leanlog-website-update-2026-10-14.png.
+
 ## Local Android build ready — 13 October 2026
 
 User authorized setting up Windows APK builds without EAS cloud. Implemented
