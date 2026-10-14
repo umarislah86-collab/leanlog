@@ -43,11 +43,11 @@ const directory=[
 ['RedCoins: resit, imports & backup',[
 ['Resit dengan transaksi','Lampirkan camera photo, gambar atau PDF. Pilih folder Android untuk salin fail asal; retry / backfill tersedia. Untuk Drive, bergantung pada sokongan provider folder atau sync folder tempatan sendiri.'],
 ['Bawa masuk rekod sedia ada','Optional Bluecoins .fydb / CSV import dengan preview dan reconciliation. Notification inbox boleh cadangkan transaksi daripada notifikasi berizin untuk review. Bank statement review / matching dan semakan data membantu audit rekod.'],
-['Jaga salinan data','Database RedCoins tempatan, backup / restore JSON dan pilihan backup ke folder. Metadata resit ada dalam rekod; fail media perlu disalin / disimpan berasingan. Ini bukan sambungan terus kepada akaun bank.']]],
+['Jaga salinan data','Database RedCoins tempatan, backup / restore JSON dan pilihan backup ke folder. Cloud LeanLog tidak menghantar atau memulihkan ledger, akaun, bajet atau tetapan RedCoins. Metadata resit ada dalam rekod; fail media perlu disalin / disimpan berasingan. Ini bukan sambungan terus kepada akaun bank.']]],
 ['Themes, widgets & settings',[
 ['14 personalities','Original / Cream, Midnight, Soft Neutral, Grove, Dusk / Studio, Folio, Onyx Gold, Cyberpunk, Arabia, Arsenal, Liverpool, Grand Line, Saiyan dan Cutie. Artwork character sebenar dibundle offline untuk anime dan Cutie; typography serta motif ikut theme; preview kekal kelihatan ketika senarai theme discroll.'],
 ['Lima Android widgets','LeanLog Daily, Account Snapshot, Cash Reality, Quick Log dan Bills / Automation. Shortcut makanan serta transaksi, paparan akaun / guards pilihan dan progress kalori bermula betul-betul 0% apabila belum log.'],
-['Rutin & kawalan','BM / English, profile dan target, cloud backup / restore, reminder, Nag Mode / Super Karen dengan jadual, snooze dan quiet actions, update checker APK serta App Chronicle. Settings dicapai melalui hamburger drawer.']]]
+['Rutin & kawalan','BM / English, profile dan target, cloud backup / restore untuk LeanLog sahaja, reminder, Nag Mode / Super Karen dengan jadual, snooze dan quiet actions, update checker APK serta App Chronicle. Settings dicapai melalui hamburger drawer. Upload cloud memaparkan punca kegagalan sebenar apabila tersedia, bukan sentiasa menyalahkan internet.']]]
 ];
 document.getElementById('directory').innerHTML=directory.map(([title,sections],i)=>`<details ${i===0?'open':''}><summary><span>${String(i+1).padStart(2,'0')}</span><strong>${title}</strong></summary><div class="feature-body">${sections.map(([h,p])=>`<div><h4>${h}</h4><p>${p}</p></div>`).join('')}</div></details>`).join('');
 
