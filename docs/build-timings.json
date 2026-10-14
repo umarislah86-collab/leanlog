@@ -1,0 +1,18 @@
+[
+  {
+    "version": "3.0.8",
+    "scope": "npm run build:local including prebuild, Gradle and APK verification; excludes tests and publishing",
+    "sourceCommit": "55ad79158761a962936e3185fe93767edfdbc69d",
+    "elapsedSeconds": 361.1916276,
+    "startedUtc": "2026-10-14T01:44:33.5329813Z",
+    "elapsed": "00:06:01.1916276",
+    "finishedUtc": "2026-10-14T01:50:34.7330463Z",
+    "exitCode": 0,
+    "gradleElapsed": "5m 27s",
+    "gradleTaskSummary": "661 actionable tasks: 32 executed, 629 up-to-date",
+    "versionCode": 45,
+    "gradleSeconds": 327,
+    "executedTasks": 32,
+    "upToDateTasks": 629
+  }
+]

@@ -8,7 +8,7 @@ steps together unless the user explicitly narrows the request.
 Build locally using npm run build:local; do not consume an EAS cloud build slot.
 Record elapsed wall-clock time for the full build command (prebuild through APK
 verification) and Gradle time separately. Keep tests/setup/publication outside
-the build-command measurement. Verify original signing identity/package/version,
+the build-command measurement. Append each result to docs/build-timings.json. Verify original signing identity/package/version,
 ARM64 ABI, embedded JS and non-debuggable release before publication.
 Never commit signing credentials. See docs/local-android-build.md.
 

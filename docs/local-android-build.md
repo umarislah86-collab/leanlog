@@ -4,9 +4,9 @@ Run from this repository:
 
     npm run build:local
 
-The local counter starts above app.json android.versionCode (currently 44).
+The local counter starts above app.json android.versionCode (currently 45).
 Setup attempts reserved 40 and 41; failures can leave gaps. Successful local
-proof builds: codes 42, 43 and 44. Next automatic code on this PC is 45.
+proof builds: codes 42, 43 and 44. Next automatic code on this PC is 46.
 Subsequent attempts reserve increasing codes in .local-build/version-state.json.
 Failures can consume a code; this is intentional. If a later cloud build exceeds
 the local counter, pass a higher code explicitly:
@@ -113,3 +113,11 @@ packages. Setup proofs used Expo 57.0.27 / React Native 0.86.2; package-lock.jso
 still pins Expo 57.0.12 / RN 0.86.2 from the cloud source. Use npm ci when restoring
 the locked release dependencies, then validate the resulting native APK before
 distribution. A fresh npm-ci native build was not part of this setup proof.
+
+
+Published release build 14 October 2026: 3.0.8/code45, full npm command 6m1.19s
+(361.1916276s), Gradle 5m27s; 32 executed / 629 up-to-date tasks. Timing includes
+prebuild through APK verification, excludes tests and publication. Durable timing
+history is docs/build-timings.json. Local baseline/state now45; next local code46.
+EAS remote was last synchronized to44 at setup; sync to at least45 BEFORE returning
+to cloud builds. Local release workflow does not call EAS.

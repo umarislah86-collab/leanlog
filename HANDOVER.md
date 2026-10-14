@@ -1,14 +1,40 @@
-# LeanLog — latest published release v3.0.7
+# LeanLog — latest published release v3.0.8
 
-## Release 3.0.8 in progress — 14 October 2026
+## Release 3.0.8 published — 14 October 2026
 
-User requests timed local APK build and authorizes GitHub publication and landing
-page refresh. Standing instruction persisted in AGENTS.md: future APK build
-requests include build, GitHub source/release, website update and handover.
-Version 3.0.8; expected code45. Full-command and Gradle times recorded separately.
-Includes cloud scope isolation and diagnostic changes documented below.
+Complete: locally built, original signature verified, GitHub release published
+and landing page refreshed. Standing user instruction persisted in AGENTS.md:
+future APK requests include local build, GitHub source/release, website and
+handover together; timings recorded separately and appended to docs/build-timings.json.
 
-## Unreleased — exclude RedCoins from LeanLog cloud, 14 October 2026
+- 3.0.8 / versionCode45, exact built source55ad79158761a962936e3185fe93767edfdbc69d.
+- Full npm run build:local: 361.1916276 seconds (6m1.19s), includes prebuild,
+  Gradle and APK verification; excludes tests/setup/publication. UTC start
+  2026-10-14T01:44:33.5329813Z, end01:50:34.7330463Z (09:44:33–09:50:34 Singapore).
+  Gradle5m27s; 661 actionable tasks:32 executed,629 up-to-date.
+- APK https://github.com/umarislah86-collab/leanlog/releases/download/v3.0.8/leanlog-V3.0.8.apk ;
+  local ../../outputs/leanlog-V3.0.8.apk (48,972,962 bytes).
+  SHA2565bbab0d4592ec8e8ab4c4441e0e55a4fb9d4f35b7f321a56b5533ebf1d63676c.
+- Verified original signer62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c,
+  APK V2 signature/content digest, ZIP CRC, ARM64-only ABI, package
+  com.calorietracker.app,3.0.8/45,non-debuggable and embedded standalone JS.
+  GitHub asset size/digest match, tag exact built source and download HTTP200.
+- 355 tests and TypeScript passed. Includes LeanLog-only cloud upload/restore and
+  upload diagnostics. No real-user Firebase upload/restore or phone runtime test;
+  old remote finance docs retained, not deleted; JSON finance backup unchanged.
+- Landing https://umarislah86-collab.github.io/leanlog/ updated to3.0.8 public APK
+  and LeanLog-only cloud/RedCoins JSON coverage. Pages master commit
+  6a31d7a1851aba3501b4481ec6312e13d0a55ae6 confirmed built; mirrored04362e1
+  to this app branch. Public footer/download/backup FAQ verified, no JS errors
+  or desktop overflow. Proof ../../outputs/leanlog-3.0.8-landing-live.png.
+- Baseline app.json/code and local state now45; next local auto-code46.
+  EAS remote last synced44; sync>=45 before a future cloud build. No EAS build
+  submitted for this release.
+- Artifacts ../../outputs/leanlog-3.0.8-build-timing.json, local-build.log,
+  tests.txt, apk-verification.json, github-release.json and release.md
+  (all prefixed leanlog-3.0.8-).
+
+## Included in 3.0.8 — exclude RedCoins from LeanLog cloud, 14 October 2026
 
 User explicitly requested Upload Data to Cloud contain no RedCoins data.
 Shared cloudBackupScope.ts excludes all redcoins*/bluecoins* storage namespaces
@@ -27,12 +53,11 @@ explicitly says LeanLog only and separate RedCoins JSON backup.
 355 tests passed including four new tests for upload transport exclusion, mixed
 legacy restore preserving local ledger/preferences, finance-only legacy metadata,
 all JSON preferences/prefixes and retained LeanLog state. TypeScript passed.
-No live Firebase upload/delete/deployment, no APK build; existing remote financial
-documents are retained, not purged. Installed APK still has old behaviour until
-next build. Website describes published APK; update its cloud coverage copy when
-publishing this change. Diagnostic changes immediately below are also unreleased.
+No live Firebase upload/delete/deployment; existing remote financial documents
+are retained, not purged. These scope and diagnostic changes are now in published
+3.0.8; landing cloud coverage copy was updated with the release.
 
-## Cloud upload investigation / unreleased diagnostics — 14 October 2026
+## Included in 3.0.8 — cloud upload diagnostics investigation, 14 October 2026
 
 User reports Settings Upload Data to Cloud always shows generic Check internet.
 Traced Settings upload: scans durable AsyncStorage keys, inserts live SQL RedCoins
@@ -54,9 +79,8 @@ Added cloudBackupErrors.ts and wrapper on appState writes preserving Firebase
 error code and failed key/UTF8 value byte count without attaching the payload.
 Settings now shows distinct size/quota/permission/login/network/other failures,
 rather than always blaming internet. Upload description narrowed to app records
-and settings. Two diagnostic tests plus TypeScript pass. No chunking/snapshot
-protocol change, no server writes/deployment and no APK build in this task.
-Current installed/public APK still has generic messaging until next build.
+and settings. Two diagnostic tests plus TypeScript pass. No chunking/snapshot protocol change or server writes/deployment. Diagnostic
+changes were subsequently included in published APK3.0.8.
 
 ## Public website refreshed — 14 October 2026
 
