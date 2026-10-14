@@ -1,5 +1,9 @@
 # Local signed Android APK (Windows)
 
+CURRENT POLICY (14 October2026): user returned to EAS after3.0.9 runtime
+failures. Local workflow retained for reference; do not use unless requested
+again. EAS3.0.10/code47 published; remote/app baseline47. Next EAS48.
+
 Run from this repository:
 
     npm run build:local

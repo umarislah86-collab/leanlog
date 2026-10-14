@@ -32,5 +32,28 @@
     "upToDateTasks": 0,
     "dependencies": "npm ci; Expo 57.0.12 / React Native 0.86.2",
     "dependencyMetadataNote": "Seven stale version labels corrected after build started to match existing resolved URLs/integrity and installed manifests; no installed package changed."
+  },
+  {
+    "version": "3.0.10",
+    "versionCode": 47,
+    "environment": "EAS cloud",
+    "profile": "preview-arm64",
+    "buildId": "e1506ce5-c313-4390-8496-dbead9356c9c",
+    "sourceCommit": "d4da42220cd1bf064ee5fc3ba2ea316e9f072e79",
+    "scope": "EAS submission start to server completion; includes archive/upload/fingerprint/queue/worker, excludes tests, download verification and publishing",
+    "startedUtc": "2026-10-14T03:25:20.5146614Z",
+    "finishedUtc": "2026-10-14T03:33:45.299Z",
+    "elapsedSeconds": 504.785,
+    "serverCreatedToCompletedSeconds": 454.098,
+    "workerSeconds": 448.178,
+    "queueSeconds": 4.649,
+    "waitSeconds": 1.271,
+    "gradleElapsed": "6m 31s",
+    "gradleSeconds": 391,
+    "gradlePhaseSeconds": 392.041,
+    "gradleTaskSummary": "661 actionable tasks: 661 executed",
+    "executedTasks": 661,
+    "upToDateTasks": 0,
+    "exitCode": 0
   }
 ]

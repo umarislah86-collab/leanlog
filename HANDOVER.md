@@ -1,4 +1,39 @@
-# LeanLog — latest published release v3.0.9
+# LeanLog — latest published release v3.0.10 (EAS)
+
+## Release 3.0.10 — 14 October 2026; phone issues NOT yet confirmed resolved
+
+User tested3.0.9 and reports boot still extremely slow, Android Back still
+unresponsive and cloud upload remains0/25. Prior361 tests/verification did not
+establish successful device runtime. User explicitly requested return to EAS;
+AGENTS.md now makes EAS on umiaq/umiaqs-team the default. Do not use local builds
+again without a new request. Do not claim PC compilation was proven to be cause.
+
+- Clean EAS rebuild of the SAME application logic as3.0.9, with a new version
+  and counter. No further speculative runtime fixes added. Dependencies remain
+  Expo57.0.12 / RN0.86.2 and corrected locked tarballs.
+- EAS build e1506ce5-c313-4390-8496-dbead9356c9c, preview-arm64, clear-cache.
+  https://expo.dev/accounts/umiaqs-team/projects/umarcoc93/builds/e1506ce5-c313-4390-8496-dbead9356c9c
+  Source d4da42220cd1bf064ee5fc3ba2ea316e9f072e79. Log confirms clean prebuild
+  and661 tasks executed. Remote counter set46 before auto-increment to47.
+- APK https://github.com/umarislah86-collab/leanlog/releases/download/v3.0.10/leanlog-V3.0.10.apk
+  Local ../../outputs/leanlog-V3.0.10.apk;48,426,094 bytes.
+  SHA256193d6da661ae1cd1e0e3b3c835123ae841494e8525119e3391c6d9480b3033c9.
+  Original signer62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c,
+  V2 signature/content digest, ZIP CRC, com.calorietracker.app,3.0.10/47,
+  ARM64-only, non-debuggable and embedded JS verified. GH hash/size matched;
+  public download HEAD200. Install as update without uninstalling.
+- Timing: EAS worker448.178s (7m28.178s), queue4.649s, wait1.271s.
+  Gradle6m31s; phase392.041s. Server created-to-completed454.098s;
+  submission-start-to-completion504.785s (archive/upload/fingerprint included).
+  Differs from local command timing; download verification/publication excluded.
+  See docs/build-timings.json and ../../outputs/leanlog-3.0.10-build-timing.json.
+- 361 tests and TypeScript passed. No physical-device verification; Back/boot
+  and upload0/25 remain open until this EAS APK is tested. Unknown why the prior
+  upload timeout was not observed on the phone.
+- Source/release pushed; landing master13e4c1a points to3.0.10, mirrored here.
+  Public https://umarislah86-collab.github.io/leanlog/.
+- Current remote/app baseline47; next EAS48. Local counter file remains46,
+  but app baseline47 keeps any future authorized local build above47.
 
 ## Release 3.0.9 published — 14 October 2026
 

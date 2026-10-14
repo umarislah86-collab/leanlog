@@ -9,7 +9,10 @@ Latest user override (14 October 2026, after 3.0.9 phone failures): use EAS clou
 builds on umiaq / umiaqs-team again. Do not use local builds unless requested.
 Synchronize the remote Android counter above locally distributed codes first.
 Record elapsed wall-clock time for the full build command (prebuild through APK
-verification) and Gradle time separately. Keep tests/setup/publication outside
+verification) and Gradle time separately for local builds. For EAS, record
+submission-to-completion and the reported queue/worker durations separately;
+do not present the no-wait submission command as the full build duration.
+Keep tests/setup/publication outside
 the build-command measurement. Append each result to docs/build-timings.json. Verify original signing identity/package/version,
 ARM64 ABI, embedded JS and non-debuggable release before publication.
 Never commit signing credentials. See docs/local-android-build.md.
