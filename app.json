@@ -3,7 +3,7 @@
     "name": "LeanLog",
     "slug": "umarcoc93",
     "scheme": "leanlog",
-    "version": "3.0.10",
+    "version": "3.0.11",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
@@ -14,7 +14,7 @@
     },
     "android": {
       "package": "com.calorietracker.app",
-      "versionCode": 47,
+      "versionCode": 48,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F7F0E1"
@@ -58,11 +58,11 @@
             {
               "name": "LeanLogDaily",
               "label": "LeanLog Daily",
-              "description": "Daily health with your choice of account snapshots or spending guards.",
+              "description": "Daily calories, macros, steps and money snapshots with quick logging.",
               "minWidth": "250dp",
-              "minHeight": "110dp",
+              "minHeight": "220dp",
               "targetCellWidth": 4,
-              "targetCellHeight": 2,
+              "targetCellHeight": 3,
               "resizeMode": "horizontal|vertical",
               "widgetFeatures": "reconfigurable",
               "updatePeriodMillis": 1800000

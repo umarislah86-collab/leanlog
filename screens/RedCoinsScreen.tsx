@@ -333,8 +333,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
 
   useEffect(() => {
     const mode = route?.params?.mode;
-    if (!state || needsRedCoinsSetup(state) || !['expense', 'income', 'transfer'].includes(mode)) return;
-    resetEntry(mode as RedCoinsType);
+    if (!state || needsRedCoinsSetup(state) || !['new', 'expense', 'income', 'transfer'].includes(mode)) return;
+    resetEntry(mode === 'new' ? 'expense' : mode as RedCoinsType);
     if (route?.params?.item && !route?.params?.detected) setItem(String(route.params.item));
     if (route?.params?.amount) setAmount(String(route.params.amount));
     const hint = String(route?.params?.accountHint || '')

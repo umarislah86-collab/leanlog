@@ -55,12 +55,30 @@ const { LeanLogWidget } = load('widgets/LeanLogWidget.tsx', {
 });
 const { buildWidgetTree } = require('../node_modules/react-native-android-widget/lib/commonjs/api/build-widget-tree');
 const base = { eaten: 700, burned: 0, meals: 2, goal: 2000, steps: 3000, updated: '10:00', cashReality: null, guards: [{ id: 'g', name: 'Dining', percent: 20, spent: 80, limit: 400 }] };
+
+test('daily macros sum consumed items only for today and render in the native widget tree', async () => {
+  stored.set('calorie_entries', JSON.stringify([
+    { date: new Date().toLocaleDateString('ms-MY'), calories: 500, items: [{ protein: 20, karbohidrat: 40, lemak: 8 }, { protein: 10, karbohidrat: 5, lemak: 2 }] },
+    { date: 'yesterday', calories: 999, items: [{ protein: 999, karbohidrat: 999, lemak: 999 }] },
+  ]));
+  const result = await data.getWidgetData();
+  assert.equal(JSON.stringify(result.macros), JSON.stringify({ protein: 30, carbs: 45, fat: 10 }));
+  const tree = JSON.stringify(buildWidgetTree(LeanLogWidget({ ...base, macros: result.macros })));
+  for (const text of ['PROTEIN', 'CARBS', 'FAT', '30g', '45g', '10g']) assert.ok(tree.includes(text));
+  stored.delete('calorie_entries');
+  assert.equal(JSON.stringify((await data.getWidgetData()).macros), JSON.stringify({ protein: 0, carbs: 0, fat: 0 }));
+});
 test('actual widget tree builder accepts default guards and empty, odd, full account grids', () => {
   assert.match(JSON.stringify(buildWidgetTree(LeanLogWidget(base))), /DINING/);
   for (const count of [0, 1, 4]) {
     const accounts = Array.from({ length: count }, (_, i) => ({ name: `Long account name ${i}`, balance: i === 0 ? -378.04 : 100, type: 'Bank' }));
     const tree = JSON.stringify(buildWidgetTree(LeanLogWidget({ ...base, bottomMode: 'accounts', accounts })));
-    assert.match(tree, /EXPENSE/);
+    assert.match(tree, /\+ FOOD/);
+    assert.match(tree, /\+ ACTIVITY/);
+    assert.match(tree, /\+ MONEY/);
+    assert.match(tree, /leanlog:\/\/quick\/food/);
+    assert.match(tree, /leanlog:\/\/quick\/activity/);
+    assert.match(tree, /leanlog:\/\/redcoins\/new/);
     assert.doesNotMatch(tree, /DINING/);
     if (count) { assert.match(tree, /378.04/); assert.match(tree, /section=accounts/); }
     else assert.match(tree, /Choose accounts/);

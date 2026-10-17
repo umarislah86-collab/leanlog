@@ -1,20 +1,36 @@
 import { ThemeScrollView as ScrollView, ThemeTouchableOpacity as TouchableOpacity, ThemeView as View, ThemeSafeAreaView as SafeAreaView } from './ThemeSurfaces';
 import React, { useRef, useState } from 'react';
 import { Image, KeyboardAvoidingView, Modal, Platform } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { ThemeText as Text, ThemeTextInput as TextInput } from './ThemePrimitives';
 import { useTheme } from '../context/ThemeContext';
 import { sumReviewedMeal, type MealImageReview, type MealPhoto } from '../services/foodImageAnalysis';
 
-export function FoodImageReview({ review, photos, onChange, onSave, onCancel }: {
+export function FoodImageReview({ review, photos, onChange, onSave, onCancel, entryDate, entryTime, onDateTimeChange, editing = false }: {
   review: MealImageReview; photos: MealPhoto[]; onChange: (review: MealImageReview) => void;
   onSave: (meal: ReturnType<typeof sumReviewedMeal>) => void; onCancel: () => void;
+  entryDate?: string; entryTime?: string; editing?: boolean;
+  onDateTimeChange?: (date: string, time: string) => void;
 }) {
   const { palette: p } = useTheme();
   const [error, setError] = useState('');
   const saveLock = useRef(false);
+  const [pickedDate, setPickedDate] = useState(() => {
+    if (!entryDate || !entryTime) return new Date();
+    const [day, month, year] = entryDate.split('/').map(Number);
+    const [hour, minute] = entryTime.split(':').map(Number);
+    return new Date(year, month - 1, day, hour || 0, minute || 0);
+  });
+  const [picker, setPicker] = useState<'date' | 'time' | null>(null);
   let total = 'Semak pilihan & portion';
-  try { total = `${sumReviewedMeal(review).calories} kcal`; } catch {}
+  let macros = '';
+  try {
+    const meal = sumReviewedMeal(review);
+    total = `${meal.calories} kcal`;
+    const grams = (key: 'protein' | 'karbohidrat' | 'lemak') => Math.round(meal.items.reduce((sum, item) => sum + item[key], 0));
+    macros = `P ${grams('protein')}g · C ${grams('karbohidrat')}g · F ${grams('lemak')}g`;
+  } catch {}
   const change = (next: MealImageReview) => { onChange(next); setError(''); };
   const button = (label: string, press: () => void, selected = false) => <TouchableOpacity accessibilityRole="button" accessibilityState={{ selected }}
     onPress={press} style={{ padding: 12, borderWidth: 1, borderColor: selected ? p.accent : p.border, backgroundColor: selected ? p.coralTint : p.surfaceAlt, borderRadius: 10 }}>
@@ -25,14 +41,14 @@ export function FoodImageReview({ review, photos, onChange, onSave, onCancel }: 
     <SafeAreaView style={{ flex: 1, backgroundColor: p.canvas }}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, gap: 16 }}>
-          <Text style={{ color: p.text, fontSize: 25, fontWeight: '700' }}>Semak satu meal</Text>
-          <Text style={{ color: p.muted }}>AI menganggarkan portion dalam gambar. Betulkan sebelum Save. Semakan ini tidak menggunakan AI lagi.</Text>
+          <Text style={{ color: p.text, fontSize: 25, fontWeight: '700' }}>{editing ? 'Edit makanan' : 'Semak satu meal'}</Text>
+          <Text style={{ color: p.muted }}>Semak portion, tarikh dan masa sebelum Save. Kalori dan makro dikira semula tanpa menggunakan AI lagi.</Text>
           <TextInput accessibilityLabel="Nama meal" value={review.name} onChangeText={name => change({ ...review, name })} style={field} />
           {review.plates.map((plate, pi) => {
             const updatePlate = (patch: Partial<typeof plate>) => change({ ...review, plates: review.plates.map((row, index) => index === pi ? { ...row, ...patch } : row) });
             return <View key={plate.imageIndex} style={{ padding: 14, gap: 12, borderWidth: 1, borderColor: p.border, borderRadius: 14, backgroundColor: p.surface }}>
               <Text style={{ color: p.text, fontWeight: '700' }}>Gambar {plate.imageIndex}</Text>
-              <Image source={{ uri: photos[plate.imageIndex - 1].uri }} style={{ height: 150, borderRadius: 10 }} resizeMode="contain" />
+              {!!photos[plate.imageIndex - 1]?.uri && <Image source={{ uri: photos[plate.imageIndex - 1].uri }} style={{ height: 150, borderRadius: 10 }} resizeMode="contain" />}
               {plate.duplicateOf && <Text style={{ color: p.expense }}>Mungkin plate sama dengan gambar {plate.duplicateOf}. {plate.duplicateReason} Sahkan pilihan di bawah.</Text>}
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {button('Kira plate ini', () => updatePlate({ decision: 'include' }), plate.decision === 'include')}
@@ -53,6 +69,16 @@ export function FoodImageReview({ review, photos, onChange, onSave, onCancel }: 
             </View>;
           })}
           <Text style={{ color: p.text, fontSize: 20, fontWeight: '700' }}>Jumlah: {total}</Text>
+          {!!macros && <Text style={{ color: p.muted }}>{macros}</Text>}
+          {button(`Tarikh: ${pickedDate.toLocaleDateString('ms-MY')}`, () => setPicker('date'))}
+          {button(`Masa: ${pickedDate.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}`, () => setPicker('time'))}
+          {picker && <DateTimePicker value={pickedDate} mode={picker} is24Hour onChange={(event, date) => {
+            if (Platform.OS !== 'ios') setPicker(null);
+            if (event.type !== 'dismissed' && date) {
+              setPickedDate(date);
+              onDateTimeChange?.(date.toLocaleDateString('ms-MY'), date.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' }));
+            }
+          }} />}
           {!!error && <Text accessibilityRole="alert" style={{ color: p.expense }}>{error}</Text>}
           {button('Save satu meal', () => {
             if (saveLock.current) return;

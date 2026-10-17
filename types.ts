@@ -20,6 +20,7 @@ export interface FoodEntry {
   date: string;
   items: FoodItem[];
   category: MealCategory;
+  foodReview?: { review: import('./services/foodImageAnalysis').MealImageReview; imageUris: string[] };
 }
 
 export interface ActivityDetails {

@@ -10,6 +10,7 @@ import type { AppThemeId } from '../services/appTheme';
 export type LeanLogWidgetProps = {
   themeId?: AppThemeId;
   eaten: number;
+  macros?: { protein: number; carbs: number; fat: number };
   burned: number;
   meals: number;
   goal: number;
@@ -21,7 +22,7 @@ export type LeanLogWidgetProps = {
   updated: string;
 };
 
-export function LeanLogWidget({ eaten, burned, meals, goal, steps, guards, bottomMode = 'guards', accounts = [], cashReality, themeId = 'cream' }: LeanLogWidgetProps) {
+export function LeanLogWidget({ eaten, macros = { protein: 0, carbs: 0, fat: 0 }, burned, meals, goal, steps, guards, bottomMode = 'guards', accounts = [], cashReality, themeId = 'cream' }: LeanLogWidgetProps) {
   const left = Math.max(0, goal - eaten);
   const pct = Math.max(0, Math.min(100, Math.round((eaten / Math.max(goal, 1)) * 100)));
   const visibleGuards = guards.slice(0, 4);
@@ -55,6 +56,16 @@ export function LeanLogWidget({ eaten, burned, meals, goal, steps, guards, botto
         <TextWidget text="TRUE SPENDABLE CASH" maxLines={1} style={{ color: '#172033', fontSize: 8, fontWeight: '700' }} />
         <TextWidget text={`${cashReality.trueSpendable < 0 ? '-' : ''}RM ${Math.abs(cashReality.trueSpendable).toFixed(0)}`} style={{ color: cashReality.trueSpendable < 0 ? '#D4422B' : '#477363', fontSize: 8, fontWeight: '700' }} />
       </FlexWidget>}
+      <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', marginTop: 4 }}>
+        {([
+          { label: 'PROTEIN', value: macros.protein, background: '#D8EFE4', color: '#315F50' },
+          { label: 'CARBS', value: macros.carbs, background: '#FFE0D3', color: '#A4442D' },
+          { label: 'FAT', value: macros.fat, background: '#E1E6F0', color: '#455879' },
+        ] as const).map((macro, index) => <FlexWidget key={macro.label} style={{ width: 0, flex: 1, flexDirection: 'column', alignItems: 'center', backgroundColor: macro.background, borderRadius: 6, paddingVertical: 4, marginRight: index < 2 ? 3 : 0 }}>
+          <TextWidget text={`${Math.round(macro.value)}g`} maxLines={1} style={{ color: '#172033', fontSize: 12, fontWeight: '700' }} />
+          <TextWidget text={macro.label} style={{ color: macro.color, fontSize: 7, fontWeight: '700' }} />
+        </FlexWidget>)}
+      </FlexWidget>
       <FlexWidget style={{ width: 'match_parent', flexDirection: 'column', marginTop: 3 }}>
         {bottomMode === 'accounts' ? (accountRows.length ? accountRows.map((row, rowIndex) => <FlexWidget key={`account-row-${rowIndex}`} style={{ width: 'match_parent', flexDirection: 'row', marginBottom: 3 }}>
           {row.map((account, columnIndex) => <FlexWidget key={account.name} clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://redcoins?section=accounts' }} style={{ ...snapshotCell, backgroundColor: account.balance < 0 ? '#FFD8CF' : rowIndex === 0 && columnIndex === 0 ? '#D8EFE4' : '#E9E3D7', marginRight: columnIndex < row.length - 1 ? 3 : 0 }}>
@@ -74,9 +85,9 @@ export function LeanLogWidget({ eaten, burned, meals, goal, steps, guards, botto
         </FlexWidget>) : <TextWidget text="No spending guards yet" maxLines={1} style={{ color: '#172033', fontSize: 8, fontWeight: '700' }} />}
       </FlexWidget>
       <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', marginTop: 3 }}>
-        <FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://redcoins/expense' }} style={{ width: 0, flex: 1, height: 24, justifyContent: 'center', backgroundColor: '#EF3F43', borderRadius: 6, alignItems: 'center', marginRight: 3 }}><TextWidget text="− EXPENSE" style={{ color: '#FFFFFF', fontSize: 7, fontWeight: '700' }} /></FlexWidget>
-        <FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://redcoins/income' }} style={{ width: 0, flex: 1, height: 24, justifyContent: 'center', backgroundColor: '#379B73', borderRadius: 6, alignItems: 'center', marginRight: 3 }}><TextWidget text="+ INCOME" style={{ color: '#FFFFFF', fontSize: 7, fontWeight: '700' }} /></FlexWidget>
-        <FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://redcoins/transfer' }} style={{ width: 0, flex: 1, height: 24, justifyContent: 'center', backgroundColor: '#528FF2', borderRadius: 6, alignItems: 'center' }}><TextWidget text="⇄ TRANSFER" style={{ color: '#FFFFFF', fontSize: 7, fontWeight: '700' }} /></FlexWidget>
+        <FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://quick/food' }} style={{ width: 0, flex: 1, height: 24, justifyContent: 'center', backgroundColor: '#EF3F43', borderRadius: 6, alignItems: 'center', marginRight: 3 }}><TextWidget text="+ FOOD" style={{ color: '#FFFFFF', fontSize: 7, fontWeight: '700' }} /></FlexWidget>
+        <FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://quick/activity' }} style={{ width: 0, flex: 1, height: 24, justifyContent: 'center', backgroundColor: '#379B73', borderRadius: 6, alignItems: 'center', marginRight: 3 }}><TextWidget text="+ ACTIVITY" style={{ color: '#FFFFFF', fontSize: 7, fontWeight: '700' }} /></FlexWidget>
+        <FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://redcoins/new' }} style={{ width: 0, flex: 1, height: 24, justifyContent: 'center', backgroundColor: '#528FF2', borderRadius: 6, alignItems: 'center' }}><TextWidget text="+ MONEY" style={{ color: '#FFFFFF', fontSize: 7, fontWeight: '700' }} /></FlexWidget>
       </FlexWidget>
     </FlexWidget>
   ), themeId) as React.JSX.Element, themeId);

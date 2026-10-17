@@ -1,4 +1,4 @@
-import type { FoodItem } from '../types';
+import type { FoodEntry, FoodItem } from '../types';
 
 // Deployed callable accepts four input parts: up to three images plus one prompt.
 export const MAX_MEAL_IMAGES = 3;
@@ -9,6 +9,19 @@ export interface MealPlate {
   items: Array<FoodItem & { portion: string }>;
 }
 export interface MealImageReview { name: string; plates: MealPlate[] }
+export function reviewSavedFood(entry: FoodEntry): { review: MealImageReview; photos: MealPhoto[] } {
+  if (entry.foodReview) return {
+    review: JSON.parse(JSON.stringify(entry.foodReview.review)),
+    photos: entry.foodReview.imageUris.map(uri => ({ uri, base64: '' })),
+  };
+  // Older logs contain consumed totals, so those form the initial 1x baseline.
+  const imageUris = entry.imageUris?.length ? entry.imageUris : entry.imageUri ? [entry.imageUri] : [];
+  const items = entry.items.length ? entry.items : [{ nama: entry.name, kalori: entry.calories, protein: 0, karbohidrat: 0, lemak: 0 }];
+  return {
+    review: { name: entry.name, plates: [{ imageIndex: 1, duplicateOf: null, duplicateReason: '', decision: 'include', items: items.map(item => ({ ...item, portion: '1' })) }] },
+    photos: imageUris.map(uri => ({ uri, base64: '' })),
+  };
+}
 export function foodImagePrompt(imageCount: number, note = '') {
   if (!Number.isInteger(imageCount) || imageCount < 1 || imageCount > MAX_MEAL_IMAGES) throw new Error('Pilih 1 hingga 3 gambar untuk satu meal.');
   return `Analisa ${imageCount} gambar makanan untuk SATU sesi makan. Gambar mengikut urutan 1 hingga ${imageCount}.

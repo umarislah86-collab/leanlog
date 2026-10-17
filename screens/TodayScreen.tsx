@@ -32,7 +32,7 @@ import { refreshLeanLogWidget } from '../services/widget';
 import { latestLoggedWeight, profileWithLoggedWeight, syncProfileWeight } from '../services/currentWeight';
 import { openNativeImagePicker } from '../services/mediaPicker';
 import { FoodImageReview } from '../components/FoodImageReview';
-import { MAX_MEAL_IMAGES, foodImageInput, parseFoodImageReview, type MealPhoto, type MealImageReview } from '../services/foodImageAnalysis';
+import { MAX_MEAL_IMAGES, foodImageInput, parseFoodImageReview, reviewSavedFood, type MealPhoto, type MealImageReview } from '../services/foodImageAnalysis';
 
 const WEIGHT_KEY = 'weight_entries';
 const PROFILE_PHOTO_KEY = 'profile_photo';
@@ -125,7 +125,7 @@ export default function TodayScreen() {
   const [showImageDetailModal, setShowImageDetailModal] = useState(false);
   const [pendingPhotos, setPendingPhotos] = useState<MealPhoto[]>([]);
   const analysisLock = useRef(false);
-  const [foodReview, setFoodReview] = useState<{ review: MealImageReview; photos: MealPhoto[]; category: MealCategory; entryDate?: string; entryTime?: string } | null>(null);
+  const [foodReview, setFoodReview] = useState<{ review: MealImageReview; photos: MealPhoto[]; category: MealCategory; entryDate?: string; entryTime?: string; editingEntry?: FoodEntry } | null>(null);
   const [imageDetailNote, setImageDetailNote] = useState('');
   const [imageBackdateEnabled, setImageBackdateEnabled] = useState(false);
   const [imageBackdateDate, setImageBackdateDate] = useState(new Date());
@@ -527,7 +527,8 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
 }`;
       const output = await runLeanLogAi('food_text', [{ type: 'text', text: prompt }]);
       const data = parseJSON(output);
-      addFoodEntry({ name: data.nama, calories: data.kalori, items: data.items ?? [], category: pendingCategory, entryDate, entryTime });
+      const draft: FoodEntry = { type: 'food', id: String(Date.now()), name: data.nama, calories: data.kalori, items: data.items ?? [], category: pendingCategory, date: entryDate ?? today, time: entryTime ?? formatEntryTime(new Date()) };
+      setFoodReview({ ...reviewSavedFood(draft), category: pendingCategory, entryDate: draft.date, entryTime: draft.time });
     } catch (err) {
       Alert.alert(t('error'), err instanceof Error ? err.message : String(err));
     } finally {
@@ -543,7 +544,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
 
   const addFoodEntry = (data: {
     name: string; calories: number; imageUri?: string; imageUris?: string[]; items: FoodItem[];
-    category: MealCategory; entryDate?: string; entryTime?: string;
+    category: MealCategory; entryDate?: string; entryTime?: string; foodReview?: FoodEntry['foodReview'];
   }) => {
     const entry: FoodEntry = {
       type: 'food',
@@ -556,6 +557,7 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
       date: data.entryDate ?? today,
       items: data.items,
       category: data.category,
+      ...(data.foodReview ? { foodReview: data.foodReview } : {}),
     };
     setFoodEntries((prev) => [entry, ...prev]);
     fsUpsert('foodEntries', entry.id, entry);
@@ -639,13 +641,22 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
 
   const handleEditDateTimeOpen = () => {
     if (!optionsTarget) return;
-    const entry = optionsTarget.type === 'food'
-      ? foodEntries.find((e) => e.id === optionsTarget.id)
-      : activityEntries.find((e) => e.id === optionsTarget.id);
+    if (optionsTarget.type === 'food') {
+      const food = foodEntries.find(entry => entry.id === optionsTarget.id);
+      if (food) openFoodEdit(food);
+      return;
+    }
+    const entry = activityEntries.find((e) => e.id === optionsTarget.id);
     if (!entry) return;
     setEditPickedDate(parseEntryDateTime(entry.date, entry.time));
     setShowEntryOptions(false);
     setTimeout(() => setShowEditDateTime(true), 300);
+  };
+
+  const openFoodEdit = (entry: FoodEntry) => {
+    setShowEntryOptions(false);
+    setSelectedEntry(null);
+    setTimeout(() => setFoodReview({ ...reviewSavedFood(entry), category: entry.category, entryDate: entry.date, entryTime: entry.time, editingEntry: entry }), 300);
   };
 
   const handleDeleteOption = () => {
@@ -1366,8 +1377,8 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
             <TouchableOpacity style={styles.categoryRow} onPress={handleEditDateTimeOpen}>
               <Text style={styles.categoryEmoji}>✏️</Text>
               <View style={{ flex: 1 }}>
-                <Text style={styles.categoryLabel}>{t('editDateTime')}</Text>
-                <Text style={styles.categorySubtitle}>{t('editDateTimeSub')}</Text>
+                <Text style={styles.categoryLabel}>{optionsTarget?.type === 'food' ? 'Edit makanan' : t('editDateTime')}</Text>
+                <Text style={styles.categorySubtitle}>{optionsTarget?.type === 'food' ? 'Ubah portion, tarikh dan masa' : t('editDateTimeSub')}</Text>
               </View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.categoryRow} onPress={handleDeleteOption}>
@@ -1439,6 +1450,9 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
                   </View>
                 ))}
               </ScrollView>
+              <TouchableOpacity style={styles.detailClose} onPress={() => openFoodEdit(selectedEntry)}>
+                <Text style={styles.detailCloseText}>Edit makanan</Text>
+              </TouchableOpacity>
               <TouchableOpacity style={styles.detailClose} onPress={() => setSelectedEntry(null)}>
                 <Text style={styles.detailCloseText}>{t('close')}</Text>
               </TouchableOpacity>
@@ -1448,12 +1462,22 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
       </Modal>
 
       {foodReview && <FoodImageReview review={foodReview.review} photos={foodReview.photos}
+        entryDate={foodReview.entryDate} entryTime={foodReview.entryTime} editing={!!foodReview.editingEntry}
+        onDateTimeChange={(entryDate, entryTime) => setFoodReview(current => current ? { ...current, entryDate, entryTime } : null)}
         onChange={review => setFoodReview(current => current ? { ...current, review } : null)}
         onCancel={() => { setFoodReview(null); setPendingPhotos([]); }}
         onSave={meal => {
           const included = new Set(foodReview.review.plates.filter(plate => plate.decision === 'include' && plate.items.some(item => Number(item.portion) > 0)).map(plate => plate.imageIndex));
           const imageUris = foodReview.photos.filter((_, index) => included.has(index + 1)).map(photo => photo.uri);
-          addFoodEntry({ ...meal, imageUri: imageUris[0], imageUris, category: foodReview.category, entryDate: foodReview.entryDate, entryTime: foodReview.entryTime });
+          const metadata = { review: foodReview.review, imageUris: foodReview.photos.map(photo => photo.uri) };
+          if (foodReview.editingEntry) {
+            const original = foodReview.editingEntry;
+            const entry: FoodEntry = { ...original, ...meal, date: foodReview.entryDate ?? original.date, time: foodReview.entryTime ?? original.time, foodReview: metadata };
+            setFoodEntries(previous => previous.map(row => row.id === entry.id ? entry : row));
+            fsUpsert('foodEntries', entry.id, entry);
+          } else {
+            addFoodEntry({ ...meal, imageUri: imageUris[0], imageUris, category: foodReview.category, entryDate: foodReview.entryDate, entryTime: foodReview.entryTime, foodReview: metadata });
+          }
           setFoodReview(null); setPendingPhotos([]);
         }} />}
 

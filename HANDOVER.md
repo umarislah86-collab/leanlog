@@ -1,4 +1,23 @@
-# LeanLog — latest published release v3.0.10 (EAS)
+# LeanLog — release 3.0.11 preparation (EAS)
+
+## 17 October 2026 — Daily widget and editable food portions
+
+- Build requested with original signing identity for an in-place update. Based on
+  github-release-v221 / b4f1c13, preserving the shipped 3.0.10 features.
+- Daily widget adds consumed Protein/Carbs/Fat and Food/Activity/Money actions.
+  Existing quick-action routing, themes, account selection and guards preserved.
+- Saved food opens the existing FoodImageReview per-item portion editor; date
+  and time are editable in the same modal. Review metadata preserves original
+  estimates, portions, duplicate decisions and all photo references for re-edits.
+  Legacy logs get a 1x consumed-total baseline; text analysis also uses review.
+  Save updates the original ID and existing local/Firestore/widget paths.
+- Initial draft PR #1 was based on obsolete master. Its implementation is
+  superseded by this port to the current release branch; do not merge that draft.
+- EAS umiaqs-team / 086aadb6-658c-47ee-a472-e9d76ac3c7be, preview-arm64.
+  Remote counter verified at 47 before build; next auto-increment 48.
+- TypeScript, Expo prebuild config and 363 regression tests passed before the
+  additional daily-macro regression test. Device runtime confirmation pending.
+
 
 ## User-confirmed recovery and local build removal — 14 October 2026
 

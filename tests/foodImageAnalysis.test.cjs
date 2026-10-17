@@ -9,6 +9,37 @@ const item = (patch={}) => ({nama:'Nasi',kalori:300,protein:10,karbohidrat:45,le
 const payload = () => ({nama:'Lunch buffet',plates:[{image_index:1,possible_duplicate_of:null,duplicate_reason:'',items:[item()]},{image_index:2,possible_duplicate_of:1,duplicate_reason:'Plate sama dari sudut lain',items:[item({nama:'Ayam',kalori:200})]},{image_index:3,possible_duplicate_of:null,items:[item({nama:'Buah',kalori:100})]}]});
 const parse = (data=payload()) => core.parseFoodImageReview(JSON.stringify(data),3);
 const photos = () => [1,2,3].map(n=>({uri:`file:///photo${n}.jpg`,base64:'YWJj'}));
+
+test('saved food review retains original estimates and portions across edits without mutating the log',()=>{
+ const review=parse();review.plates[1].decision='exclude';review.plates[0].items[0].portion='0.5';
+ const meal=core.sumReviewedMeal(review);
+ const saved={id:'existing',...meal,date:'16/10/2026',time:'12:30',category:'tengahari',foodReview:{review,imageUris:photos().map(p=>p.uri)}};
+ const before=JSON.stringify(saved);
+ const opened=core.reviewSavedFood(JSON.parse(before));
+ assert.equal(opened.review.plates[0].items[0].portion,'0.5');
+ assert.equal(opened.photos.length,3);
+ assert.equal(core.sumReviewedMeal(opened.review).calories,meal.calories);
+ opened.review.plates[0].items[0].portion='1';
+ const full=core.sumReviewedMeal(opened.review);
+ assert.equal(full.calories,400);
+ assert.equal(full.items[0].protein,10);
+ assert.equal(JSON.stringify(saved),before);
+ opened.review.plates[0].items[0].portion='0.5';
+ assert.equal(core.sumReviewedMeal(opened.review).calories,meal.calories);
+});
+
+test('legacy saved meals support portion editing with and without photos or item breakdowns',()=>{
+ const entry={name:'Lunch',calories:300,items:[item()],imageUri:'file:///meal.jpg'};
+ let opened=core.reviewSavedFood(entry);
+ assert.equal(opened.photos[0].uri,entry.imageUri);
+ opened.review.plates[0].items[0].portion='0.25';
+ assert.equal(core.sumReviewedMeal(opened.review).calories,75);
+ assert.equal(entry.items[0].kalori,300);
+ opened=core.reviewSavedFood({name:'Old meal',calories:400,items:[]});
+ assert.equal(opened.photos.length,0);
+ opened.review.plates[0].items[0].portion='0.5';
+ assert.equal(core.sumReviewedMeal(opened.review).calories,200);
+});
 test('bulk input fits deployed callable: three images and a single shared prompt, within payload cap',()=>{
  const input=core.foodImageInput(photos(),'Makan separuh nasi.');
  assert.equal(input.length,4);assert.equal(input.filter(p=>p.type==='text').length,1);
