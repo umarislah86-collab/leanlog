@@ -22,7 +22,7 @@ import {
   View,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useFocusEffect, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { runLeanLogAi } from '../services/ai';
 import { fsUpsert, fsDelete, fsSetSettings, fsFetchAll, fsFetchSettings } from '../firebase';
@@ -80,6 +80,7 @@ export default function TodayScreen() {
   const [foodEntries, setFoodEntries] = useState<FoodEntry[]>([]);
   const [dataHydrated, setDataHydrated] = useState(false);
   const route = useRoute();
+  const navigation = useNavigation();
   const [activityEntries, setActivityEntries] = useState<ActivityEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState('');
@@ -216,6 +217,18 @@ export default function TodayScreen() {
     const params = route.params as { fabTrigger?: number } | undefined;
     if (params?.fabTrigger) setShowCategoryPicker(true);
   }, [(route.params as any)?.fabTrigger]);
+
+  const widgetAction = (route.params as { action?: string } | undefined)?.action;
+  useFocusEffect(useCallback(() => {
+    if (widgetAction !== 'food' && widgetAction !== 'activity') return;
+    setShowCategoryPicker(widgetAction === 'food');
+    setShowSourcePicker(false);
+    setShowTextModal(false);
+    setShowActivityModal(false);
+    setShowActivitySourcePicker(widgetAction === 'activity');
+    // Consume the action so the same widget button works on every tap.
+    navigation.setParams({ action: undefined } as never);
+  }, [widgetAction, navigation]));
 
   const loadData = async () => {
     const todayKey = `sss_veg_${new Date().toLocaleDateString('ms-MY')}`;

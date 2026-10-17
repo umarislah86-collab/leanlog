@@ -77,9 +77,9 @@ export function LeanLogWidget({ eaten, macros, burned, meals, goal, steps, nextE
         </FlexWidget>) : <TextWidget text="No spending guards yet" maxLines={1} style={{ color: '#172033', fontSize: 8, fontWeight: '700' }} />}
       </FlexWidget>
       <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', marginTop: 3 }}>
-        <FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://redcoins/expense' }} style={{ flex: 1, backgroundColor: '#EF3F43', borderRadius: 8, paddingVertical: 4, alignItems: 'center', marginRight: 3 }}><TextWidget text="− EXPENSE" style={{ color: '#FFFFFF', fontSize: 7, fontWeight: '700' }} /></FlexWidget>
-        <FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://redcoins/income' }} style={{ flex: 1, backgroundColor: '#379B73', borderRadius: 8, paddingVertical: 4, alignItems: 'center', marginRight: 3 }}><TextWidget text="+ INCOME" style={{ color: '#FFFFFF', fontSize: 7, fontWeight: '700' }} /></FlexWidget>
-        <FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://redcoins/transfer' }} style={{ flex: 1, backgroundColor: '#528FF2', borderRadius: 8, paddingVertical: 4, alignItems: 'center' }}><TextWidget text="⇄ TRANSFER" style={{ color: '#FFFFFF', fontSize: 7, fontWeight: '700' }} /></FlexWidget>
+        <FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://log/food' }} style={{ flex: 1, backgroundColor: '#FF6542', borderRadius: 8, paddingVertical: 4, alignItems: 'center', marginRight: 3 }}><TextWidget text="+ FOOD" style={{ color: '#FFFFFF', fontSize: 7, fontWeight: '700' }} /></FlexWidget>
+        <FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://log/activity' }} style={{ flex: 1, backgroundColor: '#379B73', borderRadius: 8, paddingVertical: 4, alignItems: 'center', marginRight: 3 }}><TextWidget text="+ ACTIVITY" style={{ color: '#FFFFFF', fontSize: 7, fontWeight: '700' }} /></FlexWidget>
+        <FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://redcoins/new' }} style={{ flex: 1, backgroundColor: '#528FF2', borderRadius: 8, paddingVertical: 4, alignItems: 'center' }}><TextWidget text="+ MONEY" style={{ color: '#FFFFFF', fontSize: 7, fontWeight: '700' }} /></FlexWidget>
       </FlexWidget>
     </FlexWidget>
   );
