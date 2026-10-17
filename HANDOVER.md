@@ -1,4 +1,30 @@
-# LeanLog — release 3.0.11 preparation (EAS)
+# LeanLog — latest published release v3.0.11 (EAS)
+
+## Release 3.0.11 published — 17 October 2026
+
+- Public APK: https://github.com/umarislah86-collab/leanlog/releases/download/v3.0.11/leanlog-V3.0.11.apk
+  Source 7ad19cd9bd2ade6ce9381c794031068b2d6f9341; Android code50.
+- EAS @umarcoc93/umarcoc93, a182f1cc-17e1-4c27-a112-84b2187f0b10.
+  Team and original-personal submissions were rejected for monthly free quota;
+  user supplied token accounts for rotation. No paid upgrade was activated.
+- 48,430,894 bytes; SHA256
+  827f54e217516ee8fb24e7a43592a8a04e10510ba4614c01917bfdab28bd302d.
+  Original signer62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c,
+  APK V2 signature/content digest, ZIP CRC, com.calorietracker.app,3.0.11/50,
+  ARM64-only, non-debuggable and embedded JS verified. GitHub asset SHA256/size
+  matched and public download HEAD200; GitHub latest release is v3.0.11.
+- EAS worker600.071s; queue4.724s; wait4.651s; Gradle9m1s, phase541.755s;
+  all661 tasks executed. Submission-to-completion634.597s (10m34.597s),
+  excluding tests/setup/download verification/publication. See build-timings.json.
+- 364 automated tests, TypeScript and Expo prebuild config passed. Physical
+  device checks remain for launcher layout/actions and food portion/date/time
+  editing. Existing3.0.10 functionality retained on the release-branch baseline.
+- Landing master c99d906 updates APK CTA, widget illustration, food FAQ and
+  feature copy; mirrored onto the release branch. Draft PR#1 closed because it
+  was based on obsolete master; the actual release source supersedes it.
+- Next versionCode must exceed50 across every EAS account; active project
+  d02048ce-beca-42a6-9ffb-c43e0a6d9ab2 has remote50, next auto-increment51.
+
 
 ## 17 October 2026 — Daily widget and editable food portions
 

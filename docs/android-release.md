@@ -6,7 +6,8 @@ Local SDK/JDK/Gradle caches, generated native project, local APK proofs and
 local build scripts were removed at the user's request on14 October2026.
 Do not recreate that workflow without an explicit request.
 
-- Account umiaq, owner umiaqs-team, project086aadb6-658c-47ee-a472-e9d76ac3c7be.
+- Active account/owner umarcoc93, project d02048ce-beca-42a6-9ffb-c43e0a6d9ab2.
+  Use %LOCALAPPDATA%\LeanLogEAS\eas-account.ps1 umarcoc93 <eas arguments>.
 - 17 October fallback: team Android free quota exhausted before worker start.
   Original owner umarosli93/project624ee9c5-768a-4781-a2c5-1f1608c1500a retains
   the identical original signer (credentials fNQIUcQP2K). Release 3.0.11 uses
@@ -18,7 +19,7 @@ Do not recreate that workflow without an explicit request.
   signer linked and verified, remote baseline49 -> build50. Use the local
   eas-account.ps1 wrapper with account umarcoc93; never commit tokens.
 - Build profile preview-arm64 in eas.json creates the release APK.
-- Current published3.0.10/code47; EAS remote counter47, next auto-increment48.
+- Current published3.0.11/code50; active EAS remote counter50, next auto-increment51.
 - Every APK build request includes GitHub source/release, landing and HANDOVER.
 - Verify downloaded APK with scripts/verify-android-apk.py (Python cryptography),
   passing APK path, marketing version and Android code. Check original signer,

@@ -10,3 +10,5 @@ img{height:auto}.hero-art img,.cardio-layout img{width:100%;height:auto}
 
 
 .theme-preview[data-artwork="raster"] .theme-watermark{opacity:.30;object-fit:contain;object-position:center}
+
+.widget-macros{display:flex;gap:6px;margin:8px 0}.widget-macros span{flex:1;text-align:center;padding:8px 4px;border-radius:8px;background:#d8efe4;font-size:9px}.widget-macros span:nth-child(2){background:#ffe0d3}.widget-macros span:nth-child(3){background:#e1e6f0}.widget-macros strong{display:block;font-size:15px;color:#172033}

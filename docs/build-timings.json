@@ -55,5 +55,42 @@
     "executedTasks": 661,
     "upToDateTasks": 0,
     "exitCode": 0
+  },
+  {
+    "version": "3.0.11",
+    "account": "umiaqs-team",
+    "status": "submission-rejected",
+    "reason": "monthly free Android quota exhausted",
+    "androidVersionCode": 48,
+    "workerSeconds": null,
+    "buildId": null
+  },
+  {
+    "version": "3.0.11",
+    "account": "umarosli93",
+    "status": "submission-rejected",
+    "reason": "monthly free Android quota exhausted",
+    "androidVersionCode": 49,
+    "workerSeconds": null,
+    "buildId": null
+  },
+  {
+    "version": "3.0.11",
+    "platform": "android",
+    "scope": "EAS cloud submission start to server completion; excludes setup, tests, download verification and publication",
+    "sourceCommit": "7ad19cd9bd2ade6ce9381c794031068b2d6f9341",
+    "buildId": "a182f1cc-17e1-4c27-a112-84b2187f0b10",
+    "account": "umarcoc93",
+    "startedUtc": "2026-10-17T05:00:17.3010781Z",
+    "completedUtc": "2026-10-17T05:10:51.898Z",
+    "elapsedSeconds": 634.597,
+    "serverCreatedToCompletedSeconds": 609.446,
+    "workerSeconds": 600.071,
+    "queueSeconds": 4.724,
+    "waitSeconds": 4.651,
+    "gradleElapsed": "BUILD SUCCESSFUL in 9m 1s",
+    "gradlePhaseSeconds": 541.755,
+    "gradleTaskSummary": "661 actionable tasks: 661 executed",
+    "exitCode": 0
   }
 ]
