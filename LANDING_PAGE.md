@@ -35,3 +35,5 @@ RedCoins, finance stays local/JSON and upload diagnostics explained.
 Release 3.0.8 public APK asset verified before publishing this website update.
 
 17 October 2026 / 3.0.11: update public APK link only after release verification. Daily widget illustration includes consumed macros and Food/Activity/Money actions. Food FAQ explains editing saved portions, dates and times. Existing design, pricing, trial and artwork preserved.
+
+17 October 2026 / 3.0.12: after publishing the verified APK, advance the download link. Daily demo matches compact widget: steps/meals/burned left, P/C/F grams right on the same line between calorie percentage and progress bar. Macro cards removed; no extra widget height.
