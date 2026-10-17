@@ -14,7 +14,7 @@
     },
     "android": {
       "package": "com.calorietracker.app",
-      "versionCode": 48,
+      "versionCode": 49,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F7F0E1"
@@ -147,9 +147,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "086aadb6-658c-47ee-a472-e9d76ac3c7be"
+        "projectId": "624ee9c5-768a-4781-a2c5-1f1608c1500a"
       }
     },
-    "owner": "umiaqs-team"
+    "owner": "umarosli93"
   }
 }

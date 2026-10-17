@@ -15,6 +15,14 @@
   superseded by this port to the current release branch; do not merge that draft.
 - EAS umiaqs-team / 086aadb6-658c-47ee-a472-e9d76ac3c7be, preview-arm64.
   Remote counter verified at 47 before build; next auto-increment 48.
+- Team submission incremented counter to 48 but was rejected before a worker
+  started: free Android monthly quota exhausted, resets 1 November 2026.
+  Fallback uses original umarosli93 / 624ee9c5-768a-4781-a2c5-1f1608c1500a
+  EAS project, same Build Credentials fNQIUcQP2K and verified original SHA256
+  62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c.
+  No signing keys were created/exported and no paid plan was activated.
+  Original project's remote counter synchronized from 25 to 48; build increments
+  to 49, safely above the current published code 47 and rejected team code 48.
 - TypeScript, Expo prebuild config and 363 regression tests passed before the
   additional daily-macro regression test. Device runtime confirmation pending.
 

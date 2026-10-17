@@ -7,6 +7,11 @@ local build scripts were removed at the user's request on14 October2026.
 Do not recreate that workflow without an explicit request.
 
 - Account umiaq, owner umiaqs-team, project086aadb6-658c-47ee-a472-e9d76ac3c7be.
+- 17 October fallback: team Android free quota exhausted before worker start.
+  Original owner umarosli93/project624ee9c5-768a-4781-a2c5-1f1608c1500a retains
+  the identical original signer (credentials fNQIUcQP2K). Release 3.0.11 uses
+  that EAS cloud project without a paid plan change; counter synchronized to48
+  for next auto-increment49. Still EAS-only; no local compiler setup restored.
 - Build profile preview-arm64 in eas.json creates the release APK.
 - Current published3.0.10/code47; EAS remote counter47, next auto-increment48.
 - Every APK build request includes GitHub source/release, landing and HANDOVER.
