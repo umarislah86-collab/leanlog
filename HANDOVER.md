@@ -1,5 +1,14 @@
 # LeanLog — latest published release v3.0.11 (EAS)
 
+## Release 3.0.12 preparation — 17 October 2026
+
+User requested build/push as usual after confirming the compact widget fix.
+Version3.0.12/code51, same active umarcoc93 EAS project and original signer.
+Daily row: steps/meals/burned left, P/C/F grams right, both fontSize8, between
+calorie percentage and progress bar. No macro cards; original4x2/minHeight110dp.
+Retain Food/Activity/Money and food portion editing. This is a layout correction;
+no additional features requested. Publish APK, landing link and release records.
+
 ## 17 October 2026 — widget layout correction, not yet built
 
 User clarified macros must NOT use new cards or increase the compact widget's
