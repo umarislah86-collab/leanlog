@@ -18,6 +18,14 @@ export async function getWidgetData(): Promise<LeanLogWidgetProps> {
   const today = new Date().toLocaleDateString('ms-MY');
   const todayFood = food.filter((entry) => entry.date === today);
   const eaten = todayFood.reduce((sum, entry) => sum + entry.calories, 0);
+  const macros = todayFood.reduce((totals, entry) => {
+    for (const item of entry.items || []) {
+      totals.protein += item.protein || 0;
+      totals.carbs += item.karbohidrat || 0;
+      totals.fat += item.lemak || 0;
+    }
+    return totals;
+  }, { protein: 0, carbs: 0, fat: 0 });
   const burned = activities.filter((entry) => entry.date === today).reduce((sum, entry) => sum + entry.caloriesBurned, 0);
   const health = healthRaw ? JSON.parse(healthRaw) : { steps: 0 };
   const agenda = agendaRaw ? JSON.parse(agendaRaw) : [];
@@ -26,6 +34,7 @@ export async function getWidgetData(): Promise<LeanLogWidgetProps> {
   const cashReality = cashRealityRaw ? JSON.parse(cashRealityRaw) : null;
   return {
     eaten,
+    macros,
     burned,
     meals: todayFood.length,
     goal: Number(goalRaw) || 2000,

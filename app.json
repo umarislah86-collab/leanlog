@@ -56,11 +56,11 @@
             {
               "name": "LeanLogDaily",
               "label": "LeanLog Daily",
-              "description": "Calories, steps and your next event at a glance.",
+              "description": "Daily calories, macros, steps, agenda and spending guards at a glance.",
               "minWidth": "250dp",
-              "minHeight": "110dp",
+              "minHeight": "250dp",
               "targetCellWidth": 4,
-              "targetCellHeight": 2,
+              "targetCellHeight": 4,
               "resizeMode": "horizontal|vertical",
               "updatePeriodMillis": 1800000
             }

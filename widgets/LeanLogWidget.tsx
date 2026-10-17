@@ -5,6 +5,7 @@ import type { WidgetGuardSnapshot } from '../services/spendingGuards';
 
 export type LeanLogWidgetProps = {
   eaten: number;
+  macros: { protein: number; carbs: number; fat: number };
   burned: number;
   meals: number;
   goal: number;
@@ -15,7 +16,7 @@ export type LeanLogWidgetProps = {
   updated: string;
 };
 
-export function LeanLogWidget({ eaten, burned, meals, goal, steps, nextEvent, guards, cashReality, updated }: LeanLogWidgetProps) {
+export function LeanLogWidget({ eaten, macros, burned, meals, goal, steps, nextEvent, guards, cashReality, updated }: LeanLogWidgetProps) {
   const left = Math.max(0, goal - eaten);
   const pct = Math.min(100, Math.round((eaten / Math.max(goal, 1)) * 100));
   const visibleGuards = guards.slice(0, 4);
@@ -44,8 +45,20 @@ export function LeanLogWidget({ eaten, burned, meals, goal, steps, nextEvent, gu
         </FlexWidget>
       </FlexWidget>
       <FlexWidget style={{ width: 'match_parent', height: 5, flexDirection: 'row', backgroundColor: '#DED5C6', borderRadius: 3, marginTop: 6, overflow: 'hidden' }}>
-        <FlexWidget style={{ flex: Math.max(4, pct), height: 5, backgroundColor: '#FF6542', borderRadius: 3 }} />
-        <FlexWidget style={{ flex: Math.max(0, 100 - Math.max(4, pct)), height: 5 }} />
+        {pct > 0 && <FlexWidget style={{ flex: pct, height: 5, backgroundColor: '#FF6542', borderRadius: 3 }} />}
+        {pct < 100 && <FlexWidget style={{ flex: 100 - pct, height: 5 }} />}
+      </FlexWidget>
+      <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', marginTop: 7 }}>
+        {([
+          { label: 'PROTEIN', value: macros.protein, background: '#D8EFE4', color: '#315F50' },
+          { label: 'CARBS', value: macros.carbs, background: '#FFE0D3', color: '#A4442D' },
+          { label: 'FAT', value: macros.fat, background: '#E1E6F0', color: '#455879' },
+        ] as const).map((macro, index) => (
+          <FlexWidget key={macro.label} style={{ flex: 1, flexDirection: 'column', alignItems: 'center', backgroundColor: macro.background, borderRadius: 10, paddingVertical: 6, marginRight: index < 2 ? 4 : 0 }}>
+            <TextWidget text={`${Math.round(macro.value)}g`} maxLines={1} style={{ color: '#172033', fontSize: 14, fontWeight: '700' }} />
+            <TextWidget text={macro.label} style={{ color: macro.color, fontSize: 7, fontWeight: '700', marginTop: 2 }} />
+          </FlexWidget>
+        ))}
       </FlexWidget>
       <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', marginTop: 6, backgroundColor: '#EEE3CF', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 5, justifyContent: 'space-between' }}>
         <TextWidget text={nextEvent || 'Your day is clear'} maxLines={1} style={{ color: '#172033', fontSize: 8, fontWeight: '700' }} />
