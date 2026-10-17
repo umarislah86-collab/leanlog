@@ -1,4 +1,23 @@
-# LeanLog — latest published release v3.0.11 (EAS)
+# LeanLog — latest published release v3.0.12 (EAS)
+
+## Release 3.0.12 — 17 October 2026
+
+- APK: https://github.com/umarislah86-collab/leanlog/releases/download/v3.0.12/leanlog-V3.0.12.apk
+  Source ee8b555b98ae92ac1b63ee341e4111556e64ffd2, Android code51.
+- EAS umarcoc93, build aad81844-a83c-404f-ada6-7b115686f399.
+  Worker391.318s, queue4.407s, wait0.738s; submission-to-completion420.241s.
+  Gradle5m38s; all661 tasks executed. See docs/build-timings.json.
+- 48,431,158 bytes; SHA256
+  cff68f1f482a31815f26a1193bdd8be1c6e8aa75a9b5baabade9ebcb3877587b.
+  Original signer, APK V2 signature/content digest, ZIP CRC, package/version,
+  ARM64-only, non-debuggable and embedded JS verified. 364 tests, TypeScript
+  and Expo prebuild config passed. Phone launcher verification remains pending.
+- Compact Daily: original4x2/minHeight110dp; metrics left, P/C/F right, both
+  fontSize8 on one row between calorie percentage and progress bar. No extra
+  macro cards. Food/Activity/Money and food editing retained.
+- Landing download and compact illustration updated and mirrored on release
+  branch. Next active EAS counter is51 -> auto-increment52; keep original signer.
+
 
 ## Release 3.0.12 preparation — 17 October 2026
 

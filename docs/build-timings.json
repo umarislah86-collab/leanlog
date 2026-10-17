@@ -92,5 +92,24 @@
     "gradlePhaseSeconds": 541.755,
     "gradleTaskSummary": "661 actionable tasks: 661 executed",
     "exitCode": 0
+  },
+  {
+    "version": "3.0.12",
+    "platform": "android",
+    "scope": "EAS cloud submission start to server completion; excludes setup, tests, download verification and publication",
+    "sourceCommit": "ee8b555b98ae92ac1b63ee341e4111556e64ffd2",
+    "buildId": "aad81844-a83c-404f-ada6-7b115686f399",
+    "account": "umarcoc93",
+    "startedUtc": "2026-10-17T05:29:22.6309135Z",
+    "completedUtc": "2026-10-17T05:36:22.871Z",
+    "elapsedSeconds": 420.241,
+    "serverCreatedToCompletedSeconds": 396.463,
+    "workerSeconds": 391.318,
+    "queueSeconds": 4.407,
+    "waitSeconds": 0.738,
+    "gradleElapsed": "BUILD SUCCESSFUL in 5m 38s",
+    "gradlePhaseSeconds": 339.561,
+    "gradleTaskSummary": "661 actionable tasks: 661 executed",
+    "exitCode": 0
   }
 ]
