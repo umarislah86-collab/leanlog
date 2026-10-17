@@ -64,7 +64,11 @@ test('daily macros sum consumed items only for today and render in the native wi
   const result = await data.getWidgetData();
   assert.equal(JSON.stringify(result.macros), JSON.stringify({ protein: 30, carbs: 45, fat: 10 }));
   const tree = JSON.stringify(buildWidgetTree(LeanLogWidget({ ...base, macros: result.macros })));
-  for (const text of ['PROTEIN', 'CARBS', 'FAT', '30g', '45g', '10g']) assert.ok(tree.includes(text));
+  assert.ok(tree.includes('P 30g · C 45g · F 10g'));
+  const native = buildWidgetTree(LeanLogWidget({ ...base, macros: result.macros }));
+  const row = JSON.stringify(native.children[1]);
+  assert.ok(row.includes('STEPS') && row.includes('MEALS') && row.includes('BURNED') && row.includes('P 30g · C 45g · F 10g'));
+  assert.equal(native.children[2].props.style.height, 3, 'one shared metrics row sits immediately above the progress bar');
   stored.delete('calorie_entries');
   assert.equal(JSON.stringify((await data.getWidgetData()).macros), JSON.stringify({ protein: 0, carbs: 0, fat: 0 }));
 });

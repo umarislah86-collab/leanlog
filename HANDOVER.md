@@ -1,5 +1,14 @@
 # LeanLog — latest published release v3.0.11 (EAS)
 
+## 17 October 2026 — widget layout correction, not yet built
+
+User clarified macros must NOT use new cards or increase the compact widget's
+height. Removed the three macro cards. P/C/F grams now share the existing
+steps/meals/burned row, below the calorie percentage and above the progress bar.
+Restored Daily minHeight110dp/default4x2 from before3.0.11. Food/Activity/Money
+actions and macro data are retained. Published3.0.11 still has the old card layout;
+the next requested APK build must include this correction.
+
 ## Release 3.0.11 published — 17 October 2026
 
 - Public APK: https://github.com/umarislah86-collab/leanlog/releases/download/v3.0.11/leanlog-V3.0.11.apk

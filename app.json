@@ -65,9 +65,9 @@
               "label": "LeanLog Daily",
               "description": "Daily calories, macros, steps and money snapshots with quick logging.",
               "minWidth": "250dp",
-              "minHeight": "220dp",
+              "minHeight": "110dp",
               "targetCellWidth": 4,
-              "targetCellHeight": 3,
+              "targetCellHeight": 2,
               "resizeMode": "horizontal|vertical",
               "widgetFeatures": "reconfigurable",
               "updatePeriodMillis": 1800000

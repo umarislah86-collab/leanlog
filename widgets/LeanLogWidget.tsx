@@ -47,7 +47,12 @@ export function LeanLogWidget({ eaten, macros = { protein: 0, carbs: 0, fat: 0 }
           <TextWidget text={`${eaten.toLocaleString()} / ${goal.toLocaleString()} · ${pct}%`} maxLines={1} style={{ color: '#F7EEDC', fontSize: 8, fontWeight: '700' }} />
         </FlexWidget>
       </FlexWidget>
-      <TextWidget text={`${steps.toLocaleString()} STEPS · ${meals} MEALS · ${burned.toLocaleString()} BURNED`} maxLines={1} style={{ color: '#7C756B', fontSize: 8, fontWeight: '700' }} />
+      <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center' }}>
+        <FlexWidget style={{ width: 0, flex: 1 }}>
+          <TextWidget text={`${steps.toLocaleString()} STEPS · ${meals} MEALS · ${burned.toLocaleString()} BURNED`} maxLines={1} style={{ color: '#7C756B', fontSize: 7, fontWeight: '700' }} />
+        </FlexWidget>
+        <TextWidget text={`P ${Math.round(macros.protein)}g · C ${Math.round(macros.carbs)}g · F ${Math.round(macros.fat)}g`} maxLines={1} style={{ color: '#172033', fontSize: 7, fontWeight: '700', marginLeft: 4 }} />
+      </FlexWidget>
       <FlexWidget style={{ width: 'match_parent', height: 3, flexDirection: 'row', backgroundColor: '#DED5C6', borderRadius: 2, marginTop: 3, overflow: 'hidden' }}>
         {pct > 0 && <FlexWidget style={{ flex: pct, height: 3, backgroundColor: '#FF6542', borderRadius: 2 }} />}
         {pct < 100 && <FlexWidget style={{ flex: 100 - pct, height: 3 }} />}
@@ -56,16 +61,6 @@ export function LeanLogWidget({ eaten, macros = { protein: 0, carbs: 0, fat: 0 }
         <TextWidget text="TRUE SPENDABLE CASH" maxLines={1} style={{ color: '#172033', fontSize: 8, fontWeight: '700' }} />
         <TextWidget text={`${cashReality.trueSpendable < 0 ? '-' : ''}RM ${Math.abs(cashReality.trueSpendable).toFixed(0)}`} style={{ color: cashReality.trueSpendable < 0 ? '#D4422B' : '#477363', fontSize: 8, fontWeight: '700' }} />
       </FlexWidget>}
-      <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', marginTop: 4 }}>
-        {([
-          { label: 'PROTEIN', value: macros.protein, background: '#D8EFE4', color: '#315F50' },
-          { label: 'CARBS', value: macros.carbs, background: '#FFE0D3', color: '#A4442D' },
-          { label: 'FAT', value: macros.fat, background: '#E1E6F0', color: '#455879' },
-        ] as const).map((macro, index) => <FlexWidget key={macro.label} style={{ width: 0, flex: 1, flexDirection: 'column', alignItems: 'center', backgroundColor: macro.background, borderRadius: 6, paddingVertical: 4, marginRight: index < 2 ? 3 : 0 }}>
-          <TextWidget text={`${Math.round(macro.value)}g`} maxLines={1} style={{ color: '#172033', fontSize: 12, fontWeight: '700' }} />
-          <TextWidget text={macro.label} style={{ color: macro.color, fontSize: 7, fontWeight: '700' }} />
-        </FlexWidget>)}
-      </FlexWidget>
       <FlexWidget style={{ width: 'match_parent', flexDirection: 'column', marginTop: 3 }}>
         {bottomMode === 'accounts' ? (accountRows.length ? accountRows.map((row, rowIndex) => <FlexWidget key={`account-row-${rowIndex}`} style={{ width: 'match_parent', flexDirection: 'row', marginBottom: 3 }}>
           {row.map((account, columnIndex) => <FlexWidget key={account.name} clickAction="OPEN_URI" clickActionData={{ uri: 'leanlog://redcoins?section=accounts' }} style={{ ...snapshotCell, backgroundColor: account.balance < 0 ? '#FFD8CF' : rowIndex === 0 && columnIndex === 0 ? '#D8EFE4' : '#E9E3D7', marginRight: columnIndex < row.length - 1 ? 3 : 0 }}>
