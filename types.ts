@@ -19,6 +19,8 @@ export interface FoodEntry {
   date: string;
   items: FoodItem[];
   category: MealCategory;
+  portion?: number;
+  portionBase?: { calories: number; items: FoodItem[] };
 }
 
 export interface ActivityEntry {

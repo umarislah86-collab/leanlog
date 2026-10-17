@@ -29,6 +29,7 @@ import { fsUpsert, fsDelete, fsSetSettings, fsFetchAll, fsFetchSettings } from '
 import { useLanguage } from '../context/LanguageContext';
 import type { FoodEntry, FoodItem, ActivityEntry, MealCategory, UserProfile, ActivityLevel } from '../types';
 import MacroRings from '../components/MacroRings';
+import FoodReviewModal from '../components/FoodReviewModal';
 import { refreshLeanLogWidget } from '../services/widget';
 
 const WEIGHT_KEY = 'weight_entries';
@@ -61,7 +62,7 @@ const parseEntryDateTime = (dateStr: string, timeStr: string): Date => {
 };
 
 export default function TodayScreen() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
 
   const MEAL_CATEGORIES: { key: MealCategory; label: string; emoji: string; subtitle: string }[] = [
     { key: 'sarapan', label: t('sarapan'), emoji: '🌅', subtitle: t('sarapanSub') },
@@ -102,6 +103,8 @@ export default function TodayScreen() {
   const [showMealMemory, setShowMealMemory] = useState(false);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<FoodEntry | null>(null);
+  const [foodReview, setFoodReview] = useState<FoodEntry | null>(null);
+  const [editingFood, setEditingFood] = useState(false);
   const [showEntryOptions, setShowEntryOptions] = useState(false);
   const [showEditDateTime, setShowEditDateTime] = useState(false);
   const [optionsTarget, setOptionsTarget] = useState<{ id: string; type: 'food' | 'activity' } | null>(null);
@@ -550,8 +553,23 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
       items: data.items,
       category: data.category,
     };
-    setFoodEntries((prev) => [entry, ...prev]);
+    setEditingFood(false);
+    setFoodReview(entry);
+  };
+
+  const saveFoodReview = (entry: FoodEntry) => {
+    setFoodEntries(prev => editingFood
+      ? prev.map(existing => existing.id === entry.id ? entry : existing)
+      : [entry, ...prev]);
     fsUpsert('foodEntries', entry.id, entry);
+    setFoodReview(null);
+  };
+
+  const openFoodEdit = (entry: FoodEntry) => {
+    setShowEntryOptions(false);
+    setSelectedEntry(null);
+    setEditingFood(true);
+    setTimeout(() => setFoodReview(entry), 300);
   };
 
   const logActivity = async () => {
@@ -618,9 +636,12 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
 
   const handleEditDateTimeOpen = () => {
     if (!optionsTarget) return;
-    const entry = optionsTarget.type === 'food'
-      ? foodEntries.find((e) => e.id === optionsTarget.id)
-      : activityEntries.find((e) => e.id === optionsTarget.id);
+    if (optionsTarget.type === 'food') {
+      const food = foodEntries.find(entry => entry.id === optionsTarget.id);
+      if (food) openFoodEdit(food);
+      return;
+    }
+    const entry = activityEntries.find((e) => e.id === optionsTarget.id);
     if (!entry) return;
     setEditPickedDate(parseEntryDateTime(entry.date, entry.time));
     setShowEntryOptions(false);
@@ -1377,8 +1398,8 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
             <TouchableOpacity style={styles.categoryRow} onPress={handleEditDateTimeOpen}>
               <Text style={styles.categoryEmoji}>✏️</Text>
               <View style={{ flex: 1 }}>
-                <Text style={styles.categoryLabel}>{t('editDateTime')}</Text>
-                <Text style={styles.categorySubtitle}>{t('editDateTimeSub')}</Text>
+                <Text style={styles.categoryLabel}>{optionsTarget?.type === 'food' ? (lang === 'bm' ? 'Edit makanan' : 'Edit food') : t('editDateTime')}</Text>
+                <Text style={styles.categorySubtitle}>{optionsTarget?.type === 'food' ? (lang === 'bm' ? 'Ubah portion, tarikh dan masa' : 'Change portion, date and time') : t('editDateTimeSub')}</Text>
               </View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.categoryRow} onPress={handleDeleteOption}>
@@ -1412,6 +1433,8 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
           </View>
         </View>
       </Modal>
+
+      {foodReview && <FoodReviewModal key={foodReview.id} entry={foodReview} editing={editingFood} onCancel={() => setFoodReview(null)} onSave={saveFoodReview} />}
 
       {/* ── Food Detail Modal ── */}
       <Modal visible={!!selectedEntry} transparent animationType="slide">
@@ -1448,6 +1471,9 @@ Anggarkan kalori dan makro dalam format JSON sahaja:
                   </View>
                 ))}
               </ScrollView>
+              <TouchableOpacity style={[styles.detailClose, { backgroundColor: '#FF6542' }]} onPress={() => openFoodEdit(selectedEntry)}>
+                <Text style={styles.detailCloseText}>{lang === 'bm' ? 'Edit makanan' : 'Edit food'}</Text>
+              </TouchableOpacity>
               <TouchableOpacity style={styles.detailClose} onPress={() => setSelectedEntry(null)}>
                 <Text style={styles.detailCloseText}>{t('close')}</Text>
               </TouchableOpacity>
