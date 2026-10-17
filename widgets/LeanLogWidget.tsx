@@ -49,9 +49,9 @@ export function LeanLogWidget({ eaten, macros = { protein: 0, carbs: 0, fat: 0 }
       </FlexWidget>
       <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center' }}>
         <FlexWidget style={{ width: 0, flex: 1 }}>
-          <TextWidget text={`${steps.toLocaleString()} STEPS · ${meals} MEALS · ${burned.toLocaleString()} BURNED`} maxLines={1} style={{ color: '#7C756B', fontSize: 7, fontWeight: '700' }} />
+          <TextWidget text={`${steps.toLocaleString()} STEPS · ${meals} MEALS · ${burned.toLocaleString()} BURNED`} maxLines={1} style={{ color: '#7C756B', fontSize: 8, fontWeight: '700' }} />
         </FlexWidget>
-        <TextWidget text={`P ${Math.round(macros.protein)}g · C ${Math.round(macros.carbs)}g · F ${Math.round(macros.fat)}g`} maxLines={1} style={{ color: '#172033', fontSize: 7, fontWeight: '700', marginLeft: 4 }} />
+        <TextWidget text={`P ${Math.round(macros.protein)}g · C ${Math.round(macros.carbs)}g · F ${Math.round(macros.fat)}g`} maxLines={1} style={{ color: '#172033', fontSize: 8, fontWeight: '700', marginLeft: 4 }} />
       </FlexWidget>
       <FlexWidget style={{ width: 'match_parent', height: 3, flexDirection: 'row', backgroundColor: '#DED5C6', borderRadius: 2, marginTop: 3, overflow: 'hidden' }}>
         {pct > 0 && <FlexWidget style={{ flex: pct, height: 3, backgroundColor: '#FF6542', borderRadius: 2 }} />}

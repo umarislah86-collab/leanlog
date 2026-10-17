@@ -8,6 +8,8 @@ steps/meals/burned row, below the calorie percentage and above the progress bar.
 Restored Daily minHeight110dp/default4x2 from before3.0.11. Food/Activity/Money
 actions and macro data are retained. Published3.0.11 still has the old card layout;
 the next requested APK build must include this correction.
+User additionally requested both the left metrics and right macros use fontSize8,
+preserving the original metrics size; do not shrink this row to7.
 
 ## Release 3.0.11 published — 17 October 2026
 
