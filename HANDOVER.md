@@ -23,6 +23,16 @@
   No signing keys were created/exported and no paid plan was activated.
   Original project's remote counter synchronized from 25 to 48; build increments
   to 49, safely above the current published code 47 and rejected team code 48.
+- Original project submission also rejected for monthly free Android quota,
+  after increment to 49. User supplied two additional EAS account tokens;
+  authenticated umarcoc93 and umiaq, stored with Windows DPAPI encryption at
+  %LOCALAPPDATA%/LeanLogEAS/accounts.dpapi.json (outside Git). Wrapper
+  eas-account.ps1 selects an account for one command without changing login.
+- New third-account project @umarcoc93/umarcoc93, ID
+  d02048ce-beca-42a6-9ffb-c43e0a6d9ab2. The original remote keystore was copied
+  in memory into its credentials; SHA256 verified on both sides. No secrets
+  printed or persisted in source, no new signing identity generated.
+  Remote version initialized to 49; next build is versionCode 50.
 - TypeScript, Expo prebuild config and 363 regression tests passed before the
   additional daily-macro regression test. Device runtime confirmation pending.
 

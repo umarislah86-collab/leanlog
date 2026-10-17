@@ -12,6 +12,11 @@ Do not recreate that workflow without an explicit request.
   the identical original signer (credentials fNQIUcQP2K). Release 3.0.11 uses
   that EAS cloud project without a paid plan change; counter synchronized to48
   for next auto-increment49. Still EAS-only; no local compiler setup restored.
+- Original account also exhausted its monthly free quota. User added umarcoc93
+  and umiaq tokens, encrypted outside Git at %LOCALAPPDATA%/LeanLogEAS. Current
+  3.0.11 build project: umarcoc93/d02048ce-beca-42a6-9ffb-c43e0a6d9ab2, original
+  signer linked and verified, remote baseline49 -> build50. Use the local
+  eas-account.ps1 wrapper with account umarcoc93; never commit tokens.
 - Build profile preview-arm64 in eas.json creates the release APK.
 - Current published3.0.10/code47; EAS remote counter47, next auto-increment48.
 - Every APK build request includes GitHub source/release, landing and HANDOVER.

@@ -14,7 +14,7 @@
     },
     "android": {
       "package": "com.calorietracker.app",
-      "versionCode": 49,
+      "versionCode": 50,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F7F0E1"
@@ -26,7 +26,12 @@
         "android.permission.health.READ_SLEEP",
         "android.permission.health.READ_HEART_RATE",
         "android.permission.READ_CALENDAR",
-        "android.permission.WRITE_CALENDAR"
+        "android.permission.WRITE_CALENDAR",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
       ]
     },
     "plugins": [
@@ -147,9 +152,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "624ee9c5-768a-4781-a2c5-1f1608c1500a"
+        "projectId": "d02048ce-beca-42a6-9ffb-c43e0a6d9ab2"
       }
     },
-    "owner": "umarosli93"
+    "owner": "umarcoc93"
   }
 }
