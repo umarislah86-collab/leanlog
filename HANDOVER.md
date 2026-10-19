@@ -1,5 +1,12 @@
 # LeanLog — latest published release v3.0.12 (EAS)
 
+## Release 3.0.13 preparation — 19 October 2026
+
+User requested full build and GitHub push/publication. Includes the two changes
+below: Daily AVAILABLE/TRUE cash strip and RedCoins logger visual responsiveness.
+Version3.0.13/code52, active umarcoc93 EAS project, original signer, preview-arm64.
+Complete source, APK release, landing update, signature verification and timings.
+
 ## 19 October 2026 — RedCoins logger responsiveness, not yet built
 
 User reports delay opening the logger and dismissing it on Save; requested
