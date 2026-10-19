@@ -25,6 +25,7 @@ export type LeanLogWidgetProps = {
 export function LeanLogWidget({ eaten, macros = { protein: 0, carbs: 0, fat: 0 }, burned, meals, goal, steps, guards, bottomMode = 'guards', accounts = [], cashReality, themeId = 'cream' }: LeanLogWidgetProps) {
   const left = Math.max(0, goal - eaten);
   const pct = Math.max(0, Math.min(100, Math.round((eaten / Math.max(goal, 1)) * 100)));
+  const cashAmount = (amount: number) => `${amount < 0 ? '-' : ''}RM ${Math.abs(amount).toLocaleString('en-MY', { maximumFractionDigits: 0 })}`;
   const visibleGuards = guards.slice(0, 4);
   const guardRows = Array.from({ length: Math.ceil(visibleGuards.length / 2) }, (_, index) => visibleGuards.slice(index * 2, index * 2 + 2));
   const visibleAccounts = accounts.slice(0, 4);
@@ -58,8 +59,12 @@ export function LeanLogWidget({ eaten, macros = { protein: 0, carbs: 0, fat: 0 }
         {pct < 100 && <FlexWidget style={{ flex: 100 - pct, height: 3 }} />}
       </FlexWidget>
       {cashReality && <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', marginTop: 3, backgroundColor: '#EEE3CF', borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2, justifyContent: 'space-between' }}>
-        <TextWidget text="TRUE SPENDABLE CASH" maxLines={1} style={{ color: '#172033', fontSize: 8, fontWeight: '700' }} />
-        <TextWidget text={`${cashReality.trueSpendable < 0 ? '-' : ''}RM ${Math.abs(cashReality.trueSpendable).toFixed(0)}`} style={{ color: cashReality.trueSpendable < 0 ? '#D4422B' : '#477363', fontSize: 8, fontWeight: '700' }} />
+        <FlexWidget style={{ width: 0, flex: 1 }}>
+          <TextWidget text={`AVAILABLE ${cashAmount(cashReality.liquidBalance)}`} maxLines={1} style={{ color: cashReality.liquidBalance < 0 ? '#D4422B' : '#172033', fontSize: 8, fontWeight: '700' }} />
+        </FlexWidget>
+        <FlexWidget style={{ width: 0, flex: 1, alignItems: 'flex-end', marginLeft: 4 }}>
+          <TextWidget text={`TRUE ${cashAmount(cashReality.trueSpendable)}`} maxLines={1} style={{ color: cashReality.trueSpendable < 0 ? '#D4422B' : '#477363', fontSize: 8, fontWeight: '700' }} />
+        </FlexWidget>
       </FlexWidget>}
       <FlexWidget style={{ width: 'match_parent', flexDirection: 'column', marginTop: 3 }}>
         {bottomMode === 'accounts' ? (accountRows.length ? accountRows.map((row, rowIndex) => <FlexWidget key={`account-row-${rowIndex}`} style={{ width: 'match_parent', flexDirection: 'row', marginBottom: 3 }}>

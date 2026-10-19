@@ -1,5 +1,14 @@
 # LeanLog — latest published release v3.0.12 (EAS)
 
+## 19 October 2026 — Daily cash row correction, not yet built
+
+User wants total available spendable-account balances on the left and True
+Spendable on the right. Daily widget now renders AVAILABLE from liquidBalance
+(selected cash accounts before deductions) and TRUE from trueSpendable, using
+the existing refreshed cash snapshot. Both values stay in the same cash strip,
+fontSize8, no added cards/height. Negative values retain their signs and colors.
+Published3.0.12 is unchanged; next requested APK build must include this change.
+
 ## Release 3.0.12 — 17 October 2026
 
 - APK: https://github.com/umarislah86-collab/leanlog/releases/download/v3.0.12/leanlog-V3.0.12.apk

@@ -72,6 +72,19 @@ test('daily macros sum consumed items only for today and render in the native wi
   stored.delete('calorie_entries');
   assert.equal(JSON.stringify((await data.getWidgetData()).macros), JSON.stringify({ protein: 0, carbs: 0, fat: 0 }));
 });
+test('cash row distinguishes selected account total from true cash, preserving negative balances and zero', () => {
+  for (const [available, trueCash, left, right] of [
+    [2500, -1029, 'AVAILABLE RM 2,500', 'TRUE -RM 1,029'],
+    [-50, -200, 'AVAILABLE -RM 50', 'TRUE -RM 200'],
+    [0, 0, 'AVAILABLE RM 0', 'TRUE RM 0'],
+  ]) {
+    const tree = JSON.stringify(buildWidgetTree(LeanLogWidget({ ...base, cashReality: { liquidBalance: available, trueSpendable: trueCash, cardOutstanding: 0, sourceDate: '2026-10-19' } })));
+    assert.ok(tree.includes(left));
+    assert.ok(tree.includes(right));
+    assert.ok(tree.indexOf(left) < tree.indexOf(right));
+  }
+});
+
 test('actual widget tree builder accepts default guards and empty, odd, full account grids', () => {
   assert.match(JSON.stringify(buildWidgetTree(LeanLogWidget(base))), /DINING/);
   for (const count of [0, 1, 4]) {
