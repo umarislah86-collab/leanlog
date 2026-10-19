@@ -2,7 +2,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 function load(file,mocks={}){const exports={};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.React,esModuleInterop:true}}).outputText,{exports,require:id=>{if(!(id in mocks))throw Error(id);return mocks[id];}});return exports;}
 const colours=load('services/textContrast.ts'),themes=load('services/appTheme.ts');
 function runtime(id){
- const react={createContext:value=>{const ctx={value};ctx.Provider={ctx};return ctx;},useContext:ctx=>ctx.value,forwardRef:fn=>fn,createElement:(type,props,...children)=>({type,props:{...props,children}})};
+ const react={createContext:value=>{const ctx={value};ctx.Provider={ctx};return ctx;},useContext:ctx=>ctx.value,useMemo:fn=>fn(),forwardRef:fn=>fn,createElement:(type,props,...children)=>({type,props:{...props,children}})};
  const flatten=style=>Array.isArray(style)?Object.assign({},...style.filter(Boolean).map(flatten)):style||{};
  const native={View:'View',Text:'Text',TextInput:'Input',Pressable:'Pressable',TouchableOpacity:'Touch',ScrollView:'Scroll',Animated:{View:'AnimatedView'},StyleSheet:{flatten}};
  const mocks={react,'react-native':native,'react-native-safe-area-context':{SafeAreaView:'SafeArea'},'../services/textContrast':colours,'../services/appTheme':themes,'../context/ThemeContext':{useTheme:()=>({palette:themes.appThemes[id],fontsLoaded:false})}};
@@ -14,6 +14,19 @@ function runtime(id){
  }
  return {react,surfaces,text,leaves,render};
 }
+test('unrelated child updates retain artwork context identity; colour and opacity changes invalidate it',()=>{
+ const r=runtime('cutie');let previous,value;
+ r.react.useMemo=(factory,deps)=>{if(!previous||deps.some((dep,index)=>!Object.is(dep,previous[index]))){value=factory();previous=deps;}return value;};
+ const painted=node=>node.props.children[0].props.children[0].props.value;
+ const first=painted(r.surfaces.ThemeView({style:{backgroundColor:'#FFFFFF'},artworkAlpha:.3,children:'before'}));
+ const next=painted(r.surfaces.ThemeView({style:{backgroundColor:'#FFFFFF'},artworkAlpha:.3,children:'typing in logger'}));
+ assert.equal(next,first);
+ const opacity=painted(r.surfaces.ThemeView({style:{backgroundColor:'#FFFFFF'},artworkAlpha:.2,children:'changed'}));
+ assert.notEqual(opacity,first);
+ const colour=painted(r.surfaces.ThemeView({style:{backgroundColor:'#000000'},artworkAlpha:.2,children:'changed'}));
+ assert.notEqual(colour,opacity);
+});
+
 test('text resolves against actual surfaces across every non-original theme, retaining readable financial hues',()=>{
  for(const id of themes.themeIds.filter(x=>x!=='cream')){const p=themes.appThemes[id],r=runtime(id),h=r.react.createElement;
  for(const bg of [p.canvas,p.surface,p.surfaceAlt,p.hero,p.heroRaised,p.mint,p.accent,p.warningTint,p.coralTint,'#E8B84A','#8D9BFF'])for(const fg of [p.text,p.muted,p.onHero,p.heroMuted,p.mint,p.accent,p.expense,p.income,'#FFFFFF','#8FD6B4']){

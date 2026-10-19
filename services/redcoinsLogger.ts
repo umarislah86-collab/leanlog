@@ -11,16 +11,17 @@ export function loggerSuggestions(entries: RedCoinsEntry[], text: string, type: 
   const query = text.trim().toLowerCase();
   if (!query) return [];
   const stats = new Map<string, { entry: RedCoinsEntry; usageCount: number }>();
-  entries.filter((entry) => entry.type === type && new Date(entry.date).getTime() <= now).forEach((entry) => {
+  for (const entry of entries) {
+    if (entry.type !== type) continue;
     const key = entry.item.trim().toLowerCase();
-    if (!key || !key.includes(query)) return;
+    if (!key || !key.includes(query) || !(new Date(entry.date).getTime() <= now)) continue;
     const current = stats.get(key);
     if (!current) stats.set(key, { entry, usageCount: 1 });
     else {
       current.usageCount += 1;
       if (entry.date > current.entry.date) current.entry = entry;
     }
-  });
+  }
   const score = (name: string) => name === query ? 4 : name.startsWith(query) ? 3 : name.split(/\s+/).some((word) => word.startsWith(query)) ? 2 : 1;
   return [...stats.values()].sort((a, b) => score(b.entry.item.toLowerCase()) - score(a.entry.item.toLowerCase()) || b.usageCount - a.usageCount || b.entry.date.localeCompare(a.entry.date))
     .slice(0, 6).map(({ entry, usageCount }) => ({ ...entry, usageCount }));

@@ -1,5 +1,28 @@
 # LeanLog — latest published release v3.0.12 (EAS)
 
+## 19 October 2026 — RedCoins logger responsiveness, not yet built
+
+User reports delay opening the logger and dismissing it on Save; requested
+immediate visual feedback. Removed EntryModal slide and money quick-launch120ms
+delay (quick dock also dismisses without a fade). Page bodies are cached using
+explicit non-logger inputs, so form updates do not rebuild all five pager pages.
+Themed surface artwork context arrays retain identity on unchanged backgrounds,
+preventing context propagation from defeating that memoization. Suggestions
+use a deferred current query and avoid date parsing for unrelated ledger rows.
+
+Save validates basic input/account existence, closes the logger and yields a
+native frame before duplicate scans, ledger preparation and persistence. Header
+shows Saving transaction until the operation finishes. Existing SQLite revision
+checks/write lock, duplicate-income review, rollback and error reopening retain
+the draft; no false saved confirmation is introduced. Other page changes and
+theme changes still invalidate cached content. Physical-device latency remains
+unverified; do not claim zero measured delay from Node tests. Next requested
+APK must include both this change and the available-cash widget change below.
+Validation: TypeScript and370 tests pass. New tests execute the actual Save
+handler with blocked paints/writes, disk failure, duplicate taps, incomplete
+drafts and duplicate-income cancellation; page-cache invalidation and stable
+surface context identity are covered alongside existing contrast checks.
+
 ## 19 October 2026 — Daily cash row correction, not yet built
 
 User wants total available spendable-account balances on the left and True

@@ -52,7 +52,8 @@ export function MainNavigationDock({ state, descriptors, navigation }: any) {
   };
   const launch = (route: 'Log' | 'RedCoins', params: Record<string, unknown>) => {
     setQuickDockOpen(false);
-    setTimeout(() => navigation.navigate(route, params), 120);
+    if (route === 'RedCoins') navigation.navigate(route, params);
+    else setTimeout(() => navigation.navigate(route, params), 120);
   };
   return (
     <View artworkAlpha={palette.id === 'cutie' ? .30 : undefined}
@@ -158,7 +159,7 @@ export function MainNavigationDock({ state, descriptors, navigation }: any) {
           </View>
         </TouchableOpacity>
       </View>
-      <Modal visible={quickDockOpen} transparent animationType="fade" onRequestClose={() => setQuickDockOpen(false)}>
+      <Modal visible={quickDockOpen} transparent animationType="none" onRequestClose={() => setQuickDockOpen(false)}>
         <TouchableOpacity style={quickDock.overlay} activeOpacity={1} onPress={() => setQuickDockOpen(false)}>
           <View style={[quickDock.sheet, { paddingBottom: Math.max(insets.bottom, 12) + 16 }]} onStartShouldSetResponder={() => true}>
             <View style={quickDock.handle} />

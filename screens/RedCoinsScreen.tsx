@@ -2,12 +2,13 @@ import { ThemePressable as Pressable, ThemeScrollView as ScrollView, ThemeToucha
 import { AppMenuButton, useAppMenu } from '../context/AppMenuContext';
 import { ThemeText as Text, ThemeTextInput as TextInput } from '../components/ThemePrimitives';
 import { useTheme, useThemeStyles } from '../context/ThemeContext';
-import React, { memo, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, startTransition, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert, AppState, BackHandler, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, StyleSheet } from 'react-native';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { RedCoinsSetup } from '../components/RedCoinsSetup';
 import { RedCoinsPager, type RedCoinsPagerHandle } from '../components/RedCoinsPager';
+import { RedCoinsPageContent } from '../components/RedCoinsPageContent';
 import { useNavigationDock } from '../context/NavigationDockContext';
 import { needsRedCoinsSetup } from '../services/redcoinsOnboarding';
 import { Ionicons } from '@expo/vector-icons';
@@ -193,6 +194,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const [subcategory, setSubcategory] = useState('');
   const [note, setNote] = useState('');
   const [receiptDrafts, setReceiptDrafts] = useState<RedCoinsReceipt[]>([]);
+  const latestReceiptDrafts = useRef(receiptDrafts);
+  useLayoutEffect(() => { latestReceiptDrafts.current = receiptDrafts; }, [receiptDrafts]);
   const [receiptBusy, setReceiptBusy] = useState(false);
   const [labels, setLabels] = useState('');
   const [repeat, setRepeat] = useState<RedCoinsEntry['repeat']>('none');
@@ -537,7 +540,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setCategory(chosen?.name || '');
     setSubcategory(chosen?.subcategories.includes(defaults?.subcategory || recent?.subcategory || '') ? (defaults?.subcategory || recent!.subcategory) : chosen?.subcategories[0] || '');
     setNote('');
-    void discardReceiptDrafts(receiptDrafts).catch(console.warn);
+    void discardReceiptDrafts(latestReceiptDrafts.current).catch(console.warn);
     setReceiptDrafts([]);
     setLabels('');
     setRepeat('none');
@@ -559,9 +562,11 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setRepeat('monthly');
     setAdvanced(true);
   };
+  const suggestionQuery = useDeferredValue(entryOpen ? item : '');
   const suggestions = useMemo(() => {
-    return entryOpen ? loggerSuggestions(state?.entries || [], item, type) : [];
-  }, [entryOpen, item, state?.entries, type]);
+    if (suggestionQuery !== item) return [];
+    return entryOpen ? loggerSuggestions(state?.entries || [], suggestionQuery, type) : [];
+  }, [entryOpen, item, suggestionQuery, state?.entries, type]);
   const applyEntryType = (nextType: RedCoinsType) => {
     setType(nextType);
     setIncomePeriod('');
@@ -602,7 +607,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setCategory(entry.category);
     setSubcategory(entry.subcategory);
     setNote(entry.note || '');
-    void discardReceiptDrafts(receiptDrafts).catch(console.warn);
+    void discardReceiptDrafts(latestReceiptDrafts.current).catch(console.warn);
     setReceiptDrafts([]);
     setLabels((entry.labels || []).join(', '));
     setRepeat(entry.repeat || 'none');
@@ -651,7 +656,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setCategory(template.category);
     setSubcategory(template.subcategory);
     setNote(template.note || '');
-    void discardReceiptDrafts(receiptDrafts).catch(console.warn);
+    void discardReceiptDrafts(latestReceiptDrafts.current).catch(console.warn);
     setReceiptDrafts([]);
     setLabels((template.labels || []).join(', '));
     setRepeat(reminder.frequency);
@@ -679,6 +684,10 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     // atomically and rejects stale saves rather than overwriting another edit.
     if (!workingState.accounts.some(row => row.name === account) || (type === 'transfer' && !workingState.accounts.some(row => row.name === toAccount))) throw new Error('This account changed. Please choose the account again.');
     if (editingEntryId && !workingState.entries.some(row => row.id === editingEntryId)) throw new Error('This transaction was removed while the logger was open.');
+    // Close a valid draft before scanning/rebuilding the ledger. Keep the draft
+    // and save lock until disk commit; duplicate review/cancel or failure reopen it.
+    setEntryOpen(false);
+    await afterRedCoinsPaint();
     const commit = async (next: RedCoinsState, entryIds?: string[]) => {
       await commitRedCoinsPreview({
         preview: () => {
@@ -2264,7 +2273,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={s.brand}>REDCOINS</Text>
-          <Text numberOfLines={1} style={s.source}>{state.importedSource ? `Structure seeded from ${state.importedSource}` : 'LeanLog money room'}</Text>
+          <Text numberOfLines={1} accessibilityLiveRegion="polite" style={s.source}>{entrySaving ? 'Saving transaction…' : state.importedSource ? `Structure seeded from ${state.importedSource}` : 'LeanLog money room'}</Text>
         </View>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Return to LeanLog Home" onPress={() => { Keyboard.dismiss(); navigation.navigate('Home'); }}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 12, paddingHorizontal: 10, borderRadius: 14, borderWidth: 1, borderColor: themed('#D9D0C0', 'borderColor') }}>
@@ -2275,7 +2284,21 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       <RedCoinsPager section={section} pagerControlRef={pagerControl} onPreview={navigationDock.showSection} enabled={isFocused && !entrySaving && !batchBusy && !receiptBusy}
         onSection={navigateSection}
         onExit={target => { Keyboard.dismiss(); if(target==='Settings')appMenu.openSettings();else navigation.navigate(target); }}
-        renderSection={page => (page === 'activity' ? (
+        renderSection={page => <RedCoinsPageContent snapshot={{
+          page, s, appPalette, navigation, navigationDock, appMenu,
+          isFocused, homeOrder, homeLayoutOpen, homeLayoutReady, state, loadError,
+          loadAttempt, bluecoins, section, manageOpen, editingAccountId, editingCategoryId,
+          editingSubName, search, filterOpen, favoritesOpen, bankReviewAccountId, ledgerSummaryScope,
+          filterTypes, filterAccounts, filterCategories, filterSubcategories, filterDateMode, filterStartDay,
+          filterEndDay, filterDateLabel, reportLedgerWindow, filterSalaryKey, calendarCursor, collapsedCards,
+          expandedBudgetCategories, selectedIds, batchOpen, batchBusy, copiedEntries, ledgerRevision,
+          receiptBusy, draftName, draftType, draftBalance, draftCategory,
+          draftCategoryTypes, exactAlarmsAllowed, reminderNotificationsAllowed, draftSub, draftParent, draftIcon,
+          budgetEditor, categoriesOpen, planPage, cycleBudgetDraft, paydayDraft, safetyBufferDraft,
+          notificationAccess, detections, fixedPickerOpen, reminderManagerOpen, guardEditorOpen, expandedGuardId,
+          expandedGuardPart, guardDraft, reportMode, reportSalarySource, reportCycleOffset, reportCustomStart,
+          reportCustomEnd, reportPeriodOpen, expandedReportCategory, reportExporting, aiPromptOpen,
+        }} renderContent={() => (page === 'activity' ? (
         <View style={s.activityBody}>
           {activityHeader}
           <View style={s.ledgerCard}>
@@ -2303,7 +2326,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
         <ScrollView key={`${page}-${page === 'plan' ? planPage : page === 'accounts' ? categoriesOpen : ''}`} style={{ flex: 1 }} contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
           {page === 'home' ? Home() : page === 'accounts' ? Accounts() : page === 'plan' ? Plan() : Reports()}
         </ScrollView>
-      ))} />
+      ))} />} />
       {filterModal}
       <RedCoinsBankReviewModal account={state.accounts.find(account => account.id === bankReviewAccountId) || null} state={state} close={() => setBankReviewAccountId(null)} save={async (accountId, review) => {
         const current = await loadRedCoins();
@@ -3151,7 +3174,7 @@ function EntryModal(p: any) {
     requestAnimationFrame(() => amountRef.current?.focus());
   };
   return (
-    <Modal visible={p.visible} animationType={p.saving ? 'none' : 'slide'} onRequestClose={p.close}>
+    <Modal visible={p.visible} animationType="none" onRequestClose={p.close}>
       <SafeAreaView style={s.modal}>
         <View style={s.modalHead}>
           <TouchableOpacity onPress={p.close}>

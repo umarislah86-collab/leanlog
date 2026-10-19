@@ -118,7 +118,7 @@ test('logger previews before disk work; failures retain draft', () => {
   assert.match(save, /if \(entrySaveLock.current\) return/);
   assert.match(source, /if \(source === localWriteSource.current\) return/);
   assert.match(source, /if \(!state \|\| section !== 'reports'\) return null/);
-  assert.match(source, /animationType=\{p.saving \? 'none' : 'slide'\}/);
+  assert.match(source, /<Modal visible=\{p.visible\} animationType="none"/);
   assert.match(source, /return entryOpen \? loggerSuggestions/);
   assert.match(source, /if \(refreshToken !== summaryRequest.current\) return/);
 });
