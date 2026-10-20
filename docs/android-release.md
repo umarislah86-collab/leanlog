@@ -19,7 +19,7 @@ Do not recreate that workflow without an explicit request.
   signer linked and verified, remote baseline49 -> build50. Use the local
   eas-account.ps1 wrapper with account umarcoc93; never commit tokens.
 - Build profile preview-arm64 in eas.json creates the release APK.
-- Current published3.0.12/code51; active EAS remote counter51, next auto-increment52.
+- Current published3.0.13/code52; active EAS remote counter52, next auto-increment53.
 - Every APK build request includes GitHub source/release, landing and HANDOVER.
 - Verify downloaded APK with scripts/verify-android-apk.py (Python cryptography),
   passing APK path, marketing version and Android code. Check original signer,

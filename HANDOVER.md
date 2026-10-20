@@ -1,4 +1,24 @@
-# LeanLog — latest published release v3.0.12 (EAS)
+# LeanLog — latest published release v3.0.13 (EAS)
+
+## Release 3.0.13 — built 19 October, published 20 October 2026
+
+- User closed the PC while EAS was building, then reports having tried the APK.
+  Resumed publication of the SAME finished artifact; no replacement build used.
+  Detailed phone latency measurements or confirmation of all fixes not provided.
+- Public APK: https://github.com/umarislah86-collab/leanlog/releases/download/v3.0.13/leanlog-V3.0.13.apk
+  Source1f9db3d7f91a941479bb0e8a461cd9ac1f107293, Android code52.
+- EAS umarcoc93, build8b9f5275-b266-4898-83f0-01fe7e7cbfe3.
+  Worker410.437s; queue5.212s; wait3.937s; submission-to-completion469.967s.
+  Gradle5m56s, phase356.739s; all661 tasks executed. See build-timings.json.
+- 48,436,166 bytes; SHA256
+  6385d2f21c76cc2769605c2ab496e9804870a10e0048315bed7d8fae597d0aea.
+  Original signer62a8aa1dd325bbe4b76855f4f3cc239950c4133b76ff904244cad6c78695161c,
+  APK V2 signature/content digest, ZIP CRC, com.calorietracker.app,3.0.13/52,
+  ARM64-only, non-debuggable and embedded JS verified.370 tests, TypeScript and
+  Expo prebuild config passed before submission. Includes both changes below.
+- Landing download/AVAILABLE-TRUE illustration updated on master and mirrored
+  onto the app release branch. Source and release records pushed to GitHub.
+- Active EAS counter52, next auto-increment53. Preserve original signing key.
 
 ## Release 3.0.13 preparation — 19 October 2026
 
