@@ -1,5 +1,8 @@
 node_modules/
 .expo/
+android/
+ios/
+**/build/
 dist/
 dist-v*-check*/
 *.apk
