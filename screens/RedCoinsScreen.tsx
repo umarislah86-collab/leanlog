@@ -48,6 +48,7 @@ import { advanceReminderDate, materializeAutomaticReminders, missingReminderAcco
 import { projectRedCoinsReminders } from '../services/redcoinsReminderProjection';
 import { deleteRedCoinsLedgerEntry, syncRedCoinsLedger, upsertRedCoinsLedgerEntry } from '../services/redcoinsLedger';
 import { saveSpendingGuards, type GuardScope, type SpendingGuard } from '../services/spendingGuards';
+import BalanceSheetView from '../components/BalanceSheetView';
 import { refreshLeanLogWidget } from '../services/widget';
 import { RedCoinsReceipts } from '../components/RedCoinsReceipts';
 import type { RedCoinsReceipt } from '../services/receiptFiles';
@@ -131,6 +132,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   const [bluecoins, setBluecoins] = useState<BluecoinsSummary | null>(null);
   const summaryRequest = useRef(0);
   const [section, commitSection] = useState<Section>('home');
+  const [accountsTab, setAccountsTab] = useState<'balanceSheet' | 'library'>('balanceSheet');
   const sectionRef = useRef<Section>('home');
   const pagerControl = useRef<RedCoinsPagerHandle>(null);
   const navigationDock = useNavigationDock();
@@ -1539,7 +1541,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
                 </TouchableOpacity>
               ))}
               <Text style={s.favoriteTotal}>Total: {money(favoriteAccounts.reduce((sum, account) => sum + account.balance, 0))}</Text>
-              <TouchableOpacity style={s.balanceSheetButton} onPress={() => navigateSection('accounts')}>
+              <TouchableOpacity style={s.balanceSheetButton} onPress={() => { navigateSection('accounts'); setAccountsTab('balanceSheet'); }}>
                 <Text style={s.balanceSheetText}>BALANCE SHEET</Text>
               </TouchableOpacity>
             </>
@@ -1777,6 +1779,31 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     };
     return (
       <>
+        <View style={s.accountsSubNav}>
+          <TouchableOpacity
+            style={[s.accountsSubButton, accountsTab === 'balanceSheet' && s.accountsSubActive]}
+            onPress={() => setAccountsTab('balanceSheet')}
+          >
+            <Ionicons name="stats-chart" size={13} color={accountsTab === 'balanceSheet' ? '#FFF' : themed(C.muted, 'color')} />
+            <Text style={[s.accountsSubText, accountsTab === 'balanceSheet' && { color: '#FFF' }]}>BALANCE SHEET</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[s.accountsSubButton, accountsTab === 'library' && s.accountsSubActive]}
+            onPress={() => setAccountsTab('library')}
+          >
+            <Ionicons name="wallet-outline" size={13} color={accountsTab === 'library' ? '#FFF' : themed(C.muted, 'color')} />
+            <Text style={[s.accountsSubText, accountsTab === 'library' && { color: '#FFF' }]}>ACCOUNTS & BRIDGE</Text>
+          </TouchableOpacity>
+        </View>
+
+        {accountsTab === 'balanceSheet' ? (
+          <BalanceSheetView
+            accounts={state.accounts}
+            entries={state.entries}
+            onSelectAccount={(name) => openDashboardFilter('account', name)}
+          />
+        ) : (
+          <>
         <Title
           eyebrow="MONEY LIBRARY"
           title="Your structure, your rules."
@@ -1854,6 +1881,8 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           ))}
           {!state.exportBatches?.length && <Empty text="No export batches yet." />}
         </View>
+          </>
+        )}
       </>
     );
   };
@@ -4534,6 +4563,10 @@ const baseS = StyleSheet.create({
     fontWeight: '900',
     marginTop: 11,
   },
+  accountsSubNav: { flexDirection: 'row', backgroundColor: '#F0E6D4', borderRadius: 14, padding: 4, marginBottom: 14 },
+  accountsSubButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8, borderRadius: 10 },
+  accountsSubActive: { backgroundColor: '#111A2A' },
+  accountsSubText: { color: '#7C8290', fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
   balanceSheetButton: {
     alignSelf: 'flex-start',
     borderWidth: 1,

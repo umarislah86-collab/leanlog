@@ -121,7 +121,7 @@ async function track(s: CardioSession) {
       pausesUpdatesAutomatically: false, activityType: Location.ActivityType.Fitness, showsBackgroundLocationIndicator: true,
       foregroundService: { notificationTitle: 'LeanLog Cardio Companion', notificationBody: 'GPS tracking is active · Tap LeanLog to pause or finish', notificationColor: '#8FD6B4', killServiceOnDestroy: true },
     });
-  } else if (!watcher) watcher = await Location.watchPositionAsync(options, positions => { void recordLocations([positions]).catch(console.warn); });
+  } else if (!watcher) watcher = await Location.watchPositionAsync(options, (positions: Location.LocationObject) => { void recordLocations([positions]).catch(console.warn); });
   if (s.gpsError) await updateCardioSession(current => current?.id === s.id ? { ...current, gpsError: undefined } : current);
 }
 export function startCardio(config: CardioConfig) {
