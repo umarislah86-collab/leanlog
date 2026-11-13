@@ -58,6 +58,8 @@ import {
   exportAllToPocketBase,
   pullFromPocketBase,
   getPocketBaseLastSync,
+  autoPushEntryToPocketBase,
+  autoDeleteEntryFromPocketBase,
 } from '../services/pocketbaseSync';
 
 const C = {
@@ -287,6 +289,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       const loaded = await loadRedCoins();
       setState(loaded);
       void refreshLiveBluecoins(loaded).catch(console.warn);
+      void pullFromPocketBase().catch(() => {});
       setCycleBudgetDraft(String(loaded.monthlyBudget));
       setPaydayDraft(String(loaded.payday));
       setSafetyBufferDraft(String(loaded.safetyBuffer));
@@ -898,6 +901,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     void indexWrite
         .then(() => setLedgerRevision((value) => value + 1))
         .catch((error) => console.warn('RedCoins ledger upsert failed', error));
+    void autoPushEntryToPocketBase(entry);
     if (hasReminder || editingSeriesTemplate) void syncScheduleAccess(next.reminders).catch(console.warn);
   };
   const saveEntry = async () => {
@@ -927,6 +931,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
       // Secondary index changes only follow a successful authoritative write.
       void deleteRedCoinsLedgerEntry(entry.id)
         .then(() => setLedgerRevision(value => value + 1)).catch(console.warn);
+      void autoDeleteEntryFromPocketBase(entry.id);
     } catch (error) {
       Alert.alert('Delete failed', error instanceof Error ? error.message : 'Please try again.');
     }

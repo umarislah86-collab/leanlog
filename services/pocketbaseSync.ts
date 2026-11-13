@@ -2,10 +2,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { RedCoinsAccount, RedCoinsCategory, RedCoinsEntry, RedCoinsState } from './redcoins';
 import { readRedCoinsSql, writeRedCoinsSql } from './redcoinsSqlStore';
 import { emitRedCoinsChange } from './redcoinsEvents';
+import { auth } from '../firebase';
 
 export const DEFAULT_PB_SYNC_URL = 'http://192.168.100.232:8090';
 const STORAGE_KEY_URL = '@redcoins_pb_sync_url';
 const STORAGE_KEY_LAST_SYNC = '@redcoins_pb_last_sync';
+
+export function getCurrentUserEmail(): string {
+  return auth.currentUser?.email?.trim().toLowerCase() || 'default_user';
+}
 
 export async function getPocketBaseSyncUrl(): Promise<string> {
   try {
@@ -46,7 +51,7 @@ export async function checkPocketBaseConnection(customUrl?: string): Promise<{ o
 }
 
 /**
- * Exports all mobile accounts, categories, and entries to PocketBase (Initial seed / Manual push).
+ * Exports all mobile accounts, categories, and entries to PocketBase for current user.
  */
 export async function exportAllToPocketBase(
   state: RedCoinsState,
@@ -59,11 +64,14 @@ export async function exportAllToPocketBase(
   error?: string;
 }> {
   const base = await getPocketBaseSyncUrl();
+  const userEmail = getCurrentUserEmail();
 
   try {
     // 1. Sync Accounts
     onProgress?.(0, 3, 'Syncing accounts to TX3 Mini...');
-    const accListRes = await fetch(`${base}/api/collections/redcoins_accounts/records?perPage=200`);
+    const accListRes = await fetch(
+      `${base}/api/collections/redcoins_accounts/records?filter=(userEmail='${userEmail}')&perPage=200`
+    );
     const accListData = await accListRes.json();
     const existingAccounts = new Map<string, string>(); // name -> pb id
     if (Array.isArray(accListData?.items)) {
@@ -80,6 +88,7 @@ export async function exportAllToPocketBase(
         balance: acc.balance,
         icon: acc.icon || '',
         localId: acc.id,
+        userEmail,
       };
 
       const existingId = existingAccounts.get(acc.name.toLowerCase());
@@ -101,7 +110,9 @@ export async function exportAllToPocketBase(
 
     // 2. Sync Categories
     onProgress?.(1, 3, 'Syncing categories to TX3 Mini...');
-    const catListRes = await fetch(`${base}/api/collections/redcoins_categories/records?perPage=200`);
+    const catListRes = await fetch(
+      `${base}/api/collections/redcoins_categories/records?filter=(userEmail='${userEmail}')&perPage=200`
+    );
     const catListData = await catListRes.json();
     const existingCats = new Map<string, string>();
     if (Array.isArray(catListData?.items)) {
@@ -117,6 +128,7 @@ export async function exportAllToPocketBase(
         icon: cat.icon || '',
         subcategories: cat.subcategories || [],
         subcategoryTypes: cat.subcategoryTypes || {},
+        userEmail,
       };
 
       const existingId = existingCats.get(cat.name.toLowerCase());
@@ -142,7 +154,9 @@ export async function exportAllToPocketBase(
     let page = 1;
     let totalPages = 1;
     do {
-      const res = await fetch(`${base}/api/collections/redcoins_entries/records?page=${page}&perPage=500&fields=id,localId`);
+      const res = await fetch(
+        `${base}/api/collections/redcoins_entries/records?filter=(userEmail='${userEmail}')&page=${page}&perPage=500&fields=id,localId`
+      );
       const data = await res.json();
       if (Array.isArray(data?.items)) {
         data.items.forEach((item: { id: string; localId?: string }) => {
@@ -175,6 +189,8 @@ export async function exportAllToPocketBase(
             origin: entry.origin || 'redcoins',
             notes: entry.note || '',
             localId: entry.id,
+            userEmail,
+            deleted: false,
           };
 
           const pbId = existingEntries.get(entry.id);
@@ -220,23 +236,30 @@ export async function exportAllToPocketBase(
 }
 
 /**
- * Bidirectional Pull: checks for entries created or modified on the Web App and merges into local RedCoins.
+ * Bidirectional Pull: checks for entries created, modified, or deleted on Web App for current user.
  */
 export async function pullFromPocketBase(): Promise<{
   success: boolean;
   entriesUpdated: number;
   entriesAdded: number;
+  entriesDeleted: number;
   error?: string;
 }> {
   const base = await getPocketBaseSyncUrl();
+  const userEmail = getCurrentUserEmail();
 
   try {
     const currentState = await readRedCoinsSql(false);
     if (!currentState) {
-      return { success: false, entriesUpdated: 0, entriesAdded: 0, error: 'No local RedCoins state found' };
+      return {
+        success: false,
+        entriesUpdated: 0,
+        entriesAdded: 0,
+        entriesDeleted: 0,
+        error: 'No local RedCoins state found',
+      };
     }
 
-    // Fetch all entries from PocketBase
     const allPbEntries: Array<{
       id: string;
       localId?: string;
@@ -252,12 +275,15 @@ export async function pullFromPocketBase(): Promise<{
       notes?: string;
       labels?: string[];
       origin?: string;
+      deleted?: boolean;
     }> = [];
 
     let page = 1;
     let totalPages = 1;
     do {
-      const res = await fetch(`${base}/api/collections/redcoins_entries/records?page=${page}&perPage=200`);
+      const res = await fetch(
+        `${base}/api/collections/redcoins_entries/records?filter=(userEmail='${userEmail}')&page=${page}&perPage=200`
+      );
       const data = await res.json();
       if (Array.isArray(data?.items)) {
         allPbEntries.push(...data.items);
@@ -269,13 +295,24 @@ export async function pullFromPocketBase(): Promise<{
     const localMap = new Map<string, RedCoinsEntry>(currentState.entries.map((e) => [e.id, e]));
     let entriesAdded = 0;
     let entriesUpdated = 0;
+    let entriesDeleted = 0;
 
     allPbEntries.forEach((pbEntry) => {
       const targetId = pbEntry.localId || pbEntry.id;
       const existing = localMap.get(targetId);
 
+      // Check soft delete
+      if (pbEntry.deleted) {
+        if (existing) {
+          currentState.entries = currentState.entries.filter((e) => e.id !== targetId);
+          localMap.delete(targetId);
+          entriesDeleted++;
+        }
+        return;
+      }
+
       if (!existing) {
-        // New entry created from web app!
+        // New entry created from web app
         const newEntry: RedCoinsEntry = {
           id: targetId,
           item: pbEntry.item,
@@ -286,6 +323,7 @@ export async function pullFromPocketBase(): Promise<{
           toAccount: pbEntry.toAccount || '',
           category: pbEntry.category || '',
           subcategory: pbEntry.subcategory || '',
+          status: (pbEntry.status as RedCoinsEntry['status']) || 'none',
           note: pbEntry.notes || '',
           origin: (pbEntry.origin as 'redcoins' | 'bluecoins') || 'redcoins',
           labels: pbEntry.labels || [],
@@ -308,6 +346,10 @@ export async function pullFromPocketBase(): Promise<{
           existing.account = pbEntry.account || '';
           modified = true;
         }
+        if (existing.toAccount !== pbEntry.toAccount) {
+          existing.toAccount = pbEntry.toAccount || '';
+          modified = true;
+        }
         if (existing.category !== pbEntry.category) {
           existing.category = pbEntry.category || '';
           modified = true;
@@ -316,13 +358,17 @@ export async function pullFromPocketBase(): Promise<{
           existing.subcategory = pbEntry.subcategory || '';
           modified = true;
         }
+        if (existing.status !== pbEntry.status && pbEntry.status) {
+          existing.status = pbEntry.status as RedCoinsEntry['status'];
+          modified = true;
+        }
         if (modified) {
           entriesUpdated++;
         }
       }
     });
 
-    if (entriesAdded > 0 || entriesUpdated > 0) {
+    if (entriesAdded > 0 || entriesUpdated > 0 || entriesDeleted > 0) {
       await writeRedCoinsSql(currentState);
       emitRedCoinsChange();
     }
@@ -334,6 +380,7 @@ export async function pullFromPocketBase(): Promise<{
       success: true,
       entriesAdded,
       entriesUpdated,
+      entriesDeleted,
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -341,7 +388,85 @@ export async function pullFromPocketBase(): Promise<{
       success: false,
       entriesAdded: 0,
       entriesUpdated: 0,
+      entriesDeleted: 0,
       error: msg,
     };
+  }
+}
+
+/**
+ * Non-blocking background push of a single created/updated entry.
+ */
+export async function autoPushEntryToPocketBase(entry: RedCoinsEntry): Promise<void> {
+  try {
+    const base = await getPocketBaseSyncUrl();
+    const userEmail = getCurrentUserEmail();
+
+    // Check if exists
+    const checkRes = await fetch(
+      `${base}/api/collections/redcoins_entries/records?filter=(userEmail='${userEmail}'%26%26localId='${entry.id}')&perPage=1`
+    );
+    const checkData = await checkRes.json();
+    const existingId = checkData?.items?.[0]?.id;
+
+    const payload = {
+      item: entry.item,
+      amount: entry.amount,
+      type: entry.type,
+      date: entry.date,
+      account: entry.account || '',
+      toAccount: entry.toAccount || '',
+      category: entry.category || '',
+      subcategory: entry.subcategory || '',
+      status: entry.status || '',
+      labels: entry.labels || [],
+      origin: entry.origin || 'redcoins',
+      notes: entry.note || '',
+      localId: entry.id,
+      userEmail,
+      deleted: false,
+    };
+
+    if (existingId) {
+      await fetch(`${base}/api/collections/redcoins_entries/records/${existingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } else {
+      await fetch(`${base}/api/collections/redcoins_entries/records`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    }
+  } catch {
+    // Non-blocking: failures stay local until next pull/push
+  }
+}
+
+/**
+ * Non-blocking background soft-delete of an entry on PocketBase.
+ */
+export async function autoDeleteEntryFromPocketBase(entryId: string): Promise<void> {
+  try {
+    const base = await getPocketBaseSyncUrl();
+    const userEmail = getCurrentUserEmail();
+
+    const checkRes = await fetch(
+      `${base}/api/collections/redcoins_entries/records?filter=(userEmail='${userEmail}'%26%26localId='${entryId}')&perPage=1`
+    );
+    const checkData = await checkRes.json();
+    const existingId = checkData?.items?.[0]?.id;
+
+    if (existingId) {
+      await fetch(`${base}/api/collections/redcoins_entries/records/${existingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deleted: true }),
+      });
+    }
+  } catch {
+    // Non-blocking
   }
 }
