@@ -1963,12 +1963,12 @@ export default function RedCoinsScreen({ navigation, route }: any) {
             <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: pbStatus === 'online' ? 'rgba(24,168,121,0.2)' : 'rgba(240,68,68,0.2)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 }}>
               <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: pbStatus === 'online' ? '#18A879' : '#F04444', marginRight: 5 }} />
               <Text style={{ fontSize: 9, fontWeight: '800', color: pbStatus === 'online' ? '#83D8B4' : '#FFA8A8' }}>
-                {pbStatus === 'online' ? 'TX3 ONLINE' : pbStatus === 'checking' ? 'CHECKING...' : 'TX3 OFFLINE'}
+                {pbStatus === 'online' ? 'PB ONLINE' : pbStatus === 'checking' ? 'CHECKING...' : 'PB OFFLINE'}
               </Text>
             </View>
           </View>
           <Text style={s.exportCopy}>
-            {pbSyncing ? pbMsg : `Sync terus ke PocketBase di server rumah (192.168.100.232:8090). ${pbLastSync ? `Sync terakhir: ${new Date(pbLastSync).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}` : 'Belum pernah sync.'}`}
+            {pbSyncing ? pbMsg : `Sync terus ke PocketBase server rumah (https://pb.umiaq.top). ${pbLastSync ? `Sync terakhir: ${new Date(pbLastSync).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}` : 'Belum pernah sync.'}`}
           </Text>
           <TouchableOpacity
             style={[s.exportPrimary, { backgroundColor: '#18A879', marginBottom: 10 }]}

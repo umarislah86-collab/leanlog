@@ -3,7 +3,7 @@
     "name": "LeanLog",
     "slug": "umarcoc93",
     "scheme": "leanlog",
-    "version": "3.0.15",
+    "version": "3.0.16",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
@@ -14,7 +14,8 @@
     },
     "android": {
       "package": "com.calorietracker.app",
-      "versionCode": 56,
+      "versionCode": 57,
+      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F7F0E1"

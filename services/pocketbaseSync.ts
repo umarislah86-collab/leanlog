@@ -4,7 +4,7 @@ import { readRedCoinsSql, writeRedCoinsSql } from './redcoinsSqlStore';
 import { emitRedCoinsChange } from './redcoinsEvents';
 import { auth } from '../firebase';
 
-export const DEFAULT_PB_SYNC_URL = 'http://192.168.100.232:8090';
+export const DEFAULT_PB_SYNC_URL = 'https://pb.umiaq.top';
 const STORAGE_KEY_URL = '@redcoins_pb_sync_url';
 const STORAGE_KEY_LAST_SYNC = '@redcoins_pb_last_sync';
 
@@ -15,7 +15,12 @@ export function getCurrentUserEmail(): string {
 export async function getPocketBaseSyncUrl(): Promise<string> {
   try {
     const val = await AsyncStorage.getItem(STORAGE_KEY_URL);
-    return val?.trim() || DEFAULT_PB_SYNC_URL;
+    if (!val || val.includes('192.168.100.232')) {
+      // Auto upgrade cleartext HTTP to secure Cloudflare HTTPS domain
+      await AsyncStorage.setItem(STORAGE_KEY_URL, DEFAULT_PB_SYNC_URL);
+      return DEFAULT_PB_SYNC_URL;
+    }
+    return val.trim();
   } catch {
     return DEFAULT_PB_SYNC_URL;
   }
@@ -41,7 +46,7 @@ export async function checkPocketBaseConnection(customUrl?: string): Promise<{ o
     const res = await fetch(`${base}/api/health`, { signal: ctrl.signal });
     clearTimeout(timeout);
     if (res.ok) {
-      return { ok: true, message: 'Online · TX3 Mini' };
+      return { ok: true, message: 'Online · pb.umiaq.top' };
     }
     return { ok: false, message: `Server error: HTTP ${res.status}` };
   } catch (err: unknown) {
