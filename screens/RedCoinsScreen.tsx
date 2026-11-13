@@ -566,9 +566,10 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   };
   const suggestionQuery = useDeferredValue(entryOpen ? item : '');
   const suggestions = useMemo(() => {
-    if (suggestionQuery !== item) return [];
-    return entryOpen ? loggerSuggestions(state?.entries || [], suggestionQuery, type) : [];
-  }, [entryOpen, item, suggestionQuery, state?.entries, type]);
+    const query = suggestionQuery.trim();
+    if (!query) return [];
+    return entryOpen ? loggerSuggestions(state?.entries || [], query, type) : [];
+  }, [entryOpen, suggestionQuery, state?.entries, type]);
   const applyEntryType = (nextType: RedCoinsType) => {
     setType(nextType);
     setIncomePeriod('');
@@ -1056,9 +1057,24 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     return result;
   }, [state]);
   const filteredLedgerSummary = useMemo(() => summarizeLedgerEntries(matchingLedgerEntries), [matchingLedgerEntries]);
-  const selectedLedgerSummary = useMemo(() => summarizeLedgerEntries((state?.entries || []).filter((entry) => selectedSet.has(entry.id))), [state?.entries, selectedSet]);
+  const selectedLedgerSummary = useMemo(() => {
+    if (!selectedIds.length || !state?.entries) return { income: 0, expense: 0, net: 0, count: 0 };
+    return summarizeLedgerEntries(state.entries.filter((entry) => selectedSet.has(entry.id)));
+  }, [state?.entries, selectedSet, selectedIds.length]);
   const selectedTotal = selectedLedgerSummary.net;
   const toggleSelected = useCallback((entry: RedCoinsEntry) => setSelectedIds((ids) => (ids.includes(entry.id) ? ids.filter((id) => id !== entry.id) : [...ids, entry.id])), []);
+  const selectedIdsRef = useRef(selectedIds);
+  selectedIdsRef.current = selectedIds;
+  const handleEntryPress = useCallback((entry: RedCoinsEntry) => {
+    if (selectedIdsRef.current.length > 0) {
+      toggleSelected(entry);
+    } else {
+      editEntry(entry);
+    }
+  }, [toggleSelected, editEntry]);
+  const handleEntryLongPress = useCallback((entry: RedCoinsEntry) => {
+    toggleSelected(entry);
+  }, [toggleSelected]);
   const updateLedgerSearch = useCallback((value: string) => {
     setSelectedIds([]);
     setSearch(value);
@@ -2323,7 +2339,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           expandedBudgetCategories, selectedIds, batchOpen, batchBusy, copiedEntries, ledgerRevision,
           receiptBusy, draftName, draftType, draftBalance, draftCategory,
           draftCategoryTypes, exactAlarmsAllowed, reminderNotificationsAllowed, draftSub, draftParent, draftIcon,
-          budgetEditor, categoriesOpen, planPage, cycleBudgetDraft, paydayDraft, safetyBufferDraft,
+          budgetEditor, categoriesOpen, accountsTab, planPage, cycleBudgetDraft, paydayDraft, safetyBufferDraft,
           notificationAccess, detections, fixedPickerOpen, reminderManagerOpen, guardEditorOpen, expandedGuardId,
           expandedGuardPart, guardDraft, reportMode, reportSalarySource, reportCycleOffset, reportCustomStart,
           reportCustomEnd, reportPeriodOpen, expandedReportCategory, reportExporting, aiPromptOpen,
@@ -2334,7 +2350,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
             <RedCoinsLedgerList
               entries={matchingLedgerEntries}
               filterKey={ledgerFilterKey}
-              renderEntry={(entry) => <EntryRow entry={entry} icon={iconForEntry(entry)} accountBalance={entryBalanceById.get(entry.id)} selected={selectedSet.has(entry.id)} onPress={selectedIds.length ? () => toggleSelected(entry) : () => editEntry(entry)} onLong={() => toggleSelected(entry)} />}
+              renderEntry={(entry) => <EntryRow entry={entry} icon={iconForEntry(entry)} accountBalance={entryBalanceById.get(entry.id)} selected={selectedSet.has(entry.id)} onPress={handleEntryPress} onLong={handleEntryLongPress} />}
               renderDay={(section) => (
                 <View style={s.ledgerDate}>
                   <Text style={s.ledgerDateText} numberOfLines={1}>{section.title}</Text>
@@ -2352,7 +2368,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
           </View>
         </View>
       ) : (
-        <ScrollView key={`${page}-${page === 'plan' ? planPage : page === 'accounts' ? categoriesOpen : ''}`} style={{ flex: 1 }} contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
+        <ScrollView key={`${page}-${page === 'plan' ? planPage : page === 'accounts' ? `${accountsTab}-${categoriesOpen}` : ''}`} style={{ flex: 1 }} contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
           {page === 'home' ? Home() : page === 'accounts' ? Accounts() : page === 'plan' ? Plan() : Reports()}
         </ScrollView>
       ))} />} />
@@ -2767,14 +2783,16 @@ const transactionIcon = (entry: RedCoinsEntry): any => {
   if (/bill|utilities|electric|internet/.test(label)) return 'receipt';
   return 'wallet';
 };
-const EntryRow = memo(function EntryRow({ entry, icon, accountBalance, onLong, onPress, selected }: { entry: RedCoinsEntry; icon?: string; accountBalance?: { source: number; destination?: number }; onLong?: () => void; onPress?: () => void; selected?: boolean }) {
+const EntryRow = memo(function EntryRow({ entry, icon, accountBalance, onLong, onPress, selected }: { entry: RedCoinsEntry; icon?: string; accountBalance?: { source: number; destination?: number }; onLong?: (entry: RedCoinsEntry) => void; onPress?: (entry: RedCoinsEntry) => void; selected?: boolean }) {
   const s = useThemeStyles(baseS);
   const { themed } = useTheme();
   const rawColor = entry.type === 'transfer' ? C.blue : entry.type === 'income' ? '#18A879' : C.coral;
   const color = themed(rawColor);
   const balanceLabel = (value: number) => `${value < 0 ? '− ' : ''}${money(value)}`;
+  const handlePress = useCallback(() => onPress?.(entry), [onPress, entry]);
+  const handleLong = useCallback(() => onLong?.(entry), [onLong, entry]);
   return (
-    <TouchableOpacity onPress={onPress} onLongPress={onLong} delayLongPress={350} style={[s.entry, selected && s.entrySelected]}>
+    <TouchableOpacity onPress={handlePress} onLongPress={handleLong} delayLongPress={350} style={[s.entry, selected && s.entrySelected]}>
       <View style={[s.entryIcon, { backgroundColor: themed(rawColor, 'backgroundColor') }]}>{selected ? <Ionicons name="checkmark" size={15} color={themed(C.white, 'color')} /> : <Ionicons name={(icon || transactionIcon(entry)) as any} size={14} color={themed(C.white, 'color')} />}</View>
       <View style={s.entryMain}>
         <Text style={s.entryName} numberOfLines={1}>
@@ -2805,6 +2823,14 @@ const EntryRow = memo(function EntryRow({ entry, icon, accountBalance, onLong, o
       </View>
     </TouchableOpacity>
   );
+}, (prev, next) => {
+  return prev.entry === next.entry &&
+         prev.selected === next.selected &&
+         prev.icon === next.icon &&
+         prev.onPress === next.onPress &&
+         prev.onLong === next.onLong &&
+         prev.accountBalance?.source === next.accountBalance?.source &&
+         prev.accountBalance?.destination === next.accountBalance?.destination;
 });
 function Field({ label, value, onChange, numeric }: any) {
   const s = useThemeStyles(baseS);
