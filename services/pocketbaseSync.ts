@@ -375,7 +375,7 @@ export async function pullFromPocketBase(): Promise<{
 
     if (entriesAdded > 0 || entriesUpdated > 0 || entriesDeleted > 0) {
       await writeRedCoinsSql(currentState);
-      emitRedCoinsChange();
+      emitRedCoinsChange('state');
     }
 
     const nowIso = new Date().toISOString();

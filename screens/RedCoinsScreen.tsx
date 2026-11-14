@@ -691,7 +691,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     if (repeat && repeat !== 'none' && reminderEndType === 'date' && (!reminderEndDate || Number.isNaN(new Date(`${reminderEndDate}T23:59:59`).getTime()))) return Alert.alert('Invalid end date', 'Use YYYY-MM-DD for the recurring end date.');
     if (repeat === 'installment' && (Number(installments) || 0) < 2) return Alert.alert('Invalid instalments', 'Use at least 2 instalments.');
     Keyboard.dismiss();
-    let workingState = state;
+    let workingState = (await loadRedCoins()) || state;
     // Render from the live snapshot immediately. SQLite checks its revision
     // atomically and rejects stale saves rather than overwriting another edit.
     if (!workingState.accounts.some(row => row.name === account) || (type === 'transfer' && !workingState.accounts.some(row => row.name === toAccount))) throw new Error('This account changed. Please choose the account again.');
@@ -911,8 +911,19 @@ export default function RedCoinsScreen({ navigation, route }: any) {
     setEntrySaving(true);
     try { await saveEntryInternal(); }
     catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg.includes('changed during this edit')) {
+        try {
+          await saveEntryInternal();
+          return;
+        } catch (retryError) {
+          setEntryOpen(true);
+          Alert.alert('Could not save entry', retryError instanceof Error ? retryError.message : String(retryError));
+          return;
+        }
+      }
       setEntryOpen(true);
-      Alert.alert('Could not save entry', error instanceof Error ? error.message : String(error));
+      Alert.alert('Could not save entry', msg);
     }
     finally { entrySaveLock.current = false; setEntrySaving(false); }
   };
@@ -1069,7 +1080,7 @@ export default function RedCoinsScreen({ navigation, route }: any) {
   }, [state]);
   const filteredLedgerSummary = useMemo(() => summarizeLedgerEntries(matchingLedgerEntries), [matchingLedgerEntries]);
   const selectedLedgerSummary = useMemo(() => {
-    if (!selectedIds.length || !state?.entries) return { income: 0, expense: 0, net: 0, count: 0 };
+    if (!selectedIds.length || !state?.entries) return { income: 0, expense: 0, transfer: 0, net: 0, count: 0, futureCount: 0 };
     return summarizeLedgerEntries(state.entries.filter((entry) => selectedSet.has(entry.id)));
   }, [state?.entries, selectedSet, selectedIds.length]);
   const selectedTotal = selectedLedgerSummary.net;

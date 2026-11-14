@@ -3,7 +3,7 @@
     "name": "LeanLog",
     "slug": "umarcoc93",
     "scheme": "leanlog",
-    "version": "3.0.16",
+    "version": "3.0.17",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
@@ -14,7 +14,7 @@
     },
     "android": {
       "package": "com.calorietracker.app",
-      "versionCode": 57,
+      "versionCode": 58,
       "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -153,9 +153,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "d02048ce-beca-42a6-9ffb-c43e0a6d9ab2"
+        "projectId": "624ee9c5-768a-4781-a2c5-1f1608c1500a"
       }
     },
-    "owner": "umarcoc93"
+    "owner": "umarosli93"
   }
 }
